@@ -1,0 +1,11 @@
+{
+  "name": "@newtheatre/auth-types",
+  "version": "1.0.0",
+  "description": "NNT session contract: types and role helpers every estate app compiles against",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts"
+  }
+}

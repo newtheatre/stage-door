@@ -1,0 +1,93 @@
+import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { relations } from 'drizzle-orm'
+import { nanoid } from 'nanoid'
+
+// Canonical identity store — docs/data-model.md. Ids are stable forever
+// (CLAUDE.md invariant 3): apps FK against them.
+export const users = sqliteTable('users', {
+  id: text('id').primaryKey().$defaultFn(() => nanoid()),
+  email: text('email').notNull().unique(), // stored lowercased, always
+  name: text('name').notNull(),
+  password: text('password'), // scrypt PHC string; NULL = shadow account or SSO-only
+  verified: integer('email_verified', { mode: 'boolean' }).notNull().default(false),
+
+  // Google's stable subject id — the linkage key, not email (ADR-0005). May
+  // carry a different address from `email`; that's a supported steady state.
+  googleSub: text('google_sub').unique(),
+  // Admin-set: the next Google sign-in with this Workspace address attaches to
+  // this account instead of creating a new one. Cleared on consumption.
+  pendingGoogleEmail: text('pending_google_email'),
+
+  // Disabled users fail login and fail /api/session/refresh.
+  disabled: integer('disabled', { mode: 'boolean' }).notNull().default(false),
+  // Bump to invalidate this user's sessions at next refresh (force-logout).
+  sessionEpoch: integer('session_epoch').notNull().default(0),
+
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()).$onUpdateFn(() => new Date()),
+  // Updated on successful login/SSO only, not refresh.
+  lastLogin: integer('last_login', { mode: 'timestamp_ms' }),
+}, table => [
+  index('users_email_idx').on(table.email),
+])
+
+export const usersRelations = relations(users, ({ many }) => ({
+  userRoles: many(userRoles),
+  emailVerifications: many(emailVerifications),
+  passwordResets: many(passwordResets),
+}))
+
+// Scoped role strings 'app:ROLE' (ADR-0004). No central registry of apps — a
+// namespace exists the moment a role in it is granted.
+export const userRoles = sqliteTable('user_roles', {
+  id: text('id').primaryKey().$defaultFn(() => nanoid()),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  role: text('role').notNull(),
+}, table => [
+  index('user_roles_user_id_idx').on(table.userId),
+  uniqueIndex('user_roles_user_id_role_unique').on(table.userId, table.role),
+])
+
+export const userRolesRelations = relations(userRoles, ({ one }) => ({
+  user: one(users, {
+    fields: [userRoles.userId],
+    references: [users.id],
+  }),
+}))
+
+// Verification tokens live 24h; single-use.
+export const emailVerifications = sqliteTable('email_verifications', {
+  id: text('id').primaryKey().$defaultFn(() => nanoid()),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+}, table => [
+  index('email_verifications_user_id_idx').on(table.userId),
+])
+
+export const emailVerificationsRelations = relations(emailVerifications, ({ one }) => ({
+  user: one(users, {
+    fields: [emailVerifications.userId],
+    references: [users.id],
+  }),
+}))
+
+// Reset tokens live 1h (self-service) or 24h (admin-initiated); single-use;
+// issuing a new one deletes outstanding ones for that user.
+export const passwordResets = sqliteTable('password_resets', {
+  id: text('id').primaryKey().$defaultFn(() => nanoid()),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+}, table => [
+  index('password_resets_user_id_idx').on(table.userId),
+])
+
+export const passwordResetsRelations = relations(passwordResets, ({ one }) => ({
+  user: one(users, {
+    fields: [passwordResets.userId],
+    references: [users.id],
+  }),
+}))

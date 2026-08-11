@@ -21,7 +21,7 @@ bun run dev            # http://localhost:3000
 
 | Key | Dev value |
 |---|---|
-| `NUXT_SESSION_PASSWORD` | any 32+ char string (nuxt-auth-utils generates one into `.env` on first dev run if unset) |
+| `NUXT_SESSION_PASSWORD` | any 32+ char string (nuxt-auth-utils generates one into `.env` on first dev run if the key is **absent** — an empty value does not trigger generation and breaks session sealing, so `.env.example` ships it commented out) |
 | `NUXT_RESEND_API_KEY` | leave unset — dev mode logs emails to the console instead of sending |
 | `NUXT_OAUTH_GOOGLE_CLIENT_ID` / `_CLIENT_SECRET` | the **dev** OAuth client (redirect URI `http://localhost:3000/auth/google`) — see below |
 

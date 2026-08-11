@@ -56,7 +56,7 @@ Both: `user_id` (FK cascade), `token` (text unique — `randomBytes(32)` hex), `
 
 ### `rate_limits`
 
-Fixed-window counters: `key` (e.g. `login:ip:1.2.3.4`, `login:acct:<id>`), `window_start`, `count`. Swept by the scheduled job. If Cloudflare WAF rate rules are used instead, this table is absent — check the ADR/ops doc for which was chosen at build time.
+Fixed-window counters: `key` (`<scope>:<subject>`, e.g. `login:ip:1.2.3.4`, `login:acct:<email>`), `window_start`, `count`. One row per key, window reset in place by an atomic upsert; swept nightly by the `rate-limits:sweep` task. Chosen over Cloudflare WAF rules at build time — [ADR-0009](decisions/0009-d1-backed-rate-limiting.md). Limits live in `RATE_LIMITS` in `server/utils/rateLimit.ts`.
 
 ## Relationship to app databases
 

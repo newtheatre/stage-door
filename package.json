@@ -1,0 +1,48 @@
+{
+  "name": "auth",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "db:generate": "nuxt db generate",
+    "db:migrate": "NODE_ENV=development nuxt db migrate",
+    "db:seed": "bun run scripts/seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "typecheck": "nuxt typecheck"
+  },
+  "dependencies": {
+    "@newtheatre/auth-types": "workspace:*",
+    "@nuxt/eslint": "1.15.1",
+    "@nuxt/ui": "4.4.0",
+    "@nuxthub/core": "0.10.6",
+    "drizzle-orm": "^0.45.1",
+    "nanoid": "^3.3.11",
+    "nuxt": "^4.3.1",
+    "nuxt-auth-utils": "0.5.29",
+    "resend": "^6.9.3",
+    "tailwindcss": "^4.3.3",
+    "vue": "^3.5.28",
+    "vue-router": "^5.0.3",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@adonisjs/hash": "^9.1.1",
+    "@libsql/client": "^0.17.0",
+    "better-sqlite3": "^12.6.2",
+    "drizzle-kit": "^0.31.9",
+    "eslint": "^10.0.1",
+    "typescript": "^5.6.3",
+    "vitest": "^3.2.4",
+    "vue-tsc": "^3.3.9",
+    "wrangler": "^4.67.0"
+  }
+}

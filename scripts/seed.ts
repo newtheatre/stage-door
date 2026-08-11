@@ -1,0 +1,81 @@
+/**
+ * Dev-only seed: creates a dev admin and sample users with credentials
+ * generated at runtime and PRINTED ONCE — never committed, never fixed
+ * (docs/development.md#seeds; lesson inherited from Proscenium's
+ * known-password seed accounts).
+ *
+ * Refuses to run in production or against a remote database.
+ */
+
+import { randomBytes } from 'node:crypto'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { createClient } from '@libsql/client'
+import { drizzle } from 'drizzle-orm/libsql'
+import { inArray } from 'drizzle-orm'
+import { Hash } from '@adonisjs/hash'
+import { Scrypt } from '@adonisjs/hash/drivers/scrypt'
+import { users, userRoles } from '../server/db/schema/user'
+
+if (process.env.NODE_ENV === 'production') {
+  console.error('Refusing to seed: NODE_ENV is production.')
+  process.exit(1)
+}
+
+if (process.env.NUXT_HUB_CLOUDFLARE_DATABASE_ID || process.env.NUXT_HUB_CLOUDFLARE_API_TOKEN) {
+  console.error('Refusing to seed: remote D1 credentials are set in this environment.')
+  process.exit(1)
+}
+
+const dbPath = join(import.meta.dirname, '../.data/db/sqlite.db')
+if (!existsSync(dbPath)) {
+  console.error(`No local database at ${dbPath} — run \`bun run db:migrate\` (or \`bun run dev\` once) first.`)
+  process.exit(1)
+}
+
+const db = drizzle(createClient({ url: `file:${dbPath}` }))
+
+// Same scrypt defaults as nuxt-auth-utils' hashPassword — hashes verify
+// identically at login.
+const hash = new Hash(new Scrypt({}))
+
+function generatePassword(): string {
+  // Random, and guaranteed to satisfy the password policy.
+  return `Aa1-${randomBytes(9).toString('base64url')}`
+}
+
+const seedUsers = [
+  { email: 'admin@stage-door.test', name: 'Dev Admin', roles: ['auth:ADMIN'], verified: true },
+  { email: 'member@stage-door.test', name: 'Dev Member', roles: ['proscenium:BOX_OFFICE'], verified: true },
+  { email: 'audience@stage-door.test', name: 'Dev Audience', roles: [], verified: false },
+  { email: 'guest@stage-door.test', name: 'Dev Guest (shadow)', roles: [], verified: false, shadow: true },
+] as const
+
+// Idempotent: replace previous seed users wholesale.
+await db.delete(users).where(
+  inArray(users.email, seedUsers.map(u => u.email)),
+)
+
+console.info('Seeded dev users (credentials shown once, random each run):\n')
+
+for (const seedUser of seedUsers) {
+  const password = 'shadow' in seedUser && seedUser.shadow ? null : generatePassword()
+
+  const [user] = await db.insert(users).values({
+    email: seedUser.email,
+    name: seedUser.name,
+    password: password === null ? null : await hash.make(password),
+    verified: seedUser.verified,
+  }).returning()
+
+  if (!user) throw new Error(`Failed to insert ${seedUser.email}`)
+
+  for (const role of seedUser.roles) {
+    await db.insert(userRoles).values({ userId: user.id, role })
+  }
+
+  const rolesNote = seedUser.roles.length ? `  [${seedUser.roles.join(', ')}]` : ''
+  console.info(`  ${seedUser.email}  ${password ?? '(no password — shadow account)'}${rolesNote}`)
+}
+
+console.info('\nLog in at http://localhost:3000/login')
