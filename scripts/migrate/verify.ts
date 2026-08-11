@@ -47,7 +47,12 @@ else {
 
 function loadSource(name: string): Database {
   const db = new Database(':memory:')
-  db.exec(readFileSync(join(DATA, `${name}.sql`), 'utf8'))
+  // Same sqlite_sequence filtering as build.ts's loadDump — see comment there.
+  const sql = readFileSync(join(DATA, `${name}.sql`), 'utf8')
+    .split('\n')
+    .filter(line => !line.includes('sqlite_sequence'))
+    .join('\n')
+  db.exec(sql)
   return db
 }
 

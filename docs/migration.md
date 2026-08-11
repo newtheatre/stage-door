@@ -10,7 +10,7 @@ Scripts live in `scripts/migrate/` and are runnable end-to-end against local cop
 - Proscenium: nanoid text ids; `users.password` **nullable** (guest/shadow rows); `email_verified` exists; `reservations.user_id` NOT NULL/`restrict`.
 - rooms: UUID text ids; `password_hash` non-null; **no** verification concept; `bookings.user_id` nullable/`SetNull`; open registration meant anyone may hold an account.
 - Emails unique in both DBs → lowercased email is the join key. **Production caveat (found 2026-08-11): Proscenium's uniqueness is case-sensitive** — four people guest-booked twice with different capitalisation, so lowercasing collides. See merge rule 0.
-- The live Proscenium database is the one *named* `proscenium-testing` in the Cloudflare dashboard (id `c4200074…`, the id the worker binds); the DB named `proscenium` is a copy. Export by the id-verified name.
+- Two identical-looking Proscenium databases exist (`proscenium` and `proscenium-testing`); the worker originally bound the `-testing` one and was switched to `proscenium` on 2026-08-11. The live DB is whichever id the Proscenium worker binds — verify before exporting.
 
 ## Merge rules (keyed on `lower(email)`)
 

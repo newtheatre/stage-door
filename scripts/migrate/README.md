@@ -24,11 +24,12 @@ same output SQL.
 
 ## Gotchas discovered against production (2026-08-11)
 
-- The **live** Proscenium database is the one named `proscenium-testing` in
-  the Cloudflare dashboard (id `c4200074…` — the id Proscenium's
-  `nuxt.config.ts` binds). The database *named* `proscenium` (id `01a75263…`)
-  is an identical-looking copy. `export.sh` exports by the id-verified name;
-  rename in the dashboard some quiet day.
+- There are two identical-looking Proscenium databases (`proscenium`, id
+  `01a75263…`, and `proscenium-testing`, id `c4200074…`). The live one was
+  originally `proscenium-testing`; the ITM switched the worker to the
+  `proscenium`-named DB on 2026-08-11 and `export.sh` exports that one.
+  If in doubt, the live DB is whichever id the Proscenium worker's config
+  binds — verify before exporting.
 - Only one of Proscenium's five known-password seed accounts survives in
   production: `admin@newtheatre.org.uk` — and it owns 2 reservations, so it
   cannot be dropped (`reservations.user_id` is NOT NULL/`restrict`). It is

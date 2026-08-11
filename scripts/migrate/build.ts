@@ -49,7 +49,13 @@ function loadDump(name: string): Database {
     process.exit(1)
   }
   const db = new Database(':memory:')
-  db.exec(readFileSync(file, 'utf8'))
+  // Some dumps carry sqlite_sequence statements from an AUTOINCREMENT past;
+  // the table won't exist in a fresh DB whose schema has no AUTOINCREMENT.
+  const sql = readFileSync(file, 'utf8')
+    .split('\n')
+    .filter(line => !line.includes('sqlite_sequence'))
+    .join('\n')
+  db.exec(sql)
   return db
 }
 
