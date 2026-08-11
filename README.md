@@ -20,7 +20,7 @@ Every app already uses [`nuxt-auth-utils`](https://github.com/atinux/nuxt-auth-u
 ## Quick start (development)
 
 ```bash
-git clone https://github.com/newtheatre/auth && cd auth
+git clone https://github.com/newtheatre/stage-door && cd stage-door
 bun install
 cp .env.example .env      # fill in per docs/development.md
 bun run db:migrate        # local SQLite

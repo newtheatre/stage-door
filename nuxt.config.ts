@@ -86,7 +86,7 @@ export default defineNuxtConfig({
       deployConfig: true,
       nodeCompat: true,
       wrangler: {
-        name: 'auth',
+        name: 'stage-door',
         routes: [
           {
             pattern: 'auth.newtheatre.org.uk',

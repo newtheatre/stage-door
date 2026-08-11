@@ -9,7 +9,7 @@ Bun ≥ 1.2, Node 20+ (for tooling), wrangler (authenticated only if you need pr
 ## Setup
 
 ```bash
-git clone https://github.com/newtheatre/auth && cd auth
+git clone https://github.com/newtheatre/stage-door && cd stage-door
 bun install
 cp .env.example .env
 bun run db:migrate
