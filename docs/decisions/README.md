@@ -12,6 +12,7 @@ Why the service is the way it is. One decision per file, numbered, never edited 
 | [0006](0006-merge-migration-keeping-hashes.md) | One-off user merge keeping scrypt hashes | Accepted |
 | [0007](0007-shadow-accounts-central.md) | Guest/shadow accounts live in the central identity store | Accepted |
 | [0008](0008-anonymise-not-delete.md) | Erasure = anonymisation, not deletion | Accepted |
+| [0009](0009-d1-backed-rate-limiting.md) | Rate limiting via D1-backed fixed-window counters | Accepted |
 
 ## Template
 

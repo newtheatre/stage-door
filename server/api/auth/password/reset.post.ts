@@ -1,0 +1,67 @@
+import { db, schema } from '@nuxthub/db'
+import { eq, sql } from 'drizzle-orm'
+import { z } from 'zod/v4'
+
+const bodySchema = z.object({
+  token: z.string().min(1, 'Reset token is required'),
+  password: passwordSchema,
+})
+
+/**
+ * POST /api/auth/password/reset — set a new password using a reset token.
+ *
+ * Consumes the token, bumps `session_epoch` so existing sessions everywhere
+ * are invalidated at their next refresh, and seals a fresh session for the
+ * caller (docs/api-reference.md). Setting a password on a shadow account
+ * claims it — `guest` flips to false at this seal.
+ */
+export default defineEventHandler(async (event) => {
+  const { token, password } = await readValidatedBody(event, bodySchema.parse)
+
+  await enforceRateLimit('reset:ip', getClientIP(event))
+
+  const resetRecord = await db.select()
+    .from(schema.passwordResets)
+    .where(eq(schema.passwordResets.token, token))
+    .get()
+
+  if (!resetRecord) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Invalid or expired password reset token',
+    })
+  }
+
+  if (resetRecord.expiresAt.getTime() < Date.now()) {
+    await db.delete(schema.passwordResets).where(eq(schema.passwordResets.id, resetRecord.id))
+
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Password reset token has expired. Please request a new one.',
+    })
+  }
+
+  const hashedPassword = await hashPassword(password)
+
+  const [user] = await db.update(schema.users)
+    .set({
+      password: hashedPassword,
+      sessionEpoch: sql`${schema.users.sessionEpoch} + 1`,
+    })
+    .where(eq(schema.users.id, resetRecord.userId))
+    .returning()
+
+  await db.delete(schema.passwordResets).where(eq(schema.passwordResets.userId, resetRecord.userId))
+
+  if (!user || user.disabled) {
+    // Disabled accounts may complete the form but never get a session.
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Invalid or expired password reset token',
+    })
+  }
+
+  await sealLoginSession(event, user)
+
+  return { ok: true }
+})

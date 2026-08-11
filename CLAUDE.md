@@ -1,4 +1,4 @@
-# CLAUDE.md — working on newtheatre/auth
+# CLAUDE.md — working on newtheatre/stage-door
 
 Guidance for Claude Code sessions in this repo. A human (usually the NNT IT Manager) reviews everything; write code and docs they can hand to a successor.
 

@@ -67,7 +67,7 @@ Issue (new app or rotation): admin UI → Service Tokens → New. The plaintext 
 
 **Suspected single-account compromise**: Force logout + Disable, admin password reset, review `audit_log` and the app-side records for that user, re-enable once resolved.
 
-**Auth service down**: consumer apps keep working for logged-in users (sessions verify locally) except privileged surfaces past the 15-minute staleness window and new logins/guest checkouts. Check Cloudflare status, worker logs (`npx wrangler tail auth`), recent deploys; roll back first, diagnose second.
+**Auth service down**: consumer apps keep working for logged-in users (sessions verify locally) except privileged surfaces past the 15-minute staleness window and new logins/guest checkouts. Check Cloudflare status, worker logs (`npx wrangler tail stage-door`), recent deploys; roll back first, diagnose second.
 
 **Resend down / emails not arriving**: registration and reset flows degrade. Check Resend dashboard + DNS (SPF/DKIM on `newtheatre.org.uk`). Verification emails can be re-requested by users once fixed; nothing is lost.
 

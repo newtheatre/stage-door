@@ -8,7 +8,7 @@ Identity had two possible homes: inside Proscenium (which already owned the rich
 
 ## Decision
 
-A standalone Nuxt app in its own repo (`newtheatre/auth`), own worker, own D1 database, at `auth.newtheatre.org.uk`. It is the single identity store and the single session writer.
+A standalone Nuxt app in its own repo (`newtheatre/stage-door`, worker `stage-door`), own worker, own D1 database, at `auth.newtheatre.org.uk`. It is the single identity store and the single session writer.
 
 ## Alternatives considered
 

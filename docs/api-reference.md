@@ -14,10 +14,10 @@ Three auth levels:
 `{ email, password }` → seals session, updates `last_login`, returns `{ user }`. 401 `Invalid email or password` for unknown user, wrong password, **and** password-less (guest/SSO-only) accounts — indistinguishable by design. Disabled accounts: same 401.
 
 ### `POST /api/auth/register` — public [RL]
-`{ email, name, password }` (policy: ≥8 chars, upper+lower+digit) → creates user (no roles), sends verification email, seals session, returns `{ user }`. If the email already belongs to a **shadow** account, this *claims* it in place (sets password, keeps id and history). If it belongs to a full account: enumeration-safe generic success response with a "you already have an account" email sent instead of a duplicate error.
+`{ email, name, password }` (policy: ≥8 chars, upper+lower+digit) → creates user (no roles), sends verification email, seals session, returns `{ ok: true }`. If the email already belongs to a **shadow** account, this *claims* it in place (sets password, keeps id and history). If it belongs to a full account: the same `{ ok: true }` response (enumeration-safe — the body never differs), but nothing is changed, no session is sealed, and a "you already have an account" email is sent instead. *(Amended at build time: the original spec said success returns `{ user }`, which would have made the existing-account response distinguishable; a uniform body resolves the contradiction in favour of enumeration safety. The client reads login state from the session after the call.)*
 
-### `POST /api/auth/logout` — session
-Clears the session cookie (domain-wide). Apps link/POST here; they never clear the cookie themselves.
+### `POST /api/auth/logout` — public (idempotent)
+Clears the session cookie (domain-wide), returns `{ ok: true }` whether or not a session existed. Apps POST here; they never clear the cookie themselves. Browser-facing variant: `POST /logout?redirect=<url>` clears and 302s to the validated target.
 
 ### `GET /auth/google` — public (browser redirect flow)
 Google OAuth via `defineOAuthGoogleEventHandler`. Success handler asserts `hd === 'newtheatre.org.uk'` and `email_verified === true` server-side; on failure renders the "not an NNT Google account" page (no session). Match precedence: existing `google_sub` → account with matching `pending_google_email` (attach + clear it) → lowercased email match (including shadow accounts — claiming them) → create a new verified user. The Google address is **not** written to `users.email` when attaching to an existing account — the person keeps their password-login address unless they change it themselves.

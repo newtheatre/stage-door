@@ -1,0 +1,77 @@
+import { describe, expect, it } from 'vitest'
+import { db, schema } from '@nuxthub/db'
+import { eq } from 'drizzle-orm'
+import registerHandler from '../server/api/auth/register.post'
+import { makeEvent, sealedSession, sentEmails } from './setup'
+import { createUser } from './helpers/users'
+
+const register = registerHandler as unknown as (event: unknown) => Promise<{ ok: boolean }>
+
+describe('POST /api/auth/register', () => {
+  it('creates a user, sends a verification email, and seals a session', async () => {
+    const event = makeEvent({ body: { email: 'New@Example.COM', name: 'New Person', password: 'Passw0rd' } })
+    const result = await register(event)
+
+    expect(result).toEqual({ ok: true })
+
+    const user = await db.select().from(schema.users).where(eq(schema.users.email, 'new@example.com')).get()
+    expect(user).toBeTruthy()
+    expect(user!.email).toBe('new@example.com') // lowercased on the way in
+    expect(user!.password).toBe('fake$Passw0rd')
+    expect(user!.verified).toBe(false)
+
+    expect(sentEmails).toEqual([
+      { kind: 'verification', to: 'new@example.com', token: expect.any(String) },
+    ])
+
+    const session = sealedSession(event)!
+    expect(session.user).toMatchObject({ id: user!.id, guest: false, roles: [] })
+  })
+
+  it('claims a shadow account in place, keeping its id', async () => {
+    const shadow = await createUser({ email: 'booker@example.com', name: 'Old Booking Name' })
+
+    const event = makeEvent({ body: { email: 'booker@example.com', name: 'Real Name', password: 'Passw0rd' } })
+    await register(event)
+
+    const claimed = await db.select().from(schema.users).where(eq(schema.users.email, 'booker@example.com')).get()
+    expect(claimed!.id).toBe(shadow.id) // history stays attached
+    expect(claimed!.password).toBe('fake$Passw0rd')
+    expect(claimed!.name).toBe('Real Name')
+
+    expect(sealedSession(event)?.user).toMatchObject({ id: shadow.id, guest: false })
+  })
+
+  it('is enumeration-safe when the email already has a full account', async () => {
+    const existing = await createUser({ email: 'taken@example.com', name: 'Original', plainPassword: 'Original0' })
+
+    const event = makeEvent({ body: { email: 'taken@example.com', name: 'Imposter', password: 'Attack3r' } })
+    const result = await register(event)
+
+    // Same response shape as success…
+    expect(result).toEqual({ ok: true })
+    // …but nothing was changed, no session sealed, and the only email is the
+    // "you already have an account" notice.
+    const untouched = await db.select().from(schema.users).where(eq(schema.users.id, existing.id)).get()
+    expect(untouched!.password).toBe('fake$Original0')
+    expect(untouched!.name).toBe('Original')
+    expect(sealedSession(event)).toBeUndefined()
+    expect(sentEmails).toEqual([{ kind: 'account-exists', to: 'taken@example.com' }])
+  })
+
+  it('treats an SSO-only account (no password, has google_sub) as full, not shadow', async () => {
+    await createUser({ email: 'sso@example.com', googleSub: 'google-sub-123' })
+
+    const event = makeEvent({ body: { email: 'sso@example.com', name: 'Imposter', password: 'Attack3r' } })
+    const result = await register(event)
+
+    expect(result).toEqual({ ok: true })
+    expect(sealedSession(event)).toBeUndefined()
+    expect(sentEmails).toEqual([{ kind: 'account-exists', to: 'sso@example.com' }])
+  })
+
+  it('rejects weak passwords', async () => {
+    const event = makeEvent({ body: { email: 'weak@example.com', name: 'Weak', password: 'password' } })
+    await expect(register(event)).rejects.toThrow()
+  })
+})
