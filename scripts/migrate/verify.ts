@@ -21,6 +21,12 @@ const SEED_EMAILS = [
   'user@newtheatre.org.uk', 'unverified@newtheatre.org.uk',
 ]
 
+// Mirrors build.ts — passworded accounts on undeliverable domains.
+function isUndeliverableTestAccount(email: string, password: string | null): boolean {
+  if (password === null) return false
+  return /@example\.(com|org|net)$|\.invalid$|\.test$|\.example$/.test(email)
+}
+
 // ── Target access (local rehearsal file, or remote via wrangler) ────────────
 
 type Row = Record<string, unknown>
@@ -28,8 +34,10 @@ let queryTarget: (sql: string) => Row[]
 
 if (remote) {
   queryTarget = (sql: string) => {
+    // Wrangler rejects literal newlines in --command; collapse whitespace.
+    const flat = sql.replace(/\s+/g, ' ').trim()
     const out = execSync(
-      `npx wrangler d1 execute auth --remote --json --command ${JSON.stringify(sql)}`,
+      `npx wrangler d1 execute auth --remote --json --command ${JSON.stringify(flat)}`,
       { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
     )
     return JSON.parse(out)[0].results as Row[]
@@ -59,6 +67,17 @@ function loadSource(name: string): Database {
 const pros = loadSource('proscenium')
 const rooms = loadSource('rooms')
 
+const preLegacyIds = new Set<string>(
+  JSON.parse(readFileSync(join(DATA, 'pre-legacy-proscenium-ids.json'), 'utf8')) as string[],
+)
+
+/** Every email neutralised by the build: seeds + undeliverable test accounts. */
+const neutralisedEmails = new Set<string>(SEED_EMAILS.filter(e =>
+  (pros.prepare('SELECT count(*) n FROM users WHERE lower(email)=?').get(e) as { n: number }).n > 0))
+for (const row of pros.prepare('SELECT lower(email) email, password FROM users WHERE password IS NOT NULL').all() as { email: string, password: string }[]) {
+  if (isUndeliverableTestAccount(row.email, row.password)) neutralisedEmails.add(row.email)
+}
+
 // ── Assertions ──────────────────────────────────────────────────────────────
 
 let failures = 0
@@ -81,7 +100,14 @@ const prosEmails = (pros.prepare('SELECT lower(email) e FROM users').all() as { 
 const roomsEmails = (rooms.prepare('SELECT lower(email) e FROM users').all() as { e: string }[]).map(r => r.e)
 const distinctEmails = new Set([...prosEmails, ...roomsEmails])
 const userCount = one('SELECT count(*) n FROM users').n
-check(`users count ${userCount} == distinct source emails ${distinctEmails.size}`, userCount === distinctEmails.size)
+// The live DB may hold accounts created directly on the auth service before
+// the import (e.g. a Google sign-in). They aren't source rows — count them
+// separately and surface them for eyeballing.
+const targetEmails = (queryTarget('SELECT email FROM users') as { email: string }[]).map(r => r.email)
+const extras = targetEmails.filter(e => !distinctEmails.has(e))
+if (extras.length) console.info(`  ℹ ${extras.length} pre-existing non-source account(s): ${extras.join(', ')}`)
+check(`users count ${userCount} == distinct source emails ${distinctEmails.size} + ${extras.length} pre-existing`,
+  userCount === distinctEmails.size + extras.length)
 
 // 2. legacy_ids: one row per source row.
 const expectedLegacy = prosEmails.length + roomsEmails.length
@@ -137,7 +163,7 @@ for (const p of pros.prepare('SELECT lower(email) email, password FROM users WHE
   if (!prosPwByEmail.has(p.email)) prosPwByEmail.set(p.email, p.password)
 }
 for (const [email, password] of prosPwByEmail) {
-  if (SEED_EMAILS.includes(email)) continue
+  if (neutralisedEmails.has(email)) continue
   hashChecked += 1
   if (targetByEmail.get(email) !== password) hashOk = false
 }
@@ -152,15 +178,18 @@ check(`${hashChecked} password hashes byte-identical to source`, hashOk)
 check('all stored hashes are scrypt PHC strings',
   one(`SELECT count(*) n FROM users WHERE password IS NOT NULL AND password NOT LIKE '$scrypt$%'`).n === 0)
 
-// 5. Role counts per namespace.
-const prosRoleCount = (pros.prepare(`
-  SELECT count(*) n FROM user_roles ur JOIN users u ON u.id = ur.user_id
-  WHERE lower(u.email) NOT IN (${SEED_EMAILS.map(() => '?').join(',')})
-`).get(...SEED_EMAILS) as { n: number }).n
-// Non-seed source roles carried over 1:1, plus the explicit
-// proscenium:ADMIN grant to the ITM (which replaces the seed admin's).
+// 5. Role counts per namespace. Pre-legacy holders keep proscenium:*;
+// legacy-import holders map to dormant ticketing:*; neutralised accounts
+// lose theirs; +1 explicit proscenium:ADMIN grant to the ITM.
+const sourceRoles = pros.prepare(`
+  SELECT ur.role, u.id, lower(u.email) email FROM user_roles ur JOIN users u ON u.id = ur.user_id
+`).all() as { role: string, id: string, email: string }[]
+const expectedPros = sourceRoles.filter(r => preLegacyIds.has(r.id) && !neutralisedEmails.has(r.email)).length
+const expectedTicketing = sourceRoles.filter(r => !preLegacyIds.has(r.id) && !neutralisedEmails.has(r.email)).length
 const carried = one(`SELECT count(*) n FROM user_roles WHERE role LIKE 'proscenium:%'`).n
-check(`proscenium:* roles ${carried} == carried ${prosRoleCount} + 1 explicit ADMIN grant`, carried === prosRoleCount + 1)
+const ticketing = one(`SELECT count(*) n FROM user_roles WHERE role LIKE 'ticketing:%'`).n
+check(`proscenium:* roles ${carried} == carried ${expectedPros} + 1 explicit ADMIN grant`, carried === expectedPros + 1)
+check(`ticketing:* roles ${ticketing} == legacy-import holders' ${expectedTicketing} (dormant namespace)`, ticketing === expectedTicketing)
 
 const roomsAdmins = (rooms.prepare(`SELECT count(*) n FROM users WHERE role='ADMIN'`).get() as { n: number }).n
 check(`rooms:ADMIN count == ${roomsAdmins}`,
@@ -168,13 +197,12 @@ check(`rooms:ADMIN count == ${roomsAdmins}`,
 check('exactly one auth:ADMIN (the ITM)',
   one(`SELECT count(*) n FROM user_roles WHERE role='auth:ADMIN'`).n === 1)
 
-// 6. Neutralised seed accounts: kept, harmless.
-for (const email of SEED_EMAILS) {
-  if (!prosEmails.includes(email)) continue
+// 6. Neutralised accounts (seeds + undeliverable test accounts): kept, harmless.
+for (const email of neutralisedEmails) {
   const [row] = queryTarget(`SELECT password, disabled, email_verified,
     (SELECT count(*) FROM user_roles WHERE user_id = users.id) roles
     FROM users WHERE email = '${email}'`) as { password: string | null, disabled: number, roles: number }[]
-  check(`seed ${email} neutralised (no password, disabled, no roles)`,
+  check(`${email} neutralised (no password, disabled, no roles)`,
     !!row && row.password === null && row.disabled === 1 && row.roles === 0)
 }
 

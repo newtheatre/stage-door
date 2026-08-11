@@ -40,6 +40,30 @@ const EXPLICIT_GRANTS: Record<string, string[]> = {
   'matthew.n.adcock@gmail.com': ['auth:ADMIN', 'proscenium:ADMIN'],
 }
 
+/**
+ * Accounts on undeliverable domains (RFC 2606 example.com, .invalid, .test)
+ * that carry a password — test artifacts from the legacy import. They can
+ * never receive a reset email, so a surviving password is pure liability:
+ * neutralised like the seed accounts (password NULL, disabled, no roles).
+ */
+function isUndeliverableTestAccount(email: string, password: string | null): boolean {
+  if (password === null) return false
+  return /@example\.(com|org|net)$|\.invalid$|\.test$|\.example$/.test(email)
+}
+
+/**
+ * Ids of Proscenium users that existed BEFORE the 2026-08-11 legacy
+ * ticketing import (extracted from the pre-import build output). Role rows
+ * held by users outside this set came from the legacy site's foh/manager/
+ * admin roles and map to the dormant `ticketing:*` namespace, not live
+ * `proscenium:*` (plan §11; granting live admin to alumni/placeholder
+ * accounts would be a security regression). Upgrade individuals via the
+ * admin UI where wanted.
+ */
+const preLegacyIds = new Set<string>(
+  JSON.parse(readFileSync(join(DATA, 'pre-legacy-proscenium-ids.json'), 'utf8')) as string[],
+)
+
 // ── Load sources ────────────────────────────────────────────────────────────
 
 function loadDump(name: string): Database {
@@ -188,7 +212,7 @@ for (const p of prosUsers) {
   const r = roomsByEmail.get(email)
   if (r) claimedRoomsEmails.add(email)
 
-  const isSeed = SEED_EMAILS.has(email)
+  const isSeed = SEED_EMAILS.has(email) || isUndeliverableTestAccount(email, p.password)
 
   // Rule 1/2: Proscenium row wins; its id is canonical. Password: Proscenium's
   // unless NULL (shadow) and rooms has one. Name: more recently active side.
@@ -196,7 +220,11 @@ for (const p of prosUsers) {
   const roomsActivity = r ? Math.max(toMs(r.created_at) ?? 0, roomsLastActivity.get(r.id) ?? 0) : 0
 
   const roles = [...new Set([
-    ...[p.id, ...p.extraLegacyIds].flatMap(id => (prosRolesByUser.get(id) ?? []).map(role => `proscenium:${role}`)),
+    // Role namespace depends on where the holder came from: pre-legacy-import
+    // Proscenium users keep live proscenium:* roles; users the legacy import
+    // created get dormant ticketing:* roles (see preLegacyIds above).
+    ...[p.id, ...p.extraLegacyIds].flatMap(id => (prosRolesByUser.get(id) ?? [])
+      .map(role => `${preLegacyIds.has(id) ? 'proscenium' : 'ticketing'}:${role}`)),
     ...(r && r.role === 'ADMIN' ? ['rooms:ADMIN'] : []),
   ])]
 
@@ -286,6 +314,17 @@ for (const u of merged) {
 
 writeFileSync(join(OUT, 'auth-import.sql'), lines.join('\n') + '\n')
 
+// D1 caps statements per request — also emit ordered chunks for the real
+// run (per-user emit order means dependents always follow their user row).
+const CHUNK_SIZE = 4000
+const statements = lines.filter(l => !l.startsWith('--') && !l.startsWith('PRAGMA'))
+let chunkCount = 0
+for (let i = 0; i < statements.length; i += CHUNK_SIZE) {
+  chunkCount += 1
+  const chunk = ['PRAGMA defer_foreign_keys = on;', ...statements.slice(i, i + CHUNK_SIZE)]
+  writeFileSync(join(OUT, `auth-import.chunk-${String(chunkCount).padStart(2, '0')}.sql`), chunk.join('\n') + '\n')
+}
+
 // ── Emit proscenium-fixes.sql (case-duplicate shadow fold) ──────────────────
 
 const prosFixes: string[] = [
@@ -337,7 +376,7 @@ const report = {
     prosceniumOnly: merged.filter(u => !u.mergedFromBoth && u.legacy.some(l => l.source === 'proscenium')).length,
     roomsOnly: merged.filter(u => u.legacy.every(l => l.source === 'rooms')).length,
     shadowAccounts: merged.filter(u => u.password === null && !u.neutralisedSeed).length,
-    neutralisedSeeds: merged.filter(u => u.neutralisedSeed).map(u => u.email),
+    neutralised: merged.filter(u => u.neutralisedSeed).map(u => u.email),
     tookRoomsHash: merged.filter(u => u.mergedFromBoth && u.password !== null && !prosUsers.find(p => p.id === u.id)?.password).length,
   },
   roles: Object.fromEntries(
@@ -345,6 +384,7 @@ const report = {
   ),
   legacyIdRows: merged.reduce((n, u) => n + u.legacy.length, 0),
   roomsBookingRewrites: remapped.length,
+  importChunks: chunkCount,
 }
 
 writeFileSync(join(OUT, 'report.json'), JSON.stringify(report, null, 2) + '\n')
