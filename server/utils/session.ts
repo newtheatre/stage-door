@@ -32,7 +32,10 @@ export async function sealUserSession(
 ): Promise<void> {
   const now = Date.now()
 
-  await setUserSession(event, {
+  // replaceUserSession, not setUserSession: set merges into the existing
+  // session with defu, which CONCATENATES arrays — a re-seal would duplicate
+  // roles. The seal is authoritative; always replace wholesale.
+  await replaceUserSession(event, {
     user: {
       id: user.id,
       email: user.email,

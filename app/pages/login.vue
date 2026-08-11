@@ -32,6 +32,21 @@
         </template>
 
         <template #footer>
+          <USeparator
+            label="or"
+            class="mb-4"
+          />
+          <UButton
+            :to="googleHref"
+            external
+            variant="outline"
+            color="neutral"
+            icon="i-simple-icons-google"
+            block
+            class="mb-4"
+          >
+            Sign in with Google (NNT accounts)
+          </UButton>
           Don't have an account?
           <ULink
             :to="withRedirect('/register')"
@@ -50,7 +65,8 @@ import z from 'zod/v4'
 import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
 
 const { fetch: refreshSession } = useUserSession()
-const { navigateToTarget, withRedirect } = useRedirectTarget()
+const { raw, navigateToTarget, withRedirect } = useRedirectTarget()
+const route = useRoute()
 
 definePageMeta({
   middleware: 'guest',
@@ -58,7 +74,15 @@ definePageMeta({
   description: 'Log in to your NNT account',
 })
 
-const errorMessage = ref('')
+const errorMessage = ref(
+  route.query.error === 'google' ? 'Google sign-in failed. Please try again, or use email and password.' : '',
+)
+
+// The redirect target rides through the OAuth round-trip as `state`
+// (validated server-side on the way back out).
+const googleHref = computed(() =>
+  raw.value ? `/auth/google?state=${encodeURIComponent(raw.value)}` : '/auth/google',
+)
 
 const schema = z.object({
   email: z.email('Please enter a valid email address'),

@@ -1,0 +1,371 @@
+<template>
+  <UContainer class="flex flex-col gap-4 p-4 flex-1">
+    <AdminNav />
+
+    <div
+      v-if="user"
+      class="flex flex-col gap-4"
+    >
+      <div class="flex items-center gap-3">
+        <UButton
+          to="/admin"
+          variant="ghost"
+          icon="i-lucide-arrow-left"
+          size="sm"
+        >
+          All users
+        </UButton>
+        <h1 class="text-xl font-bold">
+          {{ user.name }}
+        </h1>
+        <UBadge
+          v-if="user.disabled"
+          color="error"
+          variant="subtle"
+        >
+          Disabled
+        </UBadge>
+        <UBadge
+          v-else-if="user.guest"
+          color="neutral"
+          variant="subtle"
+        >
+          Guest (shadow)
+        </UBadge>
+        <UBadge
+          v-else-if="user.verified"
+          color="success"
+          variant="subtle"
+        >
+          Verified
+        </UBadge>
+        <UBadge
+          v-else
+          color="warning"
+          variant="subtle"
+        >
+          Unverified
+        </UBadge>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <UPageCard
+          title="Identity"
+          icon="i-lucide-id-card"
+        >
+          <UForm
+            :state="profileForm"
+            class="flex flex-col gap-4"
+            @submit="saveProfile"
+          >
+            <UFormField
+              label="Name"
+              name="name"
+            >
+              <UInput
+                v-model="profileForm.name"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField
+              label="Email"
+              name="email"
+              help="Changing this resets verification and emails a new link"
+            >
+              <UInput
+                v-model="profileForm.email"
+                type="email"
+                class="w-full"
+              />
+            </UFormField>
+            <UButton
+              type="submit"
+              :loading="saving"
+              class="self-start"
+            >
+              Save
+            </UButton>
+          </UForm>
+
+          <USeparator class="my-4" />
+
+          <dl class="text-sm grid grid-cols-2 gap-y-1">
+            <dt class="text-muted">
+              Login methods
+            </dt>
+            <dd>{{ loginMethods }}</dd>
+            <dt class="text-muted">
+              Last login
+            </dt>
+            <dd>{{ user.lastLogin ? new Date(user.lastLogin).toLocaleString('en-GB') : 'never' }}</dd>
+            <dt class="text-muted">
+              Created
+            </dt>
+            <dd>{{ new Date(user.createdAt).toLocaleDateString('en-GB') }}</dd>
+            <dt class="text-muted">
+              Legacy ids
+            </dt>
+            <dd>{{ user.legacyIds?.length ? user.legacyIds.map((l: { source: string, legacyId: string }) => `${l.source}:${l.legacyId}`).join(', ') : '—' }}</dd>
+          </dl>
+        </UPageCard>
+
+        <UPageCard
+          title="Roles"
+          icon="i-lucide-shield"
+          description="Scoped strings, e.g. proscenium:BOX_OFFICE. Changes propagate within 15 minutes on privileged surfaces — pair with force-logout for instant effect."
+        >
+          <div class="flex flex-col gap-3">
+            <div class="flex flex-wrap gap-2">
+              <UBadge
+                v-for="role in roles"
+                :key="role"
+                color="primary"
+                variant="subtle"
+                class="cursor-pointer"
+                @click="removeRole(role)"
+              >
+                {{ role }} ✕
+              </UBadge>
+              <span
+                v-if="!roles.length"
+                class="text-sm text-muted"
+              >No roles</span>
+            </div>
+            <div class="flex gap-2">
+              <UInput
+                v-model="newRole"
+                placeholder="app:ROLE"
+                class="flex-1"
+                @keyup.enter="addRole"
+              />
+              <UButton
+                variant="outline"
+                @click="addRole"
+              >
+                Add
+              </UButton>
+            </div>
+            <UButton
+              :loading="savingRoles"
+              :disabled="!rolesChanged"
+              class="self-start"
+              @click="saveRoles"
+            >
+              Save roles
+            </UButton>
+          </div>
+        </UPageCard>
+
+        <UPageCard
+          title="Google link"
+          icon="i-simple-icons-google"
+        >
+          <div class="flex flex-col gap-3 text-sm">
+            <p v-if="user.googleLinked">
+              An NNT Google account is linked.
+            </p>
+            <p v-else-if="user.pendingGoogleEmail">
+              Pending link: the next Google sign-in with
+              <strong>{{ user.pendingGoogleEmail }}</strong> attaches to this account.
+            </p>
+            <p
+              v-else
+              class="text-muted"
+            >
+              No Google account linked.
+            </p>
+
+            <div class="flex flex-wrap gap-2">
+              <UButton
+                v-if="user.googleLinked"
+                variant="outline"
+                color="neutral"
+                size="sm"
+                @click="unlinkGoogle"
+              >
+                Unlink Google
+              </UButton>
+              <template v-else>
+                <UInput
+                  v-model="pendingEmail"
+                  :placeholder="`name@newtheatre.org.uk`"
+                  size="sm"
+                  class="w-56"
+                />
+                <UButton
+                  variant="outline"
+                  size="sm"
+                  @click="setPendingGoogle"
+                >
+                  Set pending link
+                </UButton>
+                <UButton
+                  v-if="user.pendingGoogleEmail"
+                  variant="ghost"
+                  color="neutral"
+                  size="sm"
+                  @click="clearPendingGoogle"
+                >
+                  Clear
+                </UButton>
+              </template>
+            </div>
+          </div>
+        </UPageCard>
+
+        <UPageCard
+          title="Security operations"
+          icon="i-lucide-siren"
+        >
+          <div class="flex flex-col gap-2">
+            <UButton
+              variant="outline"
+              icon="i-lucide-mail"
+              block
+              @click="adminReset"
+            >
+              Send password reset (24 h link)
+            </UButton>
+            <UButton
+              variant="outline"
+              color="warning"
+              icon="i-lucide-log-out"
+              block
+              @click="forceLogout"
+            >
+              Force logout everywhere
+            </UButton>
+            <UButton
+              v-if="!user.disabled"
+              variant="outline"
+              color="error"
+              icon="i-lucide-user-round-x"
+              block
+              @click="disable"
+            >
+              Disable account
+            </UButton>
+            <UButton
+              v-else
+              variant="outline"
+              color="success"
+              icon="i-lucide-user-round-check"
+              block
+              @click="enable"
+            >
+              Re-enable account
+            </UButton>
+          </div>
+        </UPageCard>
+      </div>
+    </div>
+  </UContainer>
+</template>
+
+<script lang="ts" setup>
+definePageMeta({
+  middleware: 'admin',
+  title: 'Admin — user',
+})
+
+const route = useRoute()
+const toast = useToast()
+const id = route.params.id as string
+
+interface AdminUserDetail {
+  id: string
+  email: string
+  name: string
+  verified: boolean
+  guest: boolean
+  hasPassword: boolean
+  googleLinked: boolean
+  pendingGoogleEmail: string | null
+  disabled: boolean
+  createdAt: number
+  lastLogin: number | null
+  roles: string[]
+  legacyIds: { source: string, legacyId: string }[]
+}
+
+// Dynamic URL defeats Nitro's route typing — assert the shape instead.
+const { data, refresh } = await useFetch<{ user: AdminUserDetail }>(`/api/users/${id}`)
+const user = computed(() => data.value?.user)
+
+const profileForm = reactive({ name: '', email: '' })
+const roles = ref<string[]>([])
+const newRole = ref('')
+const pendingEmail = ref('')
+
+watchEffect(() => {
+  if (user.value) {
+    profileForm.name = user.value.name
+    profileForm.email = user.value.email
+    roles.value = [...user.value.roles]
+  }
+})
+
+const loginMethods = computed(() => {
+  const methods = []
+  if (user.value?.hasPassword) methods.push('password')
+  if (user.value?.googleLinked) methods.push('Google')
+  return methods.join(' + ') || 'none (shadow account)'
+})
+
+const rolesChanged = computed(() =>
+  JSON.stringify([...roles.value].sort()) !== JSON.stringify([...(user.value?.roles ?? [])].sort()),
+)
+
+const saving = ref(false)
+const savingRoles = ref(false)
+
+async function act(label: string, fn: () => Promise<unknown>) {
+  try {
+    await fn()
+    await refresh()
+    toast.add({ title: label, color: 'success' })
+  }
+  catch (error) {
+    toast.add({ title: getErrorMessage(error, 'Action failed'), color: 'error' })
+  }
+}
+
+async function saveProfile() {
+  saving.value = true
+  await act('Profile saved', () =>
+    $fetch(`/api/users/${id}`, { method: 'PUT', body: { ...profileForm } }))
+  saving.value = false
+}
+
+function addRole() {
+  const role = newRole.value.trim()
+  if (role && !roles.value.includes(role)) roles.value.push(role)
+  newRole.value = ''
+}
+
+function removeRole(role: string) {
+  roles.value = roles.value.filter(r => r !== role)
+}
+
+async function saveRoles() {
+  savingRoles.value = true
+  await act('Roles updated', () =>
+    $fetch(`/api/users/${id}/roles`, { method: 'PUT', body: { roles: roles.value } }))
+  savingRoles.value = false
+}
+
+const adminReset = () => act('Reset email sent', () =>
+  $fetch(`/api/users/${id}/reset-password`, { method: 'POST' }))
+const forceLogout = () => act('Sessions invalidated', () =>
+  $fetch(`/api/users/${id}/force-logout`, { method: 'POST' }))
+const disable = () => act('Account disabled', () =>
+  $fetch(`/api/users/${id}/disable`, { method: 'POST' }))
+const enable = () => act('Account re-enabled', () =>
+  $fetch(`/api/users/${id}/enable`, { method: 'POST' }))
+const unlinkGoogle = () => act('Google unlinked', () =>
+  $fetch(`/api/users/${id}/unlink-google`, { method: 'POST' }))
+const setPendingGoogle = () => act('Pending link set', () =>
+  $fetch(`/api/users/${id}/pending-google`, { method: 'PUT', body: { email: pendingEmail.value } }))
+const clearPendingGoogle = () => act('Pending link cleared', () =>
+  $fetch(`/api/users/${id}/pending-google`, { method: 'PUT', body: { email: null } }))
+</script>

@@ -20,10 +20,10 @@ Three auth levels:
 Clears the session cookie (domain-wide), returns `{ ok: true }` whether or not a session existed. Apps POST here; they never clear the cookie themselves. Browser-facing variant: `POST /logout?redirect=<url>` clears and 302s to the validated target.
 
 ### `GET /auth/google` — public (browser redirect flow)
-Google OAuth via `defineOAuthGoogleEventHandler`. Success handler asserts `hd === 'newtheatre.org.uk'` and `email_verified === true` server-side; on failure renders the "not an NNT Google account" page (no session). Match precedence: existing `google_sub` → account with matching `pending_google_email` (attach + clear it) → lowercased email match (including shadow accounts — claiming them) → create a new verified user. The Google address is **not** written to `users.email` when attaching to an existing account — the person keeps their password-login address unless they change it themselves.
+Google OAuth via `defineOAuthGoogleEventHandler`. The redirect target rides the round-trip in the OAuth `state` query param (`/auth/google?state=<url>`, validated against the allowlist on return — the login page builds this link). Success handler asserts `hd === 'newtheatre.org.uk'` and `email_verified === true` server-side; on failure 302s to the "not an NNT Google account" page (no session). Disabled accounts get the same rejection page. Match precedence: existing `google_sub` → account with matching `pending_google_email` (attach + clear it, audit-logged) → lowercased email match (including shadow accounts — claiming them; sets `email_verified` since Google verified that exact address) → create a new verified user. The Google address is **not** written to `users.email` when attaching to an existing account — the person keeps their password-login address unless they change it themselves.
 
-### `POST /api/account/link-google` — session [AUD]
-Self-service "Connect NNT Google account" from `/account`: starts the OAuth flow bound to the **current session's user**; on success stores `google_sub` on that account regardless of the Google address (hd check still applies). Sensitive operation: requires a fresh session (recent login or password re-confirmation). Refuses if the Google identity is already linked to another account (that's a merge situation, not a link). Companion to the existing `unlink-google`.
+### `GET /auth/google-link` — session (browser redirect flow) [AUD]
+Self-service "Connect NNT Google account" from `/account`: the OAuth flow bound to the **current session's user**; on success stores `google_sub` on that account regardless of the Google address (hd check still applies). Sensitive operation: requires a fresh session (login within the last 10 minutes; otherwise 302 back to `/account?error=stale-session`). Refuses if the Google identity is already linked to another account (that's a merge situation, not a link). *(Amended at build time: originally spec'd as `POST /api/account/link-google`, but the OAuth dance is a browser redirect flow — a GET route with its own registered redirect URI. Same contract, different verb/path.)*
 
 ### `POST /api/auth/email/request` — session [RL]
 Resend verification email. Enumeration-safe.
@@ -62,7 +62,21 @@ All require session + `auth:ADMIN` unless noted. All mutations **[AUD]**.
 | `POST /api/users/:id/erase` | Anonymise everywhere (auth + app hooks + epoch bump) — Phase 7. Also available self-service from `/account`. |
 | `GET /api/audit?actor=&action=&page=` | Audit log query |
 
-Self-service (session, own account only): `GET/PUT /api/account/profile`, `PUT /api/account/password` (verifies current password; bumps epoch), `GET /api/account/export`, `POST /api/account/erase` — Phase 7 for the last two.
+Self-service (session, own account only — all verify the account live: exists, not disabled, epoch current):
+
+| Endpoint | Purpose |
+|---|---|
+| `GET/PUT /api/account/profile` | Own profile; email change resets verification + sends a new link, and is enumeration-safe on conflict (generic `{ ok: true }`, "you already have an account" email to the requested address) |
+| `PUT /api/account/password` | Change — or, for SSO-only accounts, set — the password. Verifies the current password where one exists; bumps epoch; re-seals this session |
+| `POST /api/account/unlink-google` **[AUD]** | Disconnect Google; refuses if it would leave no login method |
+| `POST /api/account/logout-everywhere` **[AUD]** | Bump own epoch + clear this session |
+| `GET /api/account/export`, `POST /api/account/erase` | Phase 7 |
+
+## Service-token administration
+
+Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/service-tokens` (names + usage, hashes never leave the DB), `POST /api/service-tokens { name }` → `{ token }` shown once, `DELETE /api/service-tokens/:id` (revoke). Procedure: [operations.md](operations.md#service-tokens).
+
+`POST /api/audit { action, target, detail? }` — record a manual operation (secret rotation etc.); stored with a `manual.` action prefix so it can't impersonate system entries.
 
 ## Service endpoints
 
