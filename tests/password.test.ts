@@ -11,12 +11,12 @@ const reset = resetHandler as unknown as (event: unknown) => Promise<{ ok: boole
 
 describe('POST /api/auth/password/forgot', () => {
   it('sends a reset email for an existing account', async () => {
-    const user = await createUser({ email: 'alice@example.com', plainPassword: 'Passw0rd' })
+    const user = await createUser({ email: 'alice@example-user.co.uk', plainPassword: 'Passw0rd' })
 
-    const result = await forgot(makeEvent({ body: { email: 'alice@example.com' } }))
+    const result = await forgot(makeEvent({ body: { email: 'alice@example-user.co.uk' } }))
 
     expect(result).toEqual({ ok: true })
-    expect(sentEmails).toEqual([{ kind: 'reset', to: 'alice@example.com', token: expect.any(String) }])
+    expect(sentEmails).toEqual([{ kind: 'reset', to: 'alice@example-user.co.uk', token: expect.any(String) }])
 
     const record = await db.select().from(schema.passwordResets)
       .where(eq(schema.passwordResets.userId, user.id)).get()
@@ -24,19 +24,19 @@ describe('POST /api/auth/password/forgot', () => {
   })
 
   it('sends a reset email for a shadow account — the claiming path', async () => {
-    await createUser({ email: 'booker@example.com' }) // password NULL
+    await createUser({ email: 'booker@example-user.co.uk' }) // password NULL
 
-    await forgot(makeEvent({ body: { email: 'booker@example.com' } }))
+    await forgot(makeEvent({ body: { email: 'booker@example-user.co.uk' } }))
 
     expect(sentEmails).toHaveLength(1)
     expect(sentEmails[0]!.kind).toBe('reset')
   })
 
   it('returns the same response for unknown and disabled accounts, without sending', async () => {
-    await createUser({ email: 'off@example.com', plainPassword: 'Passw0rd', disabled: true })
+    await createUser({ email: 'off@example-user.co.uk', plainPassword: 'Passw0rd', disabled: true })
 
-    const unknown = await forgot(makeEvent({ body: { email: 'nobody@example.com' } }))
-    const disabled = await forgot(makeEvent({ body: { email: 'off@example.com' } }))
+    const unknown = await forgot(makeEvent({ body: { email: 'nobody@example-user.co.uk' } }))
+    const disabled = await forgot(makeEvent({ body: { email: 'off@example-user.co.uk' } }))
 
     expect(unknown).toEqual({ ok: true })
     expect(disabled).toEqual({ ok: true })
@@ -44,10 +44,10 @@ describe('POST /api/auth/password/forgot', () => {
   })
 
   it('replaces outstanding reset tokens rather than accumulating them', async () => {
-    const user = await createUser({ email: 'alice@example.com', plainPassword: 'Passw0rd' })
+    const user = await createUser({ email: 'alice@example-user.co.uk', plainPassword: 'Passw0rd' })
 
-    await forgot(makeEvent({ body: { email: 'alice@example.com' } }))
-    await forgot(makeEvent({ body: { email: 'alice@example.com' } }))
+    await forgot(makeEvent({ body: { email: 'alice@example-user.co.uk' } }))
+    await forgot(makeEvent({ body: { email: 'alice@example-user.co.uk' } }))
 
     const records = await db.select().from(schema.passwordResets)
       .where(eq(schema.passwordResets.userId, user.id)).all()
@@ -68,7 +68,7 @@ describe('POST /api/auth/password/reset', () => {
   }
 
   it('sets the password, bumps the session epoch, consumes tokens, and logs in', async () => {
-    const user = await createUser({ email: 'alice@example.com', plainPassword: 'OldPassw0rd' })
+    const user = await createUser({ email: 'alice@example-user.co.uk', plainPassword: 'OldPassw0rd' })
     const token = await issueToken(user.id)
 
     const event = makeEvent({ body: { token, password: 'NewPassw0rd' } })
@@ -90,7 +90,7 @@ describe('POST /api/auth/password/reset', () => {
   })
 
   it('claims a shadow account: guest flips to false in the fresh session', async () => {
-    const shadow = await createUser({ email: 'booker@example.com' })
+    const shadow = await createUser({ email: 'booker@example-user.co.uk' })
     const token = await issueToken(shadow.id)
 
     const event = makeEvent({ body: { token, password: 'NewPassw0rd' } })
@@ -100,7 +100,7 @@ describe('POST /api/auth/password/reset', () => {
   })
 
   it('rejects an expired token and deletes it', async () => {
-    const user = await createUser({ email: 'alice@example.com', plainPassword: 'OldPassw0rd' })
+    const user = await createUser({ email: 'alice@example-user.co.uk', plainPassword: 'OldPassw0rd' })
     const token = await issueToken(user.id, -1000)
 
     await expect(reset(makeEvent({ body: { token, password: 'NewPassw0rd' } })))
@@ -120,7 +120,7 @@ describe('POST /api/auth/password/reset', () => {
   })
 
   it('never seals a session for a disabled account', async () => {
-    const user = await createUser({ email: 'off@example.com', plainPassword: 'OldPassw0rd', disabled: true })
+    const user = await createUser({ email: 'off@example-user.co.uk', plainPassword: 'OldPassw0rd', disabled: true })
     const token = await issueToken(user.id)
 
     const event = makeEvent({ body: { token, password: 'NewPassw0rd' } })
