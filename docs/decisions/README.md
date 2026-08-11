@@ -1,0 +1,34 @@
+# Architecture Decision Records
+
+Why the service is the way it is. One decision per file, numbered, never edited after acceptance — supersede instead (new ADR, link both ways). When you're about to ask "why on earth…", the answer should be here; if it isn't, that's a missing ADR — write it.
+
+| # | Decision | Status |
+|---|---|---|
+| [0001](0001-extend-nuxt-auth-utils.md) | Build on nuxt-auth-utils rather than Better Auth / OpenAuth | Accepted |
+| [0002](0002-standalone-service.md) | Standalone service at auth.newtheatre.org.uk | Accepted |
+| [0003](0003-shared-sealed-cookie-sessions.md) | SSO via shared sealed cookie on `.newtheatre.org.uk` | Accepted |
+| [0004](0004-scoped-role-strings.md) | Roles as scoped strings, authorisation stays in apps | Accepted — revisit planned ([roadmap R1](../roadmap.md): definitions table + expiry) |
+| [0005](0005-workspace-only-google-sso.md) | Google SSO restricted to the Workspace domain | Accepted |
+| [0006](0006-merge-migration-keeping-hashes.md) | One-off user merge keeping scrypt hashes | Accepted |
+| [0007](0007-shadow-accounts-central.md) | Guest/shadow accounts live in the central identity store | Accepted |
+| [0008](0008-anonymise-not-delete.md) | Erasure = anonymisation, not deletion | Accepted |
+
+## Template
+
+```md
+# ADR-NNNN: Title
+
+**Status:** Proposed | Accepted | Superseded by ADR-MMMM · **Date:** YYYY-MM-DD · **Deciders:** …
+
+## Context
+What situation forced a decision, and what constraints applied.
+
+## Decision
+What we chose, stated as a fact.
+
+## Alternatives considered
+Each with the honest reason it lost.
+
+## Consequences
+Good, bad, and the things we now must do because of this.
+```
