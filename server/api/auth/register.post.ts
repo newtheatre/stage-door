@@ -24,6 +24,14 @@ export default defineEventHandler(async (event) => {
 
   await enforceRateLimit('register:ip', getClientIP(event))
 
+  // Reserved-TLD / anonymised addresses can never verify and must never be
+  // claimable — the legacy import created thousands of placeholder rows on
+  // them (some owning reservations with other customers' data). Same
+  // enumeration-safe response as every other path.
+  if (isUndeliverableEmail(email)) {
+    return { ok: true }
+  }
+
   const existing = await db.select().from(schema.users).where(eq(schema.users.email, email)).get()
 
   if (existing && (existing.password !== null || existing.googleSub !== null)) {

@@ -19,6 +19,13 @@ export default defineEventHandler(async (event) => {
   await enforceRateLimit('forgot:ip', getClientIP(event))
   await enforceRateLimit('forgot:acct', email)
 
+  // Undeliverable addresses (anonymised/placeholder accounts) get the same
+  // generic response with no send — the mail could never arrive, and Resend
+  // bounces are noise (docs/operations.md#monitoring).
+  if (isUndeliverableEmail(email)) {
+    return { ok: true }
+  }
+
   const user = await db.select().from(schema.users).where(eq(schema.users.email, email)).get()
 
   if (user && !user.disabled) {

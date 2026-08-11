@@ -19,6 +19,10 @@ export default defineEventHandler(async (event) => {
 
   const emailChanged = email !== undefined && email !== user.email
 
+  if (emailChanged && isUndeliverableEmail(email)) {
+    throw createError({ statusCode: 400, statusMessage: 'That email address cannot receive mail' })
+  }
+
   if (emailChanged) {
     const clash = await db.select().from(schema.users).where(eq(schema.users.email, email)).get()
     if (clash && clash.id !== user.id) {
