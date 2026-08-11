@@ -30,8 +30,7 @@ export default defineNuxtConfig({
       db: {
         dialect: 'sqlite',
         driver: 'd1', // FIXME: https://github.com/nuxt-hub/core/pull/775 (same as Proscenium)
-        // Set when the production D1 database is created — see docs/operations.md#deployments
-        connection: { databaseId: 'REPLACE-WITH-AUTH-D1-DATABASE-ID' },
+        connection: { databaseId: '6b5be553-53e1-4eb2-b027-6fc11f9fe8f4' },
       },
       kv: false,
       blob: false,
@@ -98,7 +97,7 @@ export default defineNuxtConfig({
           {
             binding: 'DB',
             database_name: 'auth',
-            database_id: 'REPLACE-WITH-AUTH-D1-DATABASE-ID',
+            database_id: '6b5be553-53e1-4eb2-b027-6fc11f9fe8f4',
           },
         ],
         observability: {
