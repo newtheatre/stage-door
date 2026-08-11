@@ -35,7 +35,7 @@ Production sets `cookie.domain = '.newtheatre.org.uk'`; localhost has no subdoma
 
 ## Google OAuth in dev
 
-A separate "NNT Auth (dev)" OAuth client exists in the Workspace Google Cloud project with `http://localhost:3000/auth/google` as an authorised redirect URI. The `hd` check still applies — you need a `newtheatre.org.uk` account to test SSO. For non-Workspace flows, test with email+password; for the rejection page, any personal Google account demonstrates it.
+A separate "NNT Auth (dev)" OAuth client exists in the Workspace Google Cloud project with `http://localhost:3000/auth/google` **and** `http://localhost:3000/auth/google-link` (the /account "Connect Google" flow) as authorised redirect URIs — the production client needs the same pair on `https://auth.newtheatre.org.uk`. The `hd` check still applies — you need a `newtheatre.org.uk` account to test SSO. For non-Workspace flows, test with email+password; for the rejection page, any personal Google account demonstrates it.
 
 ## Testing
 

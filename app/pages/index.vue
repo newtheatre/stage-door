@@ -31,6 +31,23 @@
         <USeparator />
 
         <UButton
+          to="/account"
+          variant="ghost"
+          icon="i-lucide-settings"
+          block
+        >
+          Manage your account
+        </UButton>
+        <UButton
+          v-if="isAdmin"
+          to="/admin"
+          variant="ghost"
+          icon="i-lucide-shield"
+          block
+        >
+          Admin
+        </UButton>
+        <UButton
           to="https://newtheatre.org.uk"
           external
           variant="ghost"
@@ -74,11 +91,15 @@
 </template>
 
 <script lang="ts" setup>
+import { hasRole } from '@newtheatre/auth-types'
+
 const { loggedIn, user, clear } = useUserSession()
 
 definePageMeta({
   title: 'NNT Account',
 })
+
+const isAdmin = computed(() => hasRole(user.value, 'auth', 'ADMIN'))
 
 const loggingOut = ref(false)
 

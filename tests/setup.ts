@@ -13,6 +13,12 @@ import { verifyPasswordGuarded } from '../server/utils/passwordCheck'
 import { loadRoles, sealUserSession, sealLoginSession } from '../server/utils/session'
 import { writeAudit } from '../server/utils/audit'
 import { validateRedirect } from '../shared/utils/validateRedirect'
+import { refreshSession } from '../server/utils/refresh'
+import { requireServiceToken, createServiceToken, hashServiceToken, generateServiceToken } from '../server/utils/serviceToken'
+import { requireAuthAdmin } from '../server/utils/adminGuard'
+import { requireAccountUser } from '../server/utils/accountGuard'
+import { loadUserOr404, adminUserView } from '../server/utils/adminUsers'
+import { isWorkspaceProfile, resolveGoogleUser, WORKSPACE_DOMAIN } from '../server/utils/googleAccount'
 
 // ── H3 fakes ────────────────────────────────────────────────────────────────
 
@@ -22,6 +28,7 @@ export interface FakeEvent {
   body?: unknown
   headers: Record<string, string>
   query?: Record<string, unknown>
+  params?: Record<string, string>
   redirectedTo?: { url: string, status: number }
 }
 
@@ -46,12 +53,18 @@ g.getQuery = (event: FakeEvent) => event.query ?? {}
 g.sendRedirect = (event: FakeEvent, url: string, status = 302) => {
   event.redirectedTo = { url, status }
 }
+g.getRouterParam = (event: FakeEvent, name: string) => event.params?.[name]
+g.getValidatedQuery = async (event: FakeEvent, parse: (query: unknown) => unknown) => parse(event.query ?? {})
 
 // ── Session store fake (nuxt-auth-utils) ────────────────────────────────────
 
 const sessions = new WeakMap<object, Record<string, unknown>>()
 
 g.setUserSession = async (event: object, session: Record<string, unknown>) => {
+  sessions.set(event, session)
+  return session
+}
+g.replaceUserSession = async (event: object, session: Record<string, unknown>) => {
   sessions.set(event, session)
   return session
 }
@@ -107,6 +120,18 @@ Object.assign(g, {
   sealLoginSession,
   writeAudit,
   validateRedirect,
+  refreshSession,
+  requireServiceToken,
+  createServiceToken,
+  hashServiceToken,
+  generateServiceToken,
+  requireAuthAdmin,
+  requireAccountUser,
+  loadUserOr404,
+  adminUserView,
+  isWorkspaceProfile,
+  resolveGoogleUser,
+  WORKSPACE_DOMAIN,
 })
 
 // ── Per-test reset ──────────────────────────────────────────────────────────
@@ -121,6 +146,7 @@ export function makeEvent(opts: Partial<FakeEvent> = {}): FakeEvent {
     path: opts.path ?? '/api/test',
     body: opts.body,
     query: opts.query,
+    params: opts.params,
     headers: {
       'cf-connecting-ip': `10.0.${Math.floor(eventCounter / 250)}.${eventCounter % 250}`,
       ...Object.fromEntries(Object.entries(opts.headers ?? {}).map(([k, v]) => [k.toLowerCase(), v])),
