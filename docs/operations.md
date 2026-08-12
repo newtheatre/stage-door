@@ -57,8 +57,8 @@ Historical note: the `proscenium` and `rooms` tokens issued at cutover (2026-08-
 | Grant/revoke roles | User → Roles | Takes effect within 15 min on privileged surfaces. For instant effect, also Force logout. |
 | Force logout one user | User → Force logout | Bumps session epoch; their sessions die at next refresh/privileged action. |
 | Disable an account | User → Disable | Blocks login and refresh. Use for compromise or misuse; it is reversible, erasure is not. |
-| Erasure (GDPR) | User → Erase… | Phase 7. Anonymises auth + all app data via hooks. **Irreversible.** Confirm identity of the requester first; note the request date (one-month statutory clock). |
-| Subject-access export | User → Export | Phase 7. Produces the JSON bundle; send securely to the verified requester. |
+| Erasure (GDPR) | User → Data & GDPR → Erase… | Anonymises auth + all app data via hooks. **Irreversible** (typed email confirmation required). Confirm identity of the requester first; note the request date (one-month statutory clock). If a hook fails the erasure reports incomplete — fix the app and re-run (idempotent). |
+| Subject-access export | User → Data & GDPR → Download | Produces the JSON bundle; send securely to the verified requester. |
 | Annual handover | See below | |
 
 ## Annual handover checklist (add to the Archivist runbook)
@@ -86,4 +86,4 @@ Historical note: the `proscenium` and `rooms` tokens issued at cutover (2026-08-
 
 ## Monitoring
 
-Cloudflare Workers observability logs are enabled on the worker. `GET /api/health` is polled by the uptime monitor (see estate tracker for which). The retention sweep (Phase 7) emails the Archivist a monthly digest — its silence is itself an alert. Worth a glance each term: `audit_log` anomalies, `service_tokens.last_used_at`, Resend bounce rates.
+Cloudflare Workers observability logs are enabled on the worker. `GET /api/health` is polled by the uptime monitor (see estate tracker for which). The retention sweep (daily, 04:00 UTC) emails the Archivist a digest whenever it acts, dry-runs, or on the 1st of each month — its silence is itself an alert. **Arming it**: it ships with `dryRun: true` in `server/utils/retentionConfig.ts`; review a production dry-run digest, then set `dryRun: false` in a PR. Set it back to true after any period change. Worth a glance each term: `audit_log` anomalies, `service_tokens.last_used_at`, Resend bounce rates.

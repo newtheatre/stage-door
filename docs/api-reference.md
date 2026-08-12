@@ -58,8 +58,8 @@ All require session + `auth:ADMIN` unless noted. All mutations **[AUD]**.
 | `POST /api/users/:id/disable` / `enable` | Disabled users can't log in and fail refresh |
 | `POST /api/users/:id/unlink-google` | Clears `google_sub` (guard: refuse if it would leave the account with no login method) |
 | `PUT /api/users/:id/pending-google` | Set/clear `pending_google_email` — admin-directed link: the next Google sign-in with that address attaches to this account. Validated `@newtheatre.org.uk`; refuses addresses already linked or pending elsewhere |
-| `GET /api/users/:id/export` | Subject-access bundle: auth record + each app's hook contribution ([gdpr-retention.md](gdpr-retention.md)) — Phase 7 |
-| `POST /api/users/:id/erase` | Anonymise everywhere (auth + app hooks + epoch bump) — Phase 7. Also available self-service from `/account`. |
+| `GET /api/users/:id/export` | Subject-access bundle: auth record + each app's hook contribution ([gdpr-retention.md](gdpr-retention.md)) |
+| `POST /api/users/:id/erase` | Anonymise everywhere (auth + app hooks + epoch bump). Requires `{ confirmEmail }` matching the account; cannot target self; returns per-hook status and is idempotent — re-POST to retry failed hooks. Also self-service from `/account` (password-confirmed). |
 | `GET /api/audit?actor=&action=&page=` | Audit log query |
 
 Self-service (session, own account only — all verify the account live: exists, not disabled, epoch current):
@@ -70,7 +70,8 @@ Self-service (session, own account only — all verify the account live: exists,
 | `PUT /api/account/password` | Change — or, for SSO-only accounts, set — the password. Verifies the current password where one exists; bumps epoch; re-seals this session |
 | `POST /api/account/unlink-google` **[AUD]** | Disconnect Google; refuses if it would leave no login method |
 | `POST /api/account/logout-everywhere` **[AUD]** | Bump own epoch + clear this session |
-| `GET /api/account/export`, `POST /api/account/erase` | Phase 7 |
+| `GET /api/account/export` | Own subject-access bundle (JSON download) |
+| `POST /api/account/erase` **[AUD]** | Close own account: `{ confirmEmail, password? }` — irreversible anonymisation everywhere, session cleared |
 
 ## Service-token administration
 
@@ -88,7 +89,7 @@ Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/service-tokens` (names + 
 
 ## App hooks (implemented by consumer apps, called by the auth service)
 
-Each integrated app exposes, authenticated by the **same service token** it uses inbound:
+Each integrated app exposes these, authenticated by the **SHA-256 of its own service token** (`Authorization: Bearer <sha256hex>`): the app derives the hash from its `AUTH_SERVICE_TOKEN` secret and compares constant-time; the auth service sends the hash it already stores. No plaintext is stored or transmitted, and the hash is useless *inbound* against the auth service (inbound auth needs the preimage). *(Amended at build time from "the same service token" — the auth service deliberately never holds plaintext tokens.)*
 
 | Hook | Contract |
 |---|---|
@@ -96,7 +97,7 @@ Each integrated app exposes, authenticated by the **same service token** it uses
 | `POST <app>/api/_hooks/auth/anonymise` | `{ userId }` → rewrite mirror row to anonymised values, scrub free-text personal data (e.g. `customer_notes`), return `{ ok: true }`. Must be idempotent. |
 | `POST <app>/api/_hooks/auth/last-activity` | `{ userIds: [] }` → `{ [userId]: epochMs \| null }` — feeds the retention sweep |
 
-Hook base URLs are registered per app in the auth service config ([integrating-an-app.md](integrating-an-app.md)). Reserve the shapes from day one even though callers ship in Phase 7.
+Hook base URLs are registered in `server/utils/appHooks.ts` ([integrating-an-app.md](integrating-an-app.md)).
 
 ## Redirect validation (applies to every `?redirect=`)
 

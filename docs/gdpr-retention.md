@@ -1,6 +1,6 @@
 # GDPR & Data Retention
 
-The auth service's part of the theatre's data-protection obligations. **Status: designed now, built in Phase 7** — the hook API shapes are reserved from Phase 1 so apps implement them at integration time.
+The auth service's part of the theatre's data-protection obligations. **Status: built (Phase 7, 2026-08-12)** — erasure, subject-access export, and the retention sweep are live; the sweep ships in dry-run until the Archivist reviews a production report and arms it in `server/utils/retentionConfig.ts`.
 
 Framing, honestly: software is never "GDPR compliant" by itself — compliance is mostly process (lawful basis, privacy notice, honouring requests within one month, breach handling). The NNT's full data-protection policy is a committee document (in progress, ITM + Secretary, target spring 2027); the Workspace & Data Retention Policy v1.0 covers Workspace and explicitly defers audience/ticketing data to it. **This service and the app databases are where that deferred data lives.** This doc makes the technical side ready. None of it is legal advice; SU guidance takes precedence.
 
@@ -42,6 +42,8 @@ A Workers cron on the auth service. **Config-driven** (`retention.config.ts` —
 | Full accounts (email+password) | No login for **2 years** | Email warning ("log in within 60 days to keep your account"), reminder at 30 days, then anonymise |
 | Google-linked accounts | Workspace deletion upstream (leaving + 12 months per the Workspace policy) ends SSO; thereafter the 2-year clock applies like any account | Warn-then-anonymise |
 | Accounts holding any role | **Exempt** while roles are held; handover removes roles, then normal clocks | — |
+
+Safety property: if any app's `last-activity` hook fails, the guest cohort is skipped for that run — inactivity can't be proven without every app's answer.
 
 All periods are proposals until ratified; record adopted values in both the config and the committee policy. Every sweep action is audit-logged; a monthly digest email goes to the Archivist (its absence is an alert — see [operations.md](operations.md#monitoring)).
 

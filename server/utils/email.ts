@@ -82,6 +82,40 @@ export async function sendPasswordResetEmail(email: string, token: string): Prom
   })
 }
 
+/** Retention sweep: "log in to keep your account" warning (docs/gdpr-retention.md). */
+export async function sendRetentionWarningEmail(email: string, daysLeft: number): Promise<void> {
+  const { public: { baseURL } } = useRuntimeConfig()
+
+  await sendEmail({
+    to: email,
+    subject: `Your NNT account will be closed in ${daysLeft} days`,
+    html: emailLayout(`
+      <p>Your Nottingham New Theatre account hasn't been used for over two years.
+      Under our data retention policy it will be <strong>closed and anonymised in ${daysLeft} days</strong>.</p>
+      <p>Want to keep it? Just <a href="${baseURL}/login">log in</a> — that's all it takes.</p>
+      <p>If you'd rather it were closed, no action is needed. Your booking history is
+      kept anonymously for the theatre's records; your personal details are removed.</p>
+    `),
+  })
+}
+
+/** Retention sweep digest to the Archivist — its absence is an alert. */
+export async function sendRetentionDigestEmail(to: string, summary: Record<string, unknown>): Promise<void> {
+  const dryRun = summary.dryRun === true
+
+  await sendEmail({
+    to,
+    subject: `${dryRun ? '[DRY RUN] ' : ''}NNT retention sweep digest`,
+    html: emailLayout(`
+      <p>${dryRun
+        ? 'The retention sweep ran in <strong>dry-run</strong> mode — nothing was changed. Review and set dryRun: false in retention.config to arm it.'
+        : 'The retention sweep ran.'}</p>
+      <pre style="background:#f5f5f4;padding:12px;border-radius:8px;font-size:12px;">${JSON.stringify(summary, null, 2)}</pre>
+      <p style="font-size:13px;color:#666;">Full detail is in the audit log (action: retention.${dryRun ? 'dry-run' : 'sweep'}).</p>
+    `),
+  })
+}
+
 /**
  * Sent when someone tries to register with an email that already has a full
  * account — instead of a duplicate-account error, which would let anyone

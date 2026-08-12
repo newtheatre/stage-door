@@ -19,6 +19,11 @@ import { requireAuthAdmin } from '../server/utils/adminGuard'
 import { requireAccountUser } from '../server/utils/accountGuard'
 import { loadUserOr404, adminUserView } from '../server/utils/adminUsers'
 import { isWorkspaceProfile, resolveGoogleUser, WORKSPACE_DOMAIN } from '../server/utils/googleAccount'
+import { callAppHook, callAllAppHooks, HOOK_APPS } from '../server/utils/appHooks'
+import { eraseUser } from '../server/utils/erase'
+import { exportUser } from '../server/utils/exportUser'
+import { planRetention } from '../server/utils/retentionPlan'
+import { RETENTION_CONFIG } from '../server/utils/retentionConfig'
 
 // ── H3 fakes ────────────────────────────────────────────────────────────────
 
@@ -55,6 +60,11 @@ g.sendRedirect = (event: FakeEvent, url: string, status = 302) => {
 }
 g.getRouterParam = (event: FakeEvent, name: string) => event.params?.[name]
 g.getValidatedQuery = async (event: FakeEvent, parse: (query: unknown) => unknown) => parse(event.query ?? {})
+g.setHeader = () => {}
+
+/** Programmable stand-in for the global $fetch (app-hook calls in tests). */
+export const fetchMock = vi.fn()
+g.$fetch = fetchMock
 
 // ── Session store fake (nuxt-auth-utils) ────────────────────────────────────
 
@@ -133,6 +143,13 @@ Object.assign(g, {
   isWorkspaceProfile,
   resolveGoogleUser,
   WORKSPACE_DOMAIN,
+  callAppHook,
+  callAllAppHooks,
+  HOOK_APPS,
+  eraseUser,
+  exportUser,
+  planRetention,
+  RETENTION_CONFIG,
 })
 
 // ── Per-test reset ──────────────────────────────────────────────────────────
@@ -158,5 +175,6 @@ export function makeEvent(opts: Partial<FakeEvent> = {}): FakeEvent {
 beforeEach(() => {
   resetDb()
   sentEmails.length = 0
+  fetchMock.mockReset()
   vi.useRealTimers()
 })

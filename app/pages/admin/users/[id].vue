@@ -214,6 +214,36 @@
         </UPageCard>
 
         <UPageCard
+          title="Data & GDPR"
+          icon="i-lucide-file-lock"
+        >
+          <div class="flex flex-col gap-2">
+            <UButton
+              variant="outline"
+              icon="i-lucide-download"
+              block
+              :to="`/api/users/${id}/export`"
+              external
+            >
+              Download subject-access export
+            </UButton>
+            <UButton
+              variant="outline"
+              color="error"
+              icon="i-lucide-eraser"
+              block
+              @click="openErase"
+            >
+              Erase (anonymise) account…
+            </UButton>
+            <p class="text-xs text-muted">
+              Erasure is irreversible. Verify the requester's identity first —
+              see the operations runbook. Bookings survive anonymously.
+            </p>
+          </div>
+        </UPageCard>
+
+        <UPageCard
           title="Security operations"
           icon="i-lucide-siren"
         >
@@ -258,6 +288,42 @@
           </div>
         </UPageCard>
       </div>
+
+      <UModal
+        v-model:open="eraseOpen"
+        title="Erase this account"
+        description="Irreversible. The identity is anonymised here and in every app; bookings are kept without personal details."
+      >
+        <template #body>
+          <div class="flex flex-col gap-4">
+            <UFormField
+              :label="`Type the account's email (${user.email}) to confirm`"
+              name="confirmEmail"
+            >
+              <UInput
+                v-model="eraseConfirm"
+                class="w-full"
+              />
+            </UFormField>
+            <UAlert
+              v-if="eraseResult && !eraseResult.complete"
+              color="warning"
+              icon="i-lucide-alert-triangle"
+              title="Erasure incomplete — some app hooks failed"
+              :description="`Failed: ${eraseResult.hooks.filter(h => !h.ok).map(h => h.app).join(', ')}. Re-run to retry.`"
+            />
+            <UButton
+              color="error"
+              :loading="erasing"
+              :disabled="eraseConfirm.toLowerCase() !== user.email"
+              block
+              @click="eraseAccount"
+            >
+              Erase permanently
+            </UButton>
+          </div>
+        </template>
+      </UModal>
     </div>
   </UContainer>
 </template>
@@ -352,6 +418,36 @@ async function saveRoles() {
   await act('Roles updated', () =>
     $fetch(`/api/users/${id}/roles`, { method: 'PUT', body: { roles: roles.value } }))
   savingRoles.value = false
+}
+
+const eraseOpen = ref(false)
+
+function openErase() {
+  eraseOpen.value = true
+}
+const eraseConfirm = ref('')
+const erasing = ref(false)
+const eraseResult = ref<{ complete: boolean, hooks: { app: string, ok: boolean }[] } | null>(null)
+
+async function eraseAccount() {
+  erasing.value = true
+  try {
+    eraseResult.value = await $fetch<{ complete: boolean, hooks: { app: string, ok: boolean }[] }>(
+      `/api/users/${id}/erase`,
+      { method: 'POST', body: { confirmEmail: eraseConfirm.value } },
+    )
+    if (eraseResult.value.complete) {
+      eraseOpen.value = false
+      toast.add({ title: 'Account erased', color: 'success' })
+    }
+    await refresh()
+  }
+  catch (error) {
+    toast.add({ title: getErrorMessage(error, 'Erasure failed'), color: 'error' })
+  }
+  finally {
+    erasing.value = false
+  }
 }
 
 const adminReset = () => act('Reset email sent', () =>
