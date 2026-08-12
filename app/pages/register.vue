@@ -14,8 +14,6 @@
       >
         <template #description>
           One account for tickets, room bookings, and everything NNT.
-          Members with an <code>@newtheatre.org.uk</code> Google account can
-          skip this — Google sign-in arrives with the next phase.
         </template>
 
         <template #validation>
@@ -28,6 +26,25 @@
         </template>
 
         <template #footer>
+          <USeparator
+            label="or"
+            class="mb-4"
+          />
+          <UButton
+            :to="googleHref"
+            external
+            variant="outline"
+            color="neutral"
+            icon="i-simple-icons-google"
+            block
+            class="mb-2"
+          >
+            Sign in with Google (NNT accounts)
+          </UButton>
+          <p class="text-xs text-muted mb-4">
+            Got an <code>@newtheatre.org.uk</code> Workspace account? Use
+            Google — there's no need to create a password.
+          </p>
           Already have an account?
           <ULink
             :to="withRedirect('/login')"
@@ -47,6 +64,12 @@ import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
 
 const { fetch: refreshSession } = useUserSession()
 const { raw, withRedirect } = useRedirectTarget()
+
+// The redirect target rides the OAuth round-trip as `state` (validated
+// server-side on the way back) — same as the login page.
+const googleHref = computed(() =>
+  raw.value ? `/auth/google?state=${encodeURIComponent(raw.value)}` : '/auth/google',
+)
 
 definePageMeta({
   middleware: 'guest',

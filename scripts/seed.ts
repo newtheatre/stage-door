@@ -44,11 +44,14 @@ function generatePassword(): string {
   return `Aa1-${randomBytes(9).toString('base64url')}`
 }
 
+// Addresses must NOT use a reserved TLD (.test/.invalid/…): those are what
+// isUndeliverableEmail treats as anonymised placeholders, which would hide
+// every seeded user from /admin and block register/reset locally (#16).
 const seedUsers = [
-  { email: 'admin@stage-door.test', name: 'Dev Admin', roles: ['auth:ADMIN'], verified: true },
-  { email: 'member@stage-door.test', name: 'Dev Member', roles: ['proscenium:BOX_OFFICE'], verified: true },
-  { email: 'audience@stage-door.test', name: 'Dev Audience', roles: [], verified: false },
-  { email: 'guest@stage-door.test', name: 'Dev Guest (shadow)', roles: [], verified: false, shadow: true },
+  { email: 'admin@dev.newtheatre.org.uk', name: 'Dev Admin', roles: ['auth:ADMIN'], verified: true },
+  { email: 'member@dev.newtheatre.org.uk', name: 'Dev Member', roles: ['proscenium:BOX_OFFICE'], verified: true },
+  { email: 'audience@dev.newtheatre.org.uk', name: 'Dev Audience', roles: [], verified: false },
+  { email: 'guest@dev.newtheatre.org.uk', name: 'Dev Guest (shadow)', roles: [], verified: false, shadow: true },
 ] as const
 
 // Idempotent: replace previous seed users wholesale.

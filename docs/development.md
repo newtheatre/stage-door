@@ -58,6 +58,8 @@ Every PR that changes an auth flow adds/updates a test that fails without the ch
 
 ## Seeds
 
+Seed addresses use `@dev.newtheatre.org.uk`. They must **not** use a reserved TLD (`.test`, `.invalid`, `example.com`): those are exactly what `isUndeliverableEmail` treats as anonymised placeholders, so seeded users would be hidden from `/admin` and blocked from register/reset — the dev environment would silently diverge from production (#16).
+
 `bun run db:seed` is dev-only and **generates random credentials at runtime, printing them once**. It must refuse to run when `NODE_ENV=production` or when the D1 binding is remote. (Lesson inherited from Proscenium, whose seed created five known-password admin accounts — those were excluded at migration and the pattern must not recur.)
 
 ## Working with Claude Code
