@@ -1,3 +1,13 @@
+<script lang="ts" setup>
+import { hasRole } from '@newtheatre/auth-types'
+
+// The header reflects the session: nothing for logged-out visitors (they're
+// on /login or /register and have no account yet), name + admin link once
+// signed in — the only way back to /account from within this service.
+const { loggedIn, user } = useUserSession()
+const isAdmin = computed(() => hasRole(user.value, 'auth', 'ADMIN'))
+</script>
+
 <template>
   <div class="min-h-screen flex flex-col">
     <header class="border-b border-default">
@@ -8,7 +18,29 @@
         >
           The Nottingham New Theatre
         </NuxtLink>
-        <span class="text-sm text-muted">Account</span>
+
+        <div
+          v-if="loggedIn"
+          class="flex items-center gap-1"
+        >
+          <UButton
+            v-if="isAdmin"
+            to="/admin"
+            variant="ghost"
+            color="neutral"
+            size="sm"
+            icon="i-lucide-shield"
+            label="Admin"
+          />
+          <UButton
+            to="/account"
+            variant="ghost"
+            color="neutral"
+            size="sm"
+            icon="i-lucide-circle-user-round"
+            :label="user?.name || 'Account'"
+          />
+        </div>
       </UContainer>
     </header>
 
