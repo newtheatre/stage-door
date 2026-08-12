@@ -1,6 +1,6 @@
 # Integrating an App ("piggybacking" guide)
 
-You're building a new NNT app — or retrofitting an old one — and want login, SSO, and roles without building any of it. This is the complete checklist. Proscenium and rooms are the reference integrations; photos is the expected next reader.
+You're building a new NNT app — or retrofitting an old one — and want login, SSO, and roles without building any of it. This is the complete checklist. Proscenium ([PR #103](https://github.com/newtheatre/proscenium/pull/103)) and rooms ([PR #2](https://github.com/newtheatre/rooms/pull/2)) are the reference integrations — read their diffs alongside this doc; photos is the expected next reader.
 
 **Prerequisites:** the app runs on a `*.newtheatre.org.uk` subdomain as a Cloudflare Worker, is a Nuxt/Nitro app (anything h3-based works), and you can add worker secrets. If your app is *not* Nuxt: everything still applies — you just need an iron-compatible unseal of the `nnt-session` cookie; talk to the ITM before going down that road.
 
@@ -17,18 +17,24 @@ From the ITM (or via [operations.md](operations.md) if that's you):
 bun add nuxt-auth-utils @newtheatre/auth-types
 ```
 
-`nuxt.config.ts` — the session block must match [session-contract.md](session-contract.md) exactly:
+`nuxt.config.ts` — the session block must match [session-contract.md](session-contract.md) exactly. The cookie domain is **production-only** (localhost has no subdomains — a domain'd cookie breaks local dev), so split it with `$production`:
 
 ```ts
 export default defineNuxtConfig({
   modules: ['nuxt-auth-utils'],
-  runtimeConfig: {
-    session: {
-      name: 'nnt-session',
-      password: '',
-      maxAge: 60 * 60 * 24 * 30,
-      cookie: { domain: '.newtheatre.org.uk', sameSite: 'lax', secure: true },
+  $production: {
+    runtimeConfig: {
+      session: {
+        name: 'nnt-session',
+        password: '',
+        maxAge: 60 * 60 * 24 * 30,
+        cookie: { domain: '.newtheatre.org.uk', sameSite: 'lax', secure: true },
+      },
     },
+  },
+  runtimeConfig: {
+    session: { name: 'nnt-session', password: '', maxAge: 60 * 60 * 24 * 30 },
+    public: { authBaseURL: 'https://auth.newtheatre.org.uk' },
   },
 })
 ```
@@ -46,12 +52,23 @@ if (!hasRole(user, 'myapp', 'ADMIN')) throw createError({ statusCode: 403 })
 const { loggedIn, user } = useUserSession()
 ```
 
-Rules (contract §rules): read-only; ignore roles outside your namespace; ignore unknown fields. **Login/logout/register links point at the auth service:**
+Rules (contract §rules): read-only; ignore roles outside your namespace; ignore unknown fields. **Login/account links point at the auth service:**
 
 ```
 https://auth.newtheatre.org.uk/login?redirect=<url-encoded current page>
 https://auth.newtheatre.org.uk/account          ← "manage account" link
-POST https://auth.newtheatre.org.uk/api/auth/logout
+```
+
+**Logout** is a same-site form POST to the redirecting `/logout` route — a cross-origin `fetch` would need CORS the service deliberately doesn't have, while a form POST carries the cookie (SameSite=Lax compares *site*, not origin) and bounces back:
+
+```ts
+function logout() {
+  const form = document.createElement('form')
+  form.method = 'POST'
+  form.action = `${authBaseURL}/logout?redirect=${encodeURIComponent(window.location.origin)}`
+  document.body.appendChild(form)
+  form.submit()
+}
 ```
 
 Delete any local login/register/reset pages and credential columns. Apps do not store passwords. Ever again.
@@ -87,22 +104,31 @@ export async function ensureLocalUser(u: User) {
 
 FK against `users.id`. Never invent user rows with ids the auth service didn't issue (exception: `POST /api/users/shadow`, below). If you don't need per-user rows, skip this step entirely and just use `user.id` from the session.
 
+Practicalities from the reference integrations: debounce the upsert (once a minute per user per isolate is plenty — see rooms's `ensureLocalUser`), and run it from one central place (rooms: the global middleware; Proscenium: the authorization-resolver plugin). If you need to *query* by role locally (e.g. "notify all admins"), you may keep a **derived cache column** refreshed from the session on each upsert (rooms's `is_rooms_admin`) — but never gate access on it; the session is the authority and the cache self-heals within the staleness window.
+
 ## Step 5 — Privileged-route staleness check
 
 Anywhere you honour a role, enforce the 15-minute refresh (client route middleware shown; do the equivalent server-side for API routes):
 
 ```ts
-// app/middleware/admin.ts
-export default defineNuxtRouteMiddleware(() => {
-  const { user, session } = useUserSession()
-  if (!user.value || !hasRole(user.value, 'myapp', 'ADMIN')) return navigateTo('/')
-  if (isStale(session.value, 15 * 60_000))
+// app/middleware/admin.ts — check staleness BEFORE the role: a stale session
+// may be missing a freshly-granted role, and an expired one must re-read
+// before being turned away.
+export default defineNuxtRouteMiddleware((to) => {
+  const { loggedIn, user, session } = useUserSession()
+  const target = `${useRequestURL().origin}${to.fullPath}`
+  if (!loggedIn.value)
+    return navigateTo(`https://auth.newtheatre.org.uk/login?redirect=${encodeURIComponent(target)}`, { external: true })
+  if (isStale(session.value))
     return navigateTo(
-      `https://auth.newtheatre.org.uk/api/session/refresh?redirect=${encodeURIComponent(useRequestURL().href)}`,
+      `https://auth.newtheatre.org.uk/api/session/refresh?redirect=${encodeURIComponent(target)}`,
       { external: true },
     )
+  if (!hasRole(user.value, 'myapp', 'ADMIN')) return navigateTo('/')
 })
 ```
+
+Server-side, reject stale role-holding sessions with a 401 carrying `data: { stale: true }` so callers can distinguish "log in" from "refresh" (see rooms's `requireAdmin` / Proscenium's `getVerifiedSessionUser`). Sessions with no roles in your namespace need no staleness check — never put the auth service on your public request path.
 
 ## Step 6 — Role namespace
 
@@ -116,6 +142,7 @@ Pick a short lowercase namespace (usually the repo name) and define your roles a
 | `proscenium` | `ADMIN`, `MANAGER`, `BOX_OFFICE` | Site/box-office tiers (semantics per Proscenium's ability layer) |
 | `rooms` | `ADMIN` | Room-booking admin; logged-in is sufficient for booking requests |
 | `photos` | `ADMIN`, `UPLOADER` | Per the photos platform plan (granted when photos ships) |
+| `ticketing` | `ADMIN`, `MANAGER`, `BOX_OFFICE` | **Dormant.** Held by people the legacy-ticketing import brought in (docs/migration.md rule 4); no app reads them. When ticketing rebuilds on this stack, they're its starting role set — until then they grant nothing anywhere. |
 
 Update this table when you add a namespace.
 
@@ -142,6 +169,23 @@ Implement the three hook endpoints from [api-reference.md](api-reference.md#app-
 ## Step 9 — Local development
 
 See [development.md](development.md): you'll run without the cookie domain, with a dev seed user, and (optionally) against a locally-run auth service. Never point local dev at the production auth DB.
+
+The shipped pattern is a `/dev-login` server route — the single sanctioned exception to "apps never write the session" — guarded by `import.meta.dev` so it does not exist in production builds:
+
+```ts
+// server/routes/dev-login.get.ts
+export default defineEventHandler(async (event) => {
+  if (!import.meta.dev) throw createError({ statusCode: 404 })
+  const now = Date.now()
+  await setUserSession(event, {
+    user: { id: 'dev-admin', email: 'dev-admin@myapp.test', name: 'Dev Admin', verified: true, guest: false, roles: ['myapp:ADMIN'] },
+    loggedInAt: now, refreshedAt: now, epoch: 0,
+  })
+  return sendRedirect(event, '/', 302)
+})
+```
+
+Your app middleware then sends logged-out visitors to `/dev-login` in dev and the hosted login in production (see the reference integrations).
 
 ## Integration acceptance checklist
 

@@ -22,7 +22,7 @@ npx wrangler d1 ...    # production D1 — read docs/operations.md before touchi
 
 ## Source of truth & docs discipline
 
-- These docs were written **before the code** (spec-first). While building: implement what the docs say; if the docs are wrong or infeasible, *stop and flag it* — don't silently diverge. After cutover the relationship inverts: code is truth and docs must follow it.
+- These docs were written **before the code** (spec-first), and the estate cut over on 2026-08-12 — so the inversion is now in force: **code is truth and docs must follow it**. A PR that changes behaviour updates the matching doc in the same PR; where you find drift, fix the doc to match the code (and flag it if the code looks wrong).
 - **Any PR that changes behaviour updates the matching doc in the same PR.** Schema → `docs/data-model.md`; endpoints → `docs/api-reference.md`; session shape → `docs/session-contract.md` (and bump its version header); anything an operator does → `docs/operations.md`.
 - New architectural choice, or reversing an old one → add an ADR in `docs/decisions/` (template in that folder's README). Never edit an accepted ADR's decision; supersede it.
 

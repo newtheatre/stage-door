@@ -2,7 +2,7 @@
 
 Single sign-on and identity for the Nottingham New Theatre's web estate (`*.newtheatre.org.uk`). One account per person, shared across [Proscenium](https://github.com/newtheatre/proscenium) (main site + box office), [rooms](https://github.com/newtheatre/rooms) (room booking), the planned photos platform, and any future app.
 
-**Live at:** `https://auth.newtheatre.org.uk` · **Owner:** IT Manager / Archivist · **Status:** spec-first — these docs were written before the code and are the source of truth during the build. Where code and docs disagree during implementation, the docs win until a documented decision says otherwise.
+**Live at:** `https://auth.newtheatre.org.uk` · **Owner:** IT Manager / Archivist · **Status:** live — the estate cut over on 2026-08-12 (both consumer apps authenticate through this service). The docs were written spec-first; post-cutover the relationship is inverted: **code is truth and the docs follow it** — a PR that changes behaviour updates the matching doc in the same PR (CLAUDE.md).
 
 ## What it does
 

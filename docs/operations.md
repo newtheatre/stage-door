@@ -4,18 +4,25 @@ Procedures for whoever holds `auth:ADMIN` — normally the IT Manager/Archivist,
 
 ## Deployments
 
-Deploys go through CI on merge to `main` (wrangler). Migrations are applied explicitly, not automatically:
+Deploys go through CI on merge to `main` (`.github/workflows/deploy.yml`: test → lint → build → wrangler deploy; requires the `CLOUDFLARE_API_TOKEN` repo secret). Manual fallback — wrangler auth here spans multiple Cloudflare accounts, so the account id must be explicit:
 
 ```bash
-npx wrangler d1 migrations list auth --remote        # what's pending
-npx wrangler d1 migrations apply auth --remote       # apply during a quiet window
+bun run build
+CLOUDFLARE_ACCOUNT_ID=3d250a94794003bd921b7f0379de7f00 npx wrangler --cwd .output deploy
 ```
 
-Rollback = redeploy the previous commit. **Migrations don't roll back** — D1/SQLite rebuilds tables; if a migration is bad, write a forward migration that fixes it. Before any migration touching `users`: `npx wrangler d1 export auth --remote --output backup-$(date +%F).sql` and keep it until verified.
+Migrations are applied explicitly, not automatically. The build-generated wrangler config resolves its migrations path wrongly when invoked standalone — use the checked-in `wrangler.d1.jsonc`:
+
+```bash
+npx wrangler d1 migrations list auth --remote -c wrangler.d1.jsonc    # what's pending
+npx wrangler d1 migrations apply auth --remote -c wrangler.d1.jsonc   # apply during a quiet window
+```
+
+Rollback = redeploy the previous commit. **Migrations don't roll back** — D1/SQLite rebuilds tables; if a migration is bad, write a forward migration that fixes it. Before any migration touching `users`: `npx wrangler d1 export auth --remote --output backup-$(date +%F).sql` and keep it until verified. (Cutover lesson, 2026-08-12: verify a target DB's *actual* schema before applying a migration written against the schema files — the live Proscenium DB turned out to be a copy that had missed one earlier migration, and the batch failed wholesale on a DROP of a column it never had.)
 
 ## Backups
 
-Weekly automated `wrangler d1 export` of the `auth` DB to the R2 backups bucket (GitHub Actions cron), retained 8 weeks; monthly snapshots retained 12 months, then deleted (they contain personal data — retention policy applies to backups too). Restore drill: import into a fresh local SQLite, run the app against it, log the result in the estate tracker annually at handover.
+Weekly `wrangler d1 export` of the `auth` DB to the `nnt-db-backups` R2 bucket (`.github/workflows/backup.yml`, Mondays 04:00 UTC; first Monday of the month also writes a `monthly/` copy). Retention is enforced by R2 lifecycle rules on the bucket — `weekly/` expires at 70 days, `monthly/` at 400 (they contain personal data — retention policy applies to backups too). Restore drill: import into a fresh local SQLite, run the app against it, log the result in the estate tracker annually at handover.
 
 ## Secrets inventory
 
@@ -39,6 +46,8 @@ Weekly automated `wrangler d1 export` of the `auth` DB to the R2 backups bucket 
 ## Service tokens
 
 Issue (new app or rotation): admin UI → Service Tokens → New. The plaintext `nnt_svc_…` value is shown **once**; put it straight into the password manager and the app's worker secret. Revoke the old row after the app redeploys. Tokens have no expiry — rotate at handover and on any suspicion. `last_used_at` going stale for an active app is a sign something's misconfigured.
+
+Historical note: the `proscenium` and `rooms` tokens issued at cutover (2026-08-11/12) were minted straight into the DB + worker secrets without the plaintext ever being displayed — so they are **not in the password manager**. That's fine operationally (nothing needs the plaintext again), but rotate them via the admin UI at the next convenient moment so the password manager holds a copy per the table above.
 
 ## User operations (admin UI, `/admin`)
 
