@@ -1,5 +1,6 @@
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
+import type { RoleGrant } from './session'
 
 type UserRow = typeof schema.users.$inferSelect
 
@@ -15,8 +16,12 @@ export async function loadUserOr404(id: string | undefined): Promise<UserRow> {
   return user
 }
 
-/** The admin-facing profile shape — never includes the password hash. */
-export function adminUserView(user: UserRow, roles: string[] = []) {
+/**
+ * The admin-facing profile shape — never includes the password hash.
+ * `roles` stays the active-only string list (what the session would carry);
+ * `grants` is the full per-grant detail including expired rows (ADR-0011).
+ */
+export function adminUserView(user: UserRow, grants: RoleGrant[] = []) {
   return {
     id: user.id,
     email: user.email,
@@ -30,6 +35,7 @@ export function adminUserView(user: UserRow, roles: string[] = []) {
     sessionEpoch: user.sessionEpoch,
     createdAt: user.createdAt,
     lastLogin: user.lastLogin,
-    roles,
+    roles: grants.filter(g => !g.expired).map(g => g.role),
+    grants,
   }
 }

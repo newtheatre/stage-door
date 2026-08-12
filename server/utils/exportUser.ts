@@ -12,7 +12,9 @@ export async function exportUser(userId: string) {
     throw createError({ statusCode: 404, statusMessage: 'User not found' })
   }
 
-  const roles = await loadRoles(userId)
+  // Full grants, expired included — grant notes and provenance are personal
+  // data and belong in the bundle (ADR-0011).
+  const roleGrants = await loadRoleGrants(userId)
   const legacyIds = await db.select({
     source: schema.legacyIds.source,
     legacyId: schema.legacyIds.legacyId,
@@ -39,7 +41,7 @@ export async function exportUser(userId: string) {
       disabled: user.disabled,
       createdAt: user.createdAt,
       lastLogin: user.lastLogin,
-      roles,
+      roles: roleGrants,
       legacyIds,
     },
     auditEntries,

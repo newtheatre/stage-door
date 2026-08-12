@@ -48,5 +48,5 @@ export default defineEventHandler(async (event) => {
     },
   })
 
-  return { user: adminUserView(updated!, await loadRoles(user.id)) }
+  return { user: adminUserView(updated!, await loadRoleGrants(user.id)) }
 })

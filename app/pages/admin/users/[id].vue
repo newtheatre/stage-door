@@ -112,39 +112,85 @@
         <UPageCard
           title="Roles"
           icon="i-lucide-shield"
-          description="Scoped strings, e.g. proscenium:BOX_OFFICE. Changes propagate within 15 minutes on privileged surfaces — pair with force-logout for instant effect."
+          description="Changes propagate within 15 minutes on privileged surfaces — pair with force-logout for instant effect. Expired grants stay listed for one-click renewal: just edit the date."
         >
           <div class="flex flex-col gap-3">
-            <div class="flex flex-wrap gap-2">
+            <div
+              v-for="(grant, i) in grants"
+              :key="grant.role"
+              class="flex flex-wrap items-center gap-2"
+              :class="grant.expired ? 'opacity-60' : ''"
+            >
               <UBadge
-                v-for="role in roles"
-                :key="role"
-                color="primary"
+                :color="grant.expired ? 'error' : 'primary'"
                 variant="subtle"
-                class="cursor-pointer"
-                @click="removeRole(role)"
               >
-                {{ role }} ✕
+                {{ grant.role }}
               </UBadge>
-              <span
-                v-if="!roles.length"
-                class="text-sm text-muted"
-              >No roles</span>
+              <UInput
+                :model-value="toDateInput(grant.expiresAt)"
+                type="date"
+                size="sm"
+                class="w-36"
+                @update:model-value="value => setExpiry(i, value as string)"
+              />
+              <span class="text-xs text-muted">
+                {{ grant.expiresAt === null ? 'permanent' : grant.expired ? `expired ${new Date(grant.expiresAt).toLocaleDateString('en-GB')}` : `expires ${new Date(grant.expiresAt).toLocaleDateString('en-GB')}` }}
+              </span>
+              <UInput
+                v-model="grant.note"
+                placeholder="note"
+                size="sm"
+                class="w-32"
+              />
+              <UButton
+                variant="ghost"
+                color="error"
+                size="xs"
+                icon="i-lucide-x"
+                @click="removeGrant(i)"
+              />
             </div>
-            <div class="flex gap-2">
+            <span
+              v-if="!grants.length"
+              class="text-sm text-muted"
+            >No roles</span>
+
+            <div class="flex flex-wrap gap-2 items-center">
+              <USelectMenu
+                v-model="pickedDefinition"
+                :items="definitionItems"
+                placeholder="Add a role…"
+                class="w-64"
+                @update:model-value="addFromDefinition"
+              />
+              <UButton
+                variant="ghost"
+                color="neutral"
+                size="sm"
+                @click="toggleAdvanced"
+              >
+                {{ advanced ? 'Hide advanced' : 'Advanced' }}
+              </UButton>
+            </div>
+            <div
+              v-if="advanced"
+              class="flex gap-2"
+            >
               <UInput
                 v-model="newRole"
-                placeholder="app:ROLE"
+                placeholder="app:ROLE (free-text — a namespace can exist before its definitions do)"
                 class="flex-1"
-                @keyup.enter="addRole"
+                @keyup.enter="addFreeText"
               />
               <UButton
                 variant="outline"
-                @click="addRole"
+                @click="addFreeText"
               >
                 Add
               </UButton>
             </div>
+
             <UButton
               :loading="savingRoles"
               :disabled="!rolesChanged"
@@ -351,6 +397,7 @@ interface AdminUserDetail {
   createdAt: number
   lastLogin: number | null
   roles: string[]
+  grants: { role: string, expiresAt: number | null, grantedAt: number | null, grantedBy: string | null, note: string | null, expired: boolean }[]
   legacyIds: { source: string, legacyId: string }[]
 }
 
@@ -358,18 +405,93 @@ interface AdminUserDetail {
 const { data, refresh } = await useFetch<{ user: AdminUserDetail }>(`/api/users/${id}`)
 const user = computed(() => data.value?.user)
 
+interface GrantRow {
+  role: string
+  expiresAt: number | null
+  note: string | null
+  expired?: boolean
+}
+
 const profileForm = reactive({ name: '', email: '' })
-const roles = ref<string[]>([])
+const grants = ref<GrantRow[]>([])
 const newRole = ref('')
 const pendingEmail = ref('')
+const advanced = ref(false)
+const pickedDefinition = ref<{ label: string, value: string, description: string } | undefined>()
+
+interface Definition {
+  id: string
+  namespace: string
+  role: string
+  description: string
+  defaultExpiresAt: number | null
+}
+
+const { data: definitionsData } = await useFetch<{ definitions: Definition[] }>('/api/role-definitions')
+
+const definitionItems = computed(() => (definitionsData.value?.definitions ?? [])
+  .filter(d => !grants.value.some(g => g.role === `${d.namespace}:${d.role}`))
+  .map(d => ({
+    label: `${d.namespace}:${d.role}`,
+    value: d.id,
+    // Shown as the option hint by USelectMenu.
+    description: d.description,
+  })))
 
 watchEffect(() => {
   if (user.value) {
     profileForm.name = user.value.name
     profileForm.email = user.value.email
-    roles.value = [...user.value.roles]
+    grants.value = (user.value.grants ?? []).map(g => ({
+      role: g.role,
+      expiresAt: g.expiresAt,
+      note: g.note,
+      expired: g.expired,
+    }))
   }
 })
+
+// Date-only input ⇄ epoch ms (expiries land at 23:59:59 UTC on the chosen day).
+function toDateInput(expiresAt: number | null): string {
+  return expiresAt === null ? '' : new Date(expiresAt).toISOString().slice(0, 10)
+}
+
+function setExpiry(index: number, value: string) {
+  const grant = grants.value[index]!
+  grant.expiresAt = value
+    ? Date.UTC(
+        Number(value.slice(0, 4)), Number(value.slice(5, 7)) - 1, Number(value.slice(8, 10)),
+        23, 59, 59, 999,
+      )
+    : null
+  grant.expired = grant.expiresAt !== null && grant.expiresAt <= Date.now()
+}
+
+function removeGrant(index: number) {
+  grants.value.splice(index, 1)
+}
+
+function toggleAdvanced() {
+  advanced.value = !advanced.value
+}
+
+function addFromDefinition(picked: { value: string } | undefined) {
+  const definition = definitionsData.value?.definitions.find(d => d.id === picked?.value)
+  if (!definition) return
+  const role = `${definition.namespace}:${definition.role}`
+  if (!grants.value.some(g => g.role === role)) {
+    grants.value.push({ role, expiresAt: definition.defaultExpiresAt, note: null, expired: false })
+  }
+  pickedDefinition.value = undefined
+}
+
+function addFreeText() {
+  const role = newRole.value.trim()
+  if (role && !grants.value.some(g => g.role === role)) {
+    grants.value.push({ role, expiresAt: null, note: null, expired: false })
+  }
+  newRole.value = ''
+}
 
 const loginMethods = computed(() => {
   const methods = []
@@ -378,9 +500,13 @@ const loginMethods = computed(() => {
   return methods.join(' + ') || 'none (shadow account)'
 })
 
-const rolesChanged = computed(() =>
-  JSON.stringify([...roles.value].sort()) !== JSON.stringify([...(user.value?.roles ?? [])].sort()),
-)
+const rolesChanged = computed(() => {
+  const normalise = (rows: GrantRow[]) =>
+    JSON.stringify([...rows].map(g => ({ role: g.role, expiresAt: g.expiresAt, note: g.note ?? null }))
+      .sort((a, b) => a.role.localeCompare(b.role)))
+  return normalise(grants.value)
+    !== normalise((user.value?.grants ?? []).map(g => ({ role: g.role, expiresAt: g.expiresAt, note: g.note })))
+})
 
 const saving = ref(false)
 const savingRoles = ref(false)
@@ -403,20 +529,13 @@ async function saveProfile() {
   saving.value = false
 }
 
-function addRole() {
-  const role = newRole.value.trim()
-  if (role && !roles.value.includes(role)) roles.value.push(role)
-  newRole.value = ''
-}
-
-function removeRole(role: string) {
-  roles.value = roles.value.filter(r => r !== role)
-}
-
 async function saveRoles() {
   savingRoles.value = true
   await act('Roles updated', () =>
-    $fetch(`/api/users/${id}/roles`, { method: 'PUT', body: { roles: roles.value } }))
+    $fetch(`/api/users/${id}/roles`, {
+      method: 'PUT',
+      body: { roles: grants.value.map(({ role, expiresAt, note }) => ({ role, expiresAt, note: note || null })) },
+    }))
   savingRoles.value = false
 }
 

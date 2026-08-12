@@ -32,6 +32,26 @@ describe('session refresh', () => {
     expect((sealedSession(event)!.user as { roles: string[] }).roles).toEqual(['rooms:ADMIN'])
   })
 
+  it('an expired grant vanishes at refresh without the row being deleted', async () => {
+    const user = await createUser({ email: 'alice@example.com', plainPassword: 'Passw0rd' })
+    await grantRole(user.id, 'rooms:ADMIN', { expiresAt: new Date(Date.now() + 60_000) })
+
+    const event = await loggedInEvent('alice@example.com')
+    expect((sealedSession(event)!.user as { roles: string[] }).roles).toEqual(['rooms:ADMIN'])
+
+    // The grant expires (row untouched otherwise)…
+    await db.update(schema.userRoles)
+      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .where(eq(schema.userRoles.userId, user.id))
+
+    // …and the next refresh seals a session without it.
+    const result = await refreshPost(event)
+    expect(result.user.roles).toEqual([])
+
+    const rows = await db.select().from(schema.userRoles).where(eq(schema.userRoles.userId, user.id)).all()
+    expect(rows).toHaveLength(1) // history intact — read-time enforcement, not deletion
+  })
+
   it('preserves loggedInAt but updates refreshedAt', async () => {
     await createUser({ email: 'alice@example.com', plainPassword: 'Passw0rd' })
     const event = await loggedInEvent('alice@example.com')

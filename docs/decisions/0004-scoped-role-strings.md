@@ -1,6 +1,6 @@
 # ADR-0004: Roles as scoped strings; authorisation stays in apps
 
-**Status:** Accepted · **Date:** 2026-08-09 · **Deciders:** Matt Adcock (ITM 26/27)
+**Status:** Accepted · Partially superseded by [ADR-0011](0011-role-definitions-and-expiry.md) (grant expiry + optional definitions; scoped strings and no-mandatory-registry survive) · **Date:** 2026-08-09 · **Deciders:** Matt Adcock (ITM 26/27)
 
 ## Context
 

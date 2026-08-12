@@ -104,9 +104,11 @@ describe('exportUser — the subject-access bundle', () => {
     expect(bundle.account).toMatchObject({
       id: user.id,
       email: 'subject@example-user.co.uk',
-      roles: ['rooms:ADMIN'],
       legacyIds: [{ source: 'rooms', legacyId: 'old-uuid' }],
     })
+    // Roles export as full grants (expired included) — ADR-0011.
+    expect(bundle.account.roles).toHaveLength(1)
+    expect(bundle.account.roles[0]).toMatchObject({ role: 'rooms:ADMIN', expiresAt: null, expired: false })
     expect(bundle.account).not.toHaveProperty('password')
     expect(bundle.apps.rooms).toEqual({ bookings: [1, 2] })
     expect(bundle.apps.proscenium).toEqual({ reservations: [3] })

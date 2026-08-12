@@ -7,13 +7,14 @@ Why the service is the way it is. One decision per file, numbered, never edited 
 | [0001](0001-extend-nuxt-auth-utils.md) | Build on nuxt-auth-utils rather than Better Auth / OpenAuth | Accepted |
 | [0002](0002-standalone-service.md) | Standalone service at auth.newtheatre.org.uk | Accepted |
 | [0003](0003-shared-sealed-cookie-sessions.md) | SSO via shared sealed cookie on `.newtheatre.org.uk` | Accepted |
-| [0004](0004-scoped-role-strings.md) | Roles as scoped strings, authorisation stays in apps | Accepted — revisit planned ([roadmap R1](../roadmap.md): definitions table + expiry) |
+| [0004](0004-scoped-role-strings.md) | Roles as scoped strings, authorisation stays in apps | Accepted — partially superseded by [0011](0011-role-definitions-and-expiry.md) (definitions + expiry; strings survive) |
 | [0005](0005-workspace-only-google-sso.md) | Google SSO restricted to the Workspace domain | Accepted |
 | [0006](0006-merge-migration-keeping-hashes.md) | One-off user merge keeping scrypt hashes | Accepted |
 | [0007](0007-shadow-accounts-central.md) | Guest/shadow accounts live in the central identity store | Accepted |
 | [0008](0008-anonymise-not-delete.md) | Erasure = anonymisation, not deletion | Accepted |
 | [0009](0009-d1-backed-rate-limiting.md) | Rate limiting via D1-backed fixed-window counters | Accepted |
 | [0010](0010-legacy-roles-dormant-namespace.md) | Legacy-import roles land in a dormant `ticketing:*` namespace | Accepted |
+| [0011](0011-role-definitions-and-expiry.md) | Role definitions and grant expiry (roles v2) | Accepted |
 
 ## Template
 

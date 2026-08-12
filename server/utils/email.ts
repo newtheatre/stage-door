@@ -82,6 +82,49 @@ export async function sendPasswordResetEmail(email: string, token: string): Prom
   })
 }
 
+/** Role expiry warning to the holder — 14 days out (ADR-0011). */
+export async function sendRoleExpiryWarningEmail(
+  email: string,
+  grants: { role: string, expiresAt: number }[],
+): Promise<void> {
+  const rows = grants
+    .map(g => `<li><code>${g.role}</code> — expires ${new Date(g.expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</li>`)
+    .join('')
+
+  await sendEmail({
+    to: email,
+    subject: grants.length === 1 ? 'Your NNT role is expiring soon' : 'Some of your NNT roles are expiring soon',
+    html: emailLayout(`
+      <p>The following role${grants.length === 1 ? '' : 's'} on your NNT account will expire soon:</p>
+      <ul>${rows}</ul>
+      <p>Most roles run for a committee year and lapse automatically at handover.
+      If you're continuing in the role, ask the IT Manager to renew it — it takes one click.
+      If you're handing over, no action is needed.</p>
+    `),
+  })
+}
+
+/** Role expiry digest to the ITM — the renew-or-let-lapse prompt. */
+export async function sendRoleExpiryDigestEmail(
+  to: string,
+  warned: { email: string, role: string, expiresAt: number }[],
+): Promise<void> {
+  const rows = warned
+    .map(w => `<li>${w.email} — <code>${w.role}</code> expires ${new Date(w.expiresAt).toLocaleDateString('en-GB')}</li>`)
+    .join('')
+
+  await sendEmail({
+    to,
+    subject: 'NNT role expiry digest — renew or let lapse',
+    html: emailLayout(`
+      <p>These role grants enter their expiry window today and the holders have been warned:</p>
+      <ul>${rows}</ul>
+      <p>Renew any that should continue (edit the expiry date on the user's admin page);
+      the rest lapse automatically — that's the point.</p>
+    `),
+  })
+}
+
 /** Retention sweep: "log in to keep your account" warning (docs/gdpr-retention.md). */
 export async function sendRetentionWarningEmail(email: string, daysLeft: number): Promise<void> {
   const { public: { baseURL } } = useRuntimeConfig()

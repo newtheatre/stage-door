@@ -2,18 +2,9 @@
 
 Future work agreed in principle but not yet scheduled. Each item states the problem, the sketched design, and what it touches — enough that a future session (human or Claude Code) can pick it up without re-deriving the thinking. When an item is picked up, it graduates: ADR for the decision, then specs into the main docs.
 
-## R1 — Roles v2: configurable roles with expiry *(committed direction — revisit after Phase 5)*
+## R1 — Roles v2: configurable roles with expiry *(GRADUATED 2026-08-12 → [ADR-0011](decisions/0011-role-definitions-and-expiry.md))*
 
-**Problem.** v1 roles are free-text scoped strings granted indefinitely. Two gaps flagged by the ITM: roles should be **easily configurable** (grantable from a dropdown of known roles, not typed strings with typo risk) and should **support expiry** — which is really the committee-handover problem in disguise: almost every role at the NNT is held for a committee year, and today revoking them all is a manual handover-checklist step that history says gets missed.
-
-**Design sketch.**
-
-- `user_roles` gains `expires_at` (nullable = permanent), `granted_by`, `granted_at`, `note`. **Expiry is enforced at read time**: everywhere roles are loaded into a session (login, SSO, `/api/session/refresh`), filter `expires_at IS NULL OR expires_at > now`. No cron needed for correctness — an expired role vanishes from privileged surfaces within the existing 15-minute staleness window, which is the whole point of having built refresh first. A tidy-up job can delete long-expired rows and is cosmetic.
-- New `role_definitions` table: `namespace`, `role`, `description`, `default_expiry` (`none` | `end-of-committee-year` | days). Drives the admin UI: granting becomes pick-user → pick-role-from-dropdown → expiry pre-filled from the default, editable. Free-text grant stays available behind an "advanced" toggle so a namespace can still exist before its definitions do.
-- A single config value for the **committee year end** (e.g. 31 July) powers the `end-of-committee-year` default. Granting `proscenium:BOX_OFFICE` in October defaults to expiring 31 July; handover stops depending on anyone remembering to revoke.
-- Expiry warnings: 14 days out, email the holder and the ITM digest. Renewal = re-grant (one click, new expiry, audit-logged).
-- **ADR impact:** partially supersedes [ADR-0004](decisions/0004-scoped-role-strings.md) — scoped strings stay (sessions, checks, and app code are unchanged), but "no registry" gives way to an *optional* definitions table for UX and defaults. Write ADR-0009 when picked up.
-- **Touches:** data-model, api-reference (`PUT /api/users/:id/roles` gains per-role expiry), session-contract **unchanged** (roles remain `string[]` — expiry is a grant property, not a session property; this is deliberate, keep it that way), operations (handover checklist gets shorter), integrating-an-app (namespace table gains a definitions step).
+Built as sketched: `user_roles` expiry enforced at read time, `role_definitions` driving dropdown grants with committee-year defaults (31 July, `rolesConfig.ts`), 14-day expiry warnings + ITM digest, free-text grants surviving behind Advanced. Session contract unchanged. Note for R4's Workspace-Groups sync: expiry semantics now exist, as it wanted.
 
 ## R2 — MFA *(committed direction — scope decision needed at pickup)*
 
