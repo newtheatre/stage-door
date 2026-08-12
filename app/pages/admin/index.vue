@@ -28,7 +28,33 @@
       :columns="columns"
       :loading="pending"
       @select="(_e: Event, row: TableRow<Row>) => onSelect(row)"
-    />
+    >
+      <!-- Roles wrap as badges: a comma-joined string was clipped by the
+           table at narrow widths, hiding whether someone held two roles
+           or five. -->
+      <template #roles-cell="{ row }">
+        <div
+          v-if="row.original.roles.length"
+          class="flex flex-wrap gap-1 max-w-52"
+        >
+          <UBadge
+            v-for="role in row.original.roles"
+            :key="role"
+            color="primary"
+            variant="subtle"
+            size="sm"
+            class="max-w-full truncate"
+            :title="role"
+          >
+            {{ role }}
+          </UBadge>
+        </div>
+        <span
+          v-else
+          class="text-muted"
+        >—</span>
+      </template>
+    </UTable>
 
     <div class="flex items-center justify-between">
       <p class="text-sm text-muted">
@@ -38,6 +64,7 @@
         </template>
       </p>
       <UPagination
+        v-if="showPagination"
         v-model:page="page"
         :total="data?.total ?? 0"
         :items-per-page="data?.pageSize ?? 20"
@@ -136,12 +163,15 @@ watch([q, filter], () => {
 
 const { data, pending, refresh } = await useFetch('/api/users', { query })
 
+// A pager for a single page of results is noise.
+const showPagination = computed(() => (data.value?.total ?? 0) > (data.value?.pageSize ?? 20))
+
 interface Row {
   id: string
   email: string
   name: string
   status: string
-  roles: string
+  roles: string[]
 }
 
 interface ApiUser {
@@ -159,15 +189,21 @@ const rows = computed<Row[]>(() => ((data.value?.users ?? []) as ApiUser[]).map(
   email: u.email,
   name: u.name,
   status: u.disabled ? 'Disabled' : u.guest ? 'Guest' : u.verified ? 'Verified' : 'Unverified',
-  roles: u.roles.join(', ') || '—',
+  roles: u.roles,
 })))
 
+// Email and name are capped so the table fits its container: uncapped, a
+// long address pushed the Roles column off the right edge entirely. Full
+// values remain available via the title attribute and the user page.
 const columns = [
-  { accessorKey: 'email', header: 'Email' },
-  { accessorKey: 'name', header: 'Name' },
+  { accessorKey: 'email', header: 'Email', meta: { class: { td: 'max-w-56 truncate' } } },
+  { accessorKey: 'name', header: 'Name', meta: { class: { td: 'max-w-40 truncate' } } },
   { accessorKey: 'status', header: 'Status' },
   { accessorKey: 'roles', header: 'Roles' },
 ]
+
+// Long role lists used to render as one comma-joined string, which the
+// table clipped at narrow widths. Badges wrap instead.
 
 function onSelect(row: TableRow<Row>) {
   navigateTo(`/admin/users/${row.original.id}`)
