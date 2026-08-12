@@ -1,0 +1,27 @@
+# Test + lint on every push and PR. Deployment is NOT here — Cloudflare's
+# Workers Builds git integration deploys main on its own.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Test
+        run: bun run test
+
+      - name: Lint
+        run: bun run lint

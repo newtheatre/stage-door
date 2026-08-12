@@ -4,7 +4,7 @@ Procedures for whoever holds `auth:ADMIN` — normally the IT Manager/Archivist,
 
 ## Deployments
 
-Deploys go through CI on merge to `main` (`.github/workflows/deploy.yml`: test → lint → build → wrangler deploy; requires the `CLOUDFLARE_API_TOKEN` repo secret). Manual fallback — wrangler auth here spans multiple Cloudflare accounts, so the account id must be explicit:
+Deploys are handled by Cloudflare's Workers Builds git integration — pushing `main` builds and deploys automatically. GitHub Actions runs test + lint only (`.github/workflows/ci.yml`). Manual fallback — wrangler auth here spans multiple Cloudflare accounts, so the account id must be explicit:
 
 ```bash
 bun run build
@@ -22,7 +22,7 @@ Rollback = redeploy the previous commit. **Migrations don't roll back** — D1/S
 
 ## Backups
 
-Weekly `wrangler d1 export` of the `auth` DB to the `nnt-db-backups` R2 bucket (`.github/workflows/backup.yml`, Mondays 04:00 UTC; first Monday of the month also writes a `monthly/` copy). Retention is enforced by R2 lifecycle rules on the bucket — `weekly/` expires at 70 days, `monthly/` at 400 (they contain personal data — retention policy applies to backups too). Restore drill: import into a fresh local SQLite, run the app against it, log the result in the estate tracker annually at handover.
+Weekly `wrangler d1 export` of the `auth` DB to the `nnt-db-backups` R2 bucket (`.github/workflows/backup.yml`, Mondays 04:00 UTC; first Monday of the month also writes a `monthly/` copy — this workflow is the one thing that still needs the `CLOUDFLARE_API_TOKEN` repo secret: D1:Edit + R2:Edit). Retention is enforced by R2 lifecycle rules on the bucket — `weekly/` expires at 70 days, `monthly/` at 400 (they contain personal data — retention policy applies to backups too). Restore drill: import into a fresh local SQLite, run the app against it, log the result in the estate tracker annually at handover.
 
 ## Secrets inventory
 

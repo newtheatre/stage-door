@@ -39,8 +39,8 @@ export default defineTask({
       .map(u => u.id)
     const lastActivity = new Map<string, number>()
     let hookFailure = false
-    for (let i = 0; i < guestIds.length && !hookFailure; i += 500) {
-      const batch = guestIds.slice(i, i + 500)
+    for (let i = 0; i < guestIds.length && !hookFailure; i += 90) { // D1: 100 bound params max
+      const batch = guestIds.slice(i, i + 90)
       const results = await callAllAppHooks<Record<string, number | null>>('last-activity', { userIds: batch })
       for (const result of results) {
         if (!result.ok) {
