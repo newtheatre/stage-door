@@ -1,6 +1,8 @@
 # Migration: merging Proscenium & rooms users
 
-The one-off migration that populated the auth DB from the two legacy user tables. **Historical after cutover** — kept because it explains why the data looks the way it does (preserved ids, `legacy_ids`, guest rows), and as the template for migrating any future app in (ticketing, eventually).
+The one-off migration that populated the auth DB from the two legacy user tables. **Ran for real on 2026-08-11/12; this document is now historical** — kept because it explains why the data looks the way it does (preserved ids, `legacy_ids`, guest rows), and as the template for migrating any future app in (ticketing, eventually).
+
+Final production numbers: 9,971 users imported (605 + 9,330 legacy Proscenium-only, 21 rooms-only, 13 merged, 594 + 8,267 shadow, 3 neutralised, 4 case-folds), 9,991 legacy ids, roles `auth:ADMIN`=1 `proscenium:ADMIN`=1 `proscenium:MANAGER`=1 `rooms:ADMIN`=6 `ticketing:*`=25 (dormant). All 18 gate assertions passed against production. The ~8.3k undeliverable-domain rows were additionally `disabled` post-import (see [security.md](security.md) — the register-claim hotfix).
 
 Scripts live in `scripts/migrate/` and are runnable end-to-end against local copies (`export.sh` → `rehearse.sh`; see that folder's README). **The rehearsal is mandatory**: run against exported copies, commit the output counts to the PR, and only then run for real. First full rehearsal against production exports passed all gate assertions on 2026-08-11 (639 users: 605 Proscenium-only, 21 rooms-only, 13 merged; 4 case-folds; 656 legacy ids).
 

@@ -11,6 +11,7 @@ This service protects a student theatre's box office, room bookings, and member 
 | Threat | Stance |
 |---|---|
 | Credential stuffing / brute force | Rate limits per IP + per account on login/register/forgot; scrypt hashing; no enumeration signals anywhere. |
+| Claiming placeholder/anonymised accounts | Register's shadow-claim seals a session with **no email round-trip**, so accounts on undeliverable domains (`.invalid`/`.test`/`example.com` — the legacy import created ~8.3k, one owning reservations with third-party names in notes) were claimable by anyone. `isUndeliverableEmail` makes them unregisterable/unclaimable/unresettable, and the rows are additionally `disabled`. Found and hotfixed 2026-08-11 (PR #10) before any exploitation. |
 | Phishing of members | SSO reduces password reuse for Workspace holders; Workspace itself enforces 2SV per the Workspace policy. Email+password users get standard hygiene (no MFA in v1 — accepted risk; passkeys-first MFA for admins is roadmap R2). |
 | Open-redirect / OAuth mixups | Strict redirect allowlist; server-side `hd` + `email_verified` checks; `google_sub` linkage (not email) after first sign-in. |
 | Session theft (XSS in a consumer app) | `httpOnly` cookie can't be read by JS; but any XSS on any subdomain can *act* as the user. Consumer apps inherit responsibility: standard Nuxt escaping, no `v-html` on user input. This is the price of cookie SSO — noted in every integration review. |
