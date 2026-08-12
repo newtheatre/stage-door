@@ -48,7 +48,7 @@ All require session + `auth:ADMIN` unless noted. All mutations **[AUD]**.
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /api/users?q=&page=` | Search/list (email, name; filters: role, guest, disabled) |
+| `GET /api/users?q=&page=` | Search/list (email, name; filters: role, guest, disabled). Anonymised/placeholder accounts (undeliverable domains) are excluded by default and counted in `hiddenAnonymised`; `anonymised=true` lists only them |
 | `POST /api/users` | Create user `{ email, name, roles? }` → sends **set-password email** (no generated passwords in responses — deliberate change from rooms's old flow) |
 | `GET /api/users/:id` | Profile incl. roles, linked Google, `last_login`, legacy ids |
 | `PUT /api/users/:id` | Update `name` / `email` (re-verification triggered on email change) |
