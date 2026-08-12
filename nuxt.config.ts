@@ -66,6 +66,9 @@ export default defineNuxtConfig({
       // Nightly rate-limit counter sweep (ADR-0009). Runs off the wrangler
       // cron trigger below in production.
       '0 3 * * *': ['rate-limits:sweep'],
+      // Daily retention sweep (docs/gdpr-retention.md) — dry-run until the
+      // Archivist arms it in retentionConfig.
+      '0 4 * * *': ['retention:sweep'],
     },
     rollupConfig: {
       plugins: [
@@ -106,7 +109,7 @@ export default defineNuxtConfig({
           },
         },
         triggers: {
-          crons: ['0 3 * * *'],
+          crons: ['0 3 * * *', '0 4 * * *'],
         },
       },
     },

@@ -149,6 +149,81 @@
 
     <UPageCard
       class="w-full"
+      title="Your data"
+      icon="i-lucide-file-lock"
+    >
+      <div class="flex flex-col gap-3">
+        <p class="text-sm text-muted">
+          Download everything the NNT holds about you — your account details
+          plus your bookings from each NNT site — or close your account for
+          good. Closing removes your personal details everywhere; booking
+          records are kept anonymously for the theatre's accounts.
+        </p>
+        <div class="flex flex-wrap gap-2">
+          <UButton
+            to="/api/account/export"
+            external
+            variant="outline"
+            icon="i-lucide-download"
+          >
+            Download my data
+          </UButton>
+          <UButton
+            variant="outline"
+            color="error"
+            icon="i-lucide-eraser"
+            @click="openClose"
+          >
+            Close my account…
+          </UButton>
+        </div>
+      </div>
+    </UPageCard>
+
+    <UModal
+      v-model:open="closeOpen"
+      title="Close your account"
+      description="This is permanent. Your personal details are removed from every NNT site; anonymous booking records remain."
+    >
+      <template #body>
+        <div class="flex flex-col gap-4">
+          <UFormField
+            label="Type your email address to confirm"
+            name="confirmEmail"
+          >
+            <UInput
+              v-model="closeForm.confirmEmail"
+              type="email"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            v-if="profile?.hasPassword"
+            label="Your password"
+            name="password"
+          >
+            <UInput
+              v-model="closeForm.password"
+              type="password"
+              autocomplete="current-password"
+              class="w-full"
+            />
+          </UFormField>
+          <UButton
+            color="error"
+            block
+            :loading="closing"
+            :disabled="closeForm.confirmEmail.toLowerCase() !== profile?.email"
+            @click="closeAccount"
+          >
+            Close my account permanently
+          </UButton>
+        </div>
+      </template>
+    </UModal>
+
+    <UPageCard
+      class="w-full"
       title="Security"
       icon="i-lucide-shield"
     >
@@ -265,6 +340,33 @@ async function unlinkGoogle() {
   }
   finally {
     unlinking.value = false
+  }
+}
+
+const closeOpen = ref(false)
+
+function openClose() {
+  closeOpen.value = true
+}
+const closing = ref(false)
+const closeForm = reactive({ confirmEmail: '', password: '' })
+
+async function closeAccount() {
+  closing.value = true
+  try {
+    await $fetch('/api/account/erase', {
+      method: 'POST',
+      body: {
+        confirmEmail: closeForm.confirmEmail,
+        ...(profile.value?.hasPassword ? { password: closeForm.password } : {}),
+      },
+    })
+    await clear()
+    await navigateTo('/login')
+  }
+  catch (error) {
+    toast.add({ title: getErrorMessage(error, 'Could not close your account'), color: 'error' })
+    closing.value = false
   }
 }
 

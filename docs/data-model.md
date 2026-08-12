@@ -54,6 +54,10 @@ Both: `user_id` (FK cascade), `token` (text unique — `randomBytes(32)` hex), `
 |---|---|
 | `id` · `actor_user_id` (null = system/cron) · `action` text · `target` text · `detail` text (JSON) · `created_at` | Append-only. Written by: all admin UI actions, role grants/revokes, force-logouts, account disable, erasure/anonymisation, retention sweep actions, service-token issuance. Not written by: ordinary logins (that's `last_login`). |
 
+### `retention_notices`
+
+Warning-email bookkeeping for the retention sweep: `user_id` (FK cascade), `stage` (`warning-60d` | `warning-30d`, unique per user), `sent_at`. Rows are cleared when the user logs in again (their clock resets) and cascade away on erasure.
+
 ### `rate_limits`
 
 Fixed-window counters: `key` (`<scope>:<subject>`, e.g. `login:ip:1.2.3.4`, `login:acct:<email>`), `window_start`, `count`. One row per key, window reset in place by an atomic upsert; swept nightly by the `rate-limits:sweep` task. Chosen over Cloudflare WAF rules at build time — [ADR-0009](decisions/0009-d1-backed-rate-limiting.md). Limits live in `RATE_LIMITS` in `server/utils/rateLimit.ts`.

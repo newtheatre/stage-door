@@ -8,6 +8,13 @@
       "when": 1786467106399,
       "tag": "0000_little_cassandra_nova",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1786564982591,
+      "tag": "0001_heavy_talos",
+      "breakpoints": true
     }
   ]
 }
