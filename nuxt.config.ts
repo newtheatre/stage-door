@@ -67,8 +67,9 @@ export default defineNuxtConfig({
       // cron trigger below in production.
       '0 3 * * *': ['rate-limits:sweep'],
       // Daily retention sweep (docs/gdpr-retention.md) — dry-run until the
-      // Archivist arms it in retentionConfig.
-      '0 4 * * *': ['retention:sweep'],
+      // Archivist arms it in retentionConfig — and role-expiry warnings
+      // (ADR-0011).
+      '0 4 * * *': ['retention:sweep', 'roles:expiry-warn'],
     },
     rollupConfig: {
       plugins: [

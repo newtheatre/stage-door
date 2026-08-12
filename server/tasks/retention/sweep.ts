@@ -22,7 +22,9 @@ export default defineTask({
 
     // ── Gather candidates ──────────────────────────────────────────────────
     const users = await db.select().from(schema.users).all()
-    const roleRows = await db.select({ userId: schema.userRoles.userId }).from(schema.userRoles).all()
+    // ACTIVE grants only — an expired role must not exempt anyone (ADR-0011).
+    const roleRows = await db.select({ userId: schema.userRoles.userId })
+      .from(schema.userRoles).where(activeRoleCondition(new Date(now))).all()
     const roleHolders = new Set(roleRows.map(r => r.userId))
     const notices = await db.select().from(schema.retentionNotices).all()
     const noticesByUser = new Map<string, { w60: number | null, w30: number | null }>()

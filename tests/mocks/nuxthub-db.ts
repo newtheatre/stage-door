@@ -13,6 +13,7 @@ import * as legacySchema from '../../server/db/schema/legacy'
 import * as serviceSchema from '../../server/db/schema/service'
 import * as auditSchema from '../../server/db/schema/audit'
 import * as rateLimitSchema from '../../server/db/schema/rateLimit'
+import * as retentionSchema from '../../server/db/schema/retention'
 
 export const schema = {
   ...userSchema,
@@ -20,6 +21,7 @@ export const schema = {
   ...serviceSchema,
   ...auditSchema,
   ...rateLimitSchema,
+  ...retentionSchema,
 }
 
 const sqlite = new Database(':memory:')
@@ -39,12 +41,14 @@ export const db = drizzle(sqlite, { schema })
 export function resetDb(): void {
   sqlite.exec(`
     DELETE FROM user_roles;
+    DELETE FROM role_definitions;
     DELETE FROM email_verifications;
     DELETE FROM password_resets;
     DELETE FROM legacy_ids;
     DELETE FROM service_tokens;
     DELETE FROM audit_log;
     DELETE FROM rate_limits;
+    DELETE FROM retention_notices;
     DELETE FROM users;
   `)
 }

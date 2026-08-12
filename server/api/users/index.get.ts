@@ -1,6 +1,7 @@
 import { db, schema } from '@nuxthub/db'
 import { and, eq, isNull, isNotNull, like, or, sql, desc } from 'drizzle-orm'
 import { z } from 'zod/v4'
+import type { RoleGrant } from '~~/server/utils/session'
 
 const querySchema = z.object({
   q: z.string().max(200).optional(),
@@ -49,7 +50,8 @@ export default defineEventHandler(async (event) => {
     conditions.push(eq(schema.users.disabled, disabled === 'true'))
   }
   if (role) {
-    conditions.push(sql`exists (select 1 from ${schema.userRoles} where ${schema.userRoles.userId} = ${schema.users.id} and ${schema.userRoles.role} = ${role})`)
+    // Active holders only — expired grants don't count (ADR-0011).
+    conditions.push(sql`exists (select 1 from ${schema.userRoles} where ${schema.userRoles.userId} = ${schema.users.id} and ${schema.userRoles.role} = ${role} and (${schema.userRoles.expiresAt} is null or ${schema.userRoles.expiresAt} > ${Date.now()}))`)
   }
 
   const where = conditions.length ? and(...conditions) : undefined
@@ -69,12 +71,21 @@ export default defineEventHandler(async (event) => {
     .offset((page - 1) * PAGE_SIZE)
     .all()
 
+  const now = Date.now()
   const roleRows = rows.length
     ? await db.select().from(schema.userRoles).all()
     : []
-  const rolesByUser = new Map<string, string[]>()
+  const rolesByUser = new Map<string, RoleGrant[]>()
   for (const r of roleRows) {
-    rolesByUser.set(r.userId, [...(rolesByUser.get(r.userId) ?? []), r.role])
+    const grant = {
+      role: r.role,
+      expiresAt: r.expiresAt?.getTime() ?? null,
+      grantedAt: r.grantedAt?.getTime() ?? null,
+      grantedBy: r.grantedBy,
+      note: r.note,
+      expired: r.expiresAt !== null && r.expiresAt.getTime() <= now,
+    }
+    rolesByUser.set(r.userId, [...(rolesByUser.get(r.userId) ?? []), grant])
   }
 
   return {

@@ -54,7 +54,7 @@ Historical note: the `proscenium` and `rooms` tokens issued at cutover (2026-08-
 | Task | How | Notes |
 |---|---|---|
 | Password reset for someone | User → Reset password | Sends 24 h set-password email. Never read or set a password yourself. |
-| Grant/revoke roles | User → Roles | Takes effect within 15 min on privileged surfaces. For instant effect, also Force logout. |
+| Grant/revoke roles | User → Roles | Pick from the definitions dropdown (expiry pre-filled — committee-year roles lapse 31 July automatically); free-text behind Advanced. Renewal = edit the expiry date on the grant (one click; re-arms the 14-day warning). Takes effect within 15 min on privileged surfaces; for instant effect, also Force logout. |
 | Force logout one user | User → Force logout | Bumps session epoch; their sessions die at next refresh/privileged action. |
 | Disable an account | User → Disable | Blocks login and refresh. Use for compromise or misuse; it is reversible, erasure is not. |
 | Erasure (GDPR) | User → Data & GDPR → Erase… | Anonymises auth + all app data via hooks. **Irreversible** (typed email confirmation required). Confirm identity of the requester first; note the request date (one-month statutory clock). If a hook fails the erasure reports incomplete — fix the app and re-run (idempotent). |
@@ -63,7 +63,7 @@ Historical note: the `proscenium` and `rooms` tokens issued at cutover (2026-08-
 
 ## Annual handover checklist (add to the Archivist runbook)
 
-1. Incoming ITM granted `auth:ADMIN`; outgoing revoked (after a two-week overlap).
+1. Incoming ITM granted `auth:ADMIN`; outgoing revoked (after a two-week overlap). Committee-year roles lapse automatically on 31 July — the old revoke-everything sweep shrinks to **reviewing permanent grants** (`/admin`, filter by role).
 2. Rotate: session seal secret, all service tokens, Resend key. (Google OAuth secret only if the outgoing ITM had raw access.)
 3. Password-manager access transferred per the Workspace policy.
 4. Review `audit_log` for the year (spot-check), review role grants for leavers.
@@ -86,4 +86,4 @@ Historical note: the `proscenium` and `rooms` tokens issued at cutover (2026-08-
 
 ## Monitoring
 
-Cloudflare Workers observability logs are enabled on the worker. `GET /api/health` is polled by the uptime monitor (see estate tracker for which). The retention sweep (daily, 04:00 UTC) emails the Archivist a digest whenever it acts, dry-runs, or on the 1st of each month — its silence is itself an alert. **Arming it**: it ships with `dryRun: true` in `server/utils/retentionConfig.ts`; review a production dry-run digest, then set `dryRun: false` in a PR. Set it back to true after any period change. Worth a glance each term: `audit_log` anomalies, `service_tokens.last_used_at`, Resend bounce rates.
+Cloudflare Workers observability logs are enabled on the worker. `GET /api/health` is polled by the uptime monitor (see estate tracker for which). The retention sweep (daily, 04:00 UTC) emails the Archivist a digest whenever it acts, dry-runs, or on the 1st of each month — its silence is itself an alert. **Arming it**: it ships with `dryRun: true` in `server/utils/retentionConfig.ts`; review a production dry-run digest, then set `dryRun: false` in a PR. Set it back to true after any period change. Worth a glance each term: `audit_log` anomalies, `service_tokens.last_used_at`, Resend bounce rates. The role-expiry digest (daily task, only when grants enter their 14-day window) is the renew-or-let-lapse prompt — act on it or the roles lapse by design.

@@ -6,11 +6,12 @@
 
 import { beforeEach, vi } from 'vitest'
 import { resetDb } from './mocks/nuxthub-db'
-import { passwordSchema, emailSchema, roleSchema, isUndeliverableEmail } from '../server/utils/validation'
+import { passwordSchema, emailSchema, roleSchema, roleGrantSchema, namespaceSchema, roleNameSchema, isUndeliverableEmail } from '../server/utils/validation'
 import { TOKEN_EXPIRY, generateVerificationToken, createEmailVerificationToken, createPasswordResetToken } from '../server/utils/tokens'
 import { enforceRateLimit, getClientIP, sweepRateLimits, RATE_LIMITS } from '../server/utils/rateLimit'
 import { verifyPasswordGuarded } from '../server/utils/passwordCheck'
-import { loadRoles, sealUserSession, sealLoginSession } from '../server/utils/session'
+import { loadRoles, loadRoleGrants, activeRoleCondition, sealUserSession, sealLoginSession } from '../server/utils/session'
+import { ROLES_CONFIG, nextCommitteeYearEnd } from '../server/utils/rolesConfig'
 import { writeAudit } from '../server/utils/audit'
 import { validateRedirect } from '../shared/utils/validateRedirect'
 import { refreshSession } from '../server/utils/refresh'
@@ -109,6 +110,18 @@ g.sendPasswordResetEmail = async (to: string, token: string) => {
 g.sendAccountExistsEmail = async (to: string) => {
   sentEmails.push({ kind: 'account-exists', to })
 }
+g.sendRoleExpiryWarningEmail = async (to: string, grants: { role: string }[]) => {
+  sentEmails.push({ kind: 'role-expiry-warning', to, token: grants.map(g => g.role).join(',') })
+}
+g.sendRoleExpiryDigestEmail = async (to: string) => {
+  sentEmails.push({ kind: 'role-expiry-digest', to })
+}
+g.sendRetentionWarningEmail = async (to: string) => {
+  sentEmails.push({ kind: 'retention-warning', to })
+}
+g.sendRetentionDigestEmail = async (to: string) => {
+  sentEmails.push({ kind: 'retention-digest', to })
+}
 
 // ── Real server utils, exposed the way auto-imports would ───────────────────
 
@@ -116,6 +129,9 @@ Object.assign(g, {
   passwordSchema,
   emailSchema,
   roleSchema,
+  roleGrantSchema,
+  namespaceSchema,
+  roleNameSchema,
   isUndeliverableEmail,
   TOKEN_EXPIRY,
   generateVerificationToken,
@@ -127,6 +143,10 @@ Object.assign(g, {
   RATE_LIMITS,
   verifyPasswordGuarded,
   loadRoles,
+  loadRoleGrants,
+  activeRoleCondition,
+  ROLES_CONFIG,
+  nextCommitteeYearEnd,
   sealUserSession,
   sealLoginSession,
   writeAudit,

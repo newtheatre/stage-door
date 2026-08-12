@@ -1,35 +1,90 @@
 import { db, schema } from '@nuxthub/db'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { z } from 'zod/v4'
 
 const bodySchema = z.object({
-  roles: z.array(roleSchema),
+  roles: z.array(roleGrantSchema),
 })
 
 /**
- * PUT /api/users/:id/roles — replace the role set (admin).
+ * PUT /api/users/:id/roles — replace the grant set (admin) [AUD].
  *
- * Propagates within 15 minutes on privileged surfaces via the staleness
- * refresh; pair with force-logout for instant effect (docs/operations.md).
+ * Body accepts bare scoped strings (back-compat — permanent grants) or
+ * `{ role, expiresAt?, note? }` objects (ADR-0011). Applied as a DIFF, not
+ * delete-all-reinsert, so unchanged grants keep their provenance
+ * (granted_at/granted_by) and warning bookkeeping. Changing a grant's
+ * expiry clears `expiry_warned_at` — that's how a renewal re-arms the
+ * expiry warning. A past `expiresAt` is allowed (revoke-with-history).
+ *
+ * Active-role changes propagate within 15 minutes on privileged surfaces
+ * via the staleness refresh; pair with force-logout for instant effect.
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)
   const user = await loadUserOr404(getRouterParam(event, 'id'))
   const { roles } = await readValidatedBody(event, bodySchema.parse)
 
-  const before = await loadRoles(user.id)
+  const wanted = new Map(roles.map(g => [g.role, g]))
+  if (wanted.size !== roles.length) {
+    throw createError({ statusCode: 400, statusMessage: 'Duplicate roles in request' })
+  }
 
-  await db.delete(schema.userRoles).where(eq(schema.userRoles.userId, user.id))
-  for (const role of roles) {
-    await db.insert(schema.userRoles).values({ userId: user.id, role })
+  const existing = await db.select().from(schema.userRoles)
+    .where(eq(schema.userRoles.userId, user.id)).all()
+  const existingByRole = new Map(existing.map(r => [r.role, r]))
+  const before = await loadRoleGrants(user.id)
+
+  // Removals: anything not in the wanted set (expired rows included — the
+  // admin deleting an expired grant removes its history deliberately).
+  for (const row of existing) {
+    if (!wanted.has(row.role)) {
+      await db.delete(schema.userRoles)
+        .where(and(eq(schema.userRoles.userId, user.id), eq(schema.userRoles.role, row.role)))
+    }
+  }
+
+  for (const grant of roles) {
+    const current = existingByRole.get(grant.role)
+    if (!current) {
+      await db.insert(schema.userRoles).values({
+        userId: user.id,
+        role: grant.role,
+        expiresAt: grant.expiresAt === null ? null : new Date(grant.expiresAt),
+        note: grant.note,
+        grantedBy: admin.id,
+        grantedAt: new Date(),
+      })
+      continue
+    }
+
+    const currentExpiry = current.expiresAt?.getTime() ?? null
+    const expiryChanged = currentExpiry !== grant.expiresAt
+    const noteChanged = (current.note ?? null) !== grant.note
+
+    if (expiryChanged || noteChanged) {
+      await db.update(schema.userRoles)
+        .set({
+          expiresAt: grant.expiresAt === null ? null : new Date(grant.expiresAt),
+          note: grant.note,
+          // A changed expiry is a fresh act of granting: refresh provenance
+          // and re-arm the warning (one warning per (grant, expiry value)).
+          ...(expiryChanged
+            ? { grantedBy: admin.id, grantedAt: new Date(), expiryWarnedAt: null }
+            : {}),
+        })
+        .where(and(eq(schema.userRoles.userId, user.id), eq(schema.userRoles.role, grant.role)))
+    }
   }
 
   await writeAudit({
     actorUserId: admin.id,
     action: 'user.roles-changed',
     target: user.id,
-    detail: { from: before, to: roles },
+    detail: {
+      from: before.map(g => ({ role: g.role, expiresAt: g.expiresAt })),
+      to: roles.map(g => ({ role: g.role, expiresAt: g.expiresAt })),
+    },
   })
 
-  return { user: adminUserView(user, roles) }
+  return { user: adminUserView(user, await loadRoleGrants(user.id)) }
 })

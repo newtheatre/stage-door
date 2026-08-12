@@ -6,11 +6,11 @@ export default defineEventHandler(async (event) => {
   await requireAuthAdmin(event)
   const user = await loadUserOr404(getRouterParam(event, 'id'))
 
-  const roles = await loadRoles(user.id)
+  const grants = await loadRoleGrants(user.id)
   const legacyIds = await db.select({
     source: schema.legacyIds.source,
     legacyId: schema.legacyIds.legacyId,
   }).from(schema.legacyIds).where(eq(schema.legacyIds.userId, user.id)).all()
 
-  return { user: { ...adminUserView(user, roles), legacyIds } }
+  return { user: { ...adminUserView(user, grants), legacyIds } }
 })

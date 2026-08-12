@@ -8,14 +8,58 @@
 
 import type { H3Event } from 'h3'
 import { db, schema } from '@nuxthub/db'
-import { eq } from 'drizzle-orm'
+import { and, eq, gt, isNull, or } from 'drizzle-orm'
 
 type UserRow = typeof schema.users.$inferSelect
 
-/** Load a user's scoped roles as flat strings. */
+/**
+ * A grant is active when unexpired (ADR-0011). Reused by every place roles
+ * gate behaviour — sessions, the retention sweep's role-holder exemption,
+ * the admin list's role filter.
+ */
+export function activeRoleCondition(now: Date = new Date()) {
+  return or(isNull(schema.userRoles.expiresAt), gt(schema.userRoles.expiresAt, now))
+}
+
+/**
+ * Load a user's ACTIVE scoped roles as flat strings — the session shape.
+ * Expiry enforcement lives here: every seal path (login, SSO, verify,
+ * refresh, account re-seals) and the admin guard funnel through this, so an
+ * expired grant vanishes within the 15-minute staleness window.
+ */
 export async function loadRoles(userId: string): Promise<string[]> {
-  const rows = await db.select().from(schema.userRoles).where(eq(schema.userRoles.userId, userId)).all()
+  const rows = await db.select().from(schema.userRoles)
+    .where(and(eq(schema.userRoles.userId, userId), activeRoleCondition()))
+    .all()
   return rows.map(r => r.role)
+}
+
+export interface RoleGrant {
+  role: string
+  expiresAt: number | null
+  grantedAt: number | null
+  grantedBy: string | null
+  note: string | null
+  expired: boolean
+}
+
+/**
+ * Full grant rows INCLUDING expired ones — admin surfaces and the
+ * subject-access export (expired grants and their notes are personal data).
+ */
+export async function loadRoleGrants(userId: string): Promise<RoleGrant[]> {
+  const now = Date.now()
+  const rows = await db.select().from(schema.userRoles)
+    .where(eq(schema.userRoles.userId, userId))
+    .all()
+  return rows.map(r => ({
+    role: r.role,
+    expiresAt: r.expiresAt?.getTime() ?? null,
+    grantedAt: r.grantedAt?.getTime() ?? null,
+    grantedBy: r.grantedBy,
+    note: r.note,
+    expired: r.expiresAt !== null && r.expiresAt.getTime() <= now,
+  }))
 }
 
 /**

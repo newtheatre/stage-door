@@ -5,7 +5,7 @@ import { z } from 'zod/v4'
 const bodySchema = z.object({
   email: emailSchema,
   name: z.string().min(1, 'Name is required').max(200),
-  roles: z.array(roleSchema).default([]),
+  roles: z.array(roleGrantSchema).default([]),
 })
 
 /**
@@ -35,8 +35,15 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Failed to create user' })
   }
 
-  for (const role of roles) {
-    await db.insert(schema.userRoles).values({ userId: user.id, role })
+  for (const grant of roles) {
+    await db.insert(schema.userRoles).values({
+      userId: user.id,
+      role: grant.role,
+      expiresAt: grant.expiresAt === null ? null : new Date(grant.expiresAt),
+      note: grant.note,
+      grantedBy: admin.id,
+      grantedAt: new Date(),
+    })
   }
 
   const token = await createPasswordResetToken(user.id, TOKEN_EXPIRY.ADMIN_PASSWORD_RESET)
@@ -46,8 +53,8 @@ export default defineEventHandler(async (event) => {
     actorUserId: admin.id,
     action: 'user.created',
     target: user.id,
-    detail: { email, roles },
+    detail: { email, roles: roles.map(g => ({ role: g.role, expiresAt: g.expiresAt })) },
   })
 
-  return { user: adminUserView(user, roles) }
+  return { user: adminUserView(user, await loadRoleGrants(user.id)) }
 })

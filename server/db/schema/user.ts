@@ -37,15 +37,44 @@ export const usersRelations = relations(users, ({ many }) => ({
   passwordResets: many(passwordResets),
 }))
 
-// Scoped role strings 'app:ROLE' (ADR-0004). No central registry of apps — a
-// namespace exists the moment a role in it is granted.
+// Scoped role strings 'app:ROLE' (ADR-0004, expiry per ADR-0011). No central
+// registry of apps — a namespace exists the moment a role in it is granted.
+// Expiry is enforced at READ time (activeRoleCondition in session.ts): an
+// expired grant vanishes from sessions within the 15-minute staleness window
+// without any cron being involved.
 export const userRoles = sqliteTable('user_roles', {
   id: text('id').primaryKey().$defaultFn(() => nanoid()),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   role: text('role').notNull(),
+
+  // NULL = permanent grant.
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }),
+  // Grant provenance. Plain text ids (no FK) matching audit_log's actor
+  // pattern; NULL = pre-v2 grant or system action.
+  grantedBy: text('granted_by'),
+  grantedAt: integer('granted_at', { mode: 'timestamp_ms' }).$defaultFn(() => new Date()),
+  note: text('note'),
+  // Warning bookkeeping: one warning per (grant, expiry value) — cleared by
+  // roles.put whenever expires_at changes, so renewals re-arm the warning.
+  expiryWarnedAt: integer('expiry_warned_at', { mode: 'timestamp_ms' }),
 }, table => [
   index('user_roles_user_id_idx').on(table.userId),
   uniqueIndex('user_roles_user_id_role_unique').on(table.userId, table.role),
+])
+
+// Optional UX metadata driving the admin grant dropdown and expiry defaults
+// (ADR-0011). A grant never requires a definition — free-text grants survive
+// (ADR-0004) — and deleting a definition never touches grants.
+export const roleDefinitions = sqliteTable('role_definitions', {
+  id: text('id').primaryKey().$defaultFn(() => nanoid()),
+  namespace: text('namespace').notNull(), // 'proscenium'
+  role: text('role').notNull(), // 'BOX_OFFICE'
+  description: text('description').notNull(),
+  defaultExpiryKind: text('default_expiry_kind', { enum: ['none', 'committee-year', 'days'] }).notNull().default('none'),
+  defaultExpiryDays: integer('default_expiry_days'), // only when kind = 'days'
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+}, table => [
+  uniqueIndex('role_definitions_namespace_role_unique').on(table.namespace, table.role),
 ])
 
 export const userRolesRelations = relations(userRoles, ({ one }) => ({

@@ -15,7 +15,7 @@ import { drizzle } from 'drizzle-orm/libsql'
 import { inArray } from 'drizzle-orm'
 import { Hash } from '@adonisjs/hash'
 import { Scrypt } from '@adonisjs/hash/drivers/scrypt'
-import { users, userRoles } from '../server/db/schema/user'
+import { users, userRoles, roleDefinitions } from '../server/db/schema/user'
 
 if (process.env.NODE_ENV === 'production') {
   console.error('Refusing to seed: NODE_ENV is production.')
@@ -77,5 +77,18 @@ for (const seedUser of seedUsers) {
   const rolesNote = seedUser.roles.length ? `  [${seedUser.roles.join(', ')}]` : ''
   console.info(`  ${seedUser.email}  ${password ?? '(no password — shadow account)'}${rolesNote}`)
 }
+
+// Role definitions so the admin grant dropdown isn't empty in dev.
+const seedDefinitions = [
+  { namespace: 'auth', role: 'ADMIN', description: 'Auth service admin (ITM + continuity holder)', defaultExpiryKind: 'none' as const },
+  { namespace: 'proscenium', role: 'ADMIN', description: 'Full site + box office admin', defaultExpiryKind: 'committee-year' as const },
+  { namespace: 'proscenium', role: 'MANAGER', description: 'Theatre manager tools', defaultExpiryKind: 'committee-year' as const },
+  { namespace: 'proscenium', role: 'BOX_OFFICE', description: 'Sell and collect tickets', defaultExpiryKind: 'committee-year' as const },
+  { namespace: 'rooms', role: 'ADMIN', description: 'Approve and manage room bookings', defaultExpiryKind: 'committee-year' as const },
+]
+for (const definition of seedDefinitions) {
+  await db.insert(roleDefinitions).values(definition).onConflictDoNothing()
+}
+console.info(`\nSeeded ${seedDefinitions.length} role definitions.`)
 
 console.info('\nLog in at http://localhost:3000/login')

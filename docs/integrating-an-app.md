@@ -132,7 +132,7 @@ Server-side, reject stale role-holding sessions with a 401 carrying `data: { sta
 
 ## Step 6 — Role namespace
 
-Pick a short lowercase namespace (usually the repo name) and define your roles as `namespace:ROLE`. Tell the ITM; they grant them in the auth admin UI. There is no code registration step.
+Pick a short lowercase namespace (usually the repo name) and define your roles as `namespace:ROLE`. Tell the ITM; they grant them in the auth admin UI. There is no code registration step — but do add **role definitions** at `auth.newtheatre.org.uk/admin/roles` (description + default expiry; most app roles want `end of committee year`) so granting is dropdown-driven rather than typed (ADR-0011).
 
 ### Role namespaces (current)
 

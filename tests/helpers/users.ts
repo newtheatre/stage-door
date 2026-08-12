@@ -18,6 +18,17 @@ export async function createUser(overrides: Partial<UserInsert> & { plainPasswor
   return user
 }
 
-export async function grantRole(userId: string, role: string) {
-  await db.insert(schema.userRoles).values({ userId, role })
+export async function grantRole(
+  userId: string,
+  role: string,
+  opts: { expiresAt?: Date, grantedBy?: string, note?: string, expiryWarnedAt?: Date } = {},
+) {
+  await db.insert(schema.userRoles).values({
+    userId,
+    role,
+    expiresAt: opts.expiresAt ?? null,
+    grantedBy: opts.grantedBy ?? null,
+    note: opts.note ?? null,
+    expiryWarnedAt: opts.expiryWarnedAt ?? null,
+  })
 }

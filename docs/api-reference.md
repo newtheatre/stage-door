@@ -48,11 +48,11 @@ All require session + `auth:ADMIN` unless noted. All mutations **[AUD]**.
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /api/users?q=&page=` | Search/list (email, name; filters: role, guest, disabled). Anonymised/placeholder accounts (undeliverable domains) are excluded by default and counted in `hiddenAnonymised`; `anonymised=true` lists only them |
+| `GET /api/users?q=&page=` | Search/list (email, name; filters: role — **active holders only**, guest, disabled). Anonymised/placeholder accounts (undeliverable domains) are excluded by default and counted in `hiddenAnonymised`; `anonymised=true` lists only them |
 | `POST /api/users` | Create user `{ email, name, roles? }` → sends **set-password email** (no generated passwords in responses — deliberate change from rooms's old flow) |
 | `GET /api/users/:id` | Profile incl. roles, linked Google, `last_login`, legacy ids |
 | `PUT /api/users/:id` | Update `name` / `email` (re-verification triggered on email change) |
-| `PUT /api/users/:id/roles` | Replace role set `{ roles: string[] }` — scoped strings validated `^[a-z][a-z0-9-]*:[A-Z][A-Z0-9_]*$` |
+| `PUT /api/users/:id/roles` | Replace grant set `{ roles: Array<string \| { role, expiresAt?: epoch-ms\|null, note? }> }` — bare strings = permanent grants (back-compat). Applied as a diff: unchanged grants keep provenance; a changed expiry clears the warning flag (renewal re-arms it). Duplicates 400 |
 | `POST /api/users/:id/reset-password` | Admin-initiated reset (24 h token, emailed; cannot target self) |
 | `POST /api/users/:id/force-logout` | Bumps `session_epoch` |
 | `POST /api/users/:id/disable` / `enable` | Disabled users can't log in and fail refresh |
@@ -78,6 +78,10 @@ Self-service (session, own account only — all verify the account live: exists,
 Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/service-tokens` (names + usage, hashes never leave the DB), `POST /api/service-tokens { name }` → `{ token }` shown once, `DELETE /api/service-tokens/:id` (revoke). Procedure: [operations.md](operations.md#service-tokens).
 
 `POST /api/audit { action, target, detail? }` — record a manual operation (secret rotation etc.); stored with a `manual.` action prefix so it can't impersonate system entries.
+
+## Role definitions (ADR-0011)
+
+Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/role-definitions` (each with computed `defaultExpiresAt` — what a grant made now would default to), `POST { namespace, role, description, defaultExpiry: {kind:'none'|'committee-year'} | {kind:'days',days} }` (409 on duplicate), `PUT /api/role-definitions/:id` (description/default; identity immutable), `DELETE` (grants untouched). The daily `roles:expiry-warn` task emails holders 14 days before a grant lapses and digests to the ITM.
 
 ## Service endpoints
 
