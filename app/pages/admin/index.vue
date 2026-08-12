@@ -33,6 +33,9 @@
     <div class="flex items-center justify-between">
       <p class="text-sm text-muted">
         {{ data?.total ?? 0 }} users
+        <template v-if="filter !== 'anonymised' && data?.hiddenAnonymised">
+          · {{ data.hiddenAnonymised.toLocaleString() }} anonymised/placeholder accounts hidden
+        </template>
       </p>
       <UPagination
         v-model:page="page"
@@ -115,6 +118,7 @@ const filterOptions = [
   { label: 'Full accounts', value: 'full' },
   { label: 'Guests (shadow)', value: 'guest' },
   { label: 'Disabled', value: 'disabled' },
+  { label: 'Anonymised / placeholders', value: 'anonymised' },
 ]
 
 const query = computed(() => ({
@@ -122,6 +126,7 @@ const query = computed(() => ({
   ...(filter.value === 'guest' ? { guest: 'true' } : {}),
   ...(filter.value === 'full' ? { guest: 'false' } : {}),
   ...(filter.value === 'disabled' ? { disabled: 'true' } : {}),
+  ...(filter.value === 'anonymised' ? { anonymised: 'true' } : {}),
   page: page.value,
 }))
 
