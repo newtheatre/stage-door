@@ -35,6 +35,7 @@
         {{ data?.total ?? 0 }} entries
       </p>
       <UPagination
+        v-if="showPagination"
         v-model:page="page"
         :total="data?.total ?? 0"
         :items-per-page="data?.pageSize ?? 50"
@@ -119,6 +120,9 @@ watch([action, target], () => {
 })
 
 const { data, pending, refresh } = await useFetch('/api/audit', { query })
+
+// A pager for a single page of results is noise.
+const showPagination = computed(() => (data.value?.total ?? 0) > (data.value?.pageSize ?? 50))
 
 interface ApiEntry {
   // Date server-side, ISO string once serialised — new Date() takes both.
