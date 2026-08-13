@@ -34,6 +34,28 @@
       :actions="[{ label: 'Show them', variant: 'outline', onClick: () => { filter = 'admin-no-mfa' } }]"
     />
 
+    <!-- Deep-linked role filter (from a definition's holders count). -->
+    <div
+      v-if="roleFilter"
+      class="flex items-center gap-2"
+    >
+      <span class="text-sm text-muted">Showing active holders of</span>
+      <UBadge
+        color="primary"
+        variant="subtle"
+      >
+        {{ roleFilter }}
+      </UBadge>
+      <UButton
+        variant="ghost"
+        color="neutral"
+        size="xs"
+        icon="i-lucide-x"
+        aria-label="Clear role filter"
+        @click="clearRoleFilter"
+      />
+    </div>
+
     <div class="flex flex-wrap gap-2 items-end">
       <UInput
         v-model="q"
@@ -167,6 +189,8 @@ definePageMeta({
 })
 
 const toast = useToast()
+const route = useRoute()
+const router = useRouter()
 
 const q = ref('')
 const filter = ref('all')
@@ -182,8 +206,16 @@ const filterOptions = [
   { label: 'Admins without 2-step', value: 'admin-no-mfa' },
 ]
 
+// Role filter arrives as ?role= (linked from /admin/roles holder counts).
+const roleFilter = computed(() => typeof route.query.role === 'string' ? route.query.role : '')
+
+function clearRoleFilter() {
+  router.replace({ query: { ...route.query, role: undefined } })
+}
+
 const query = computed(() => ({
   ...(q.value ? { q: q.value } : {}),
+  ...(roleFilter.value ? { role: roleFilter.value } : {}),
   ...(filter.value === 'guest' ? { guest: 'true' } : {}),
   ...(filter.value === 'full' ? { guest: 'false' } : {}),
   ...(filter.value === 'disabled' ? { disabled: 'true' } : {}),
@@ -193,7 +225,7 @@ const query = computed(() => ({
   page: page.value,
 }))
 
-watch([q, filter], () => {
+watch([q, filter, roleFilter], () => {
   page.value = 1
 })
 

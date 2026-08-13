@@ -15,14 +15,12 @@ const querySchema = z.object({
 
 const PAGE_SIZE = 20
 
-// Anonymised/placeholder accounts live on undeliverable domains (mirrors
-// isUndeliverableEmail; SQL so the filter happens in the database). The
-// legacy import brought in ~8.3k of them — they are records, not people who
-// can log in, so listings exclude them by default and surface a count.
-const UNDELIVERABLE_LIKE = [
-  '%.invalid', '%.test', '%.example', '%.localhost',
-  '%@example.com', '%@example.org', '%@example.net',
-]
+// Anonymised/placeholder rows are excluded by default and surface as a
+// count; the predicates live in adminUsers.ts (shared with the holder
+// counts on role definitions).
+const anonymisedRow = isAnonymisedRow()
+const realRow = isRealRow()
+
 // Accounts the ADR-0012 rollout wants an operator's eye on:
 //  - a Workspace address that still has a password (should be Google-only,
 //    and is usually a handed-over role account);
@@ -38,9 +36,6 @@ const isAdminWithoutMfa = and(
   sql`not exists (select 1 from ${schema.webauthnCredentials} where ${schema.webauthnCredentials.userId} = ${schema.users.id})`,
 )
 
-const isAnonymisedRow = or(...UNDELIVERABLE_LIKE.map(p => like(schema.users.email, p)))
-const isRealRow = and(...UNDELIVERABLE_LIKE.map(p => sql`${schema.users.email} NOT LIKE ${p}`))
-
 /**
  * GET /api/users?q=&role=&guest=&disabled=&anonymised=&page= — search/list
  * (admin). Anonymised/placeholder accounts are excluded by default and
@@ -50,7 +45,7 @@ export default defineEventHandler(async (event) => {
   await requireAuthAdmin(event)
   const { q, role, guest, disabled, anonymised, attention, page } = await getValidatedQuery(event, querySchema.parse)
 
-  const conditions = [anonymised === 'true' ? isAnonymisedRow : isRealRow]
+  const conditions = [anonymised === 'true' ? anonymisedRow : realRow]
 
   if (q) {
     const pattern = `%${q.toLowerCase()}%`
@@ -81,15 +76,15 @@ export default defineEventHandler(async (event) => {
   // The number somewhere: how many anonymised/placeholder rows exist in all
   // (unfiltered — it's a standing fact about the store, not the search).
   const hiddenAnonymised = (await db.select({ n: sql<number>`count(*)` })
-    .from(schema.users).where(isAnonymisedRow).get())?.n ?? 0
+    .from(schema.users).where(anonymisedRow).get())?.n ?? 0
 
   // Standing counts for the dashboard banner — unfiltered, like the
   // anonymised count above.
   const needsAttention = {
     workspacePassword: (await db.select({ n: sql<number>`count(*)` })
-      .from(schema.users).where(and(hasWorkspacePassword, isRealRow)).get())?.n ?? 0,
+      .from(schema.users).where(and(hasWorkspacePassword, realRow)).get())?.n ?? 0,
     adminNoMfa: (await db.select({ n: sql<number>`count(*)` })
-      .from(schema.users).where(and(isAdminWithoutMfa, isRealRow)).get())?.n ?? 0,
+      .from(schema.users).where(and(isAdminWithoutMfa, realRow)).get())?.n ?? 0,
   }
 
   const rows = await db.select().from(schema.users)
