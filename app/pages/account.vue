@@ -147,6 +147,8 @@
       </div>
     </UPageCard>
 
+    <AccountMfa />
+
     <UPageCard
       class="w-full"
       title="Your data"

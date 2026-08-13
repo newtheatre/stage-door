@@ -31,5 +31,16 @@ export async function requireAuthAdmin(event: H3Event): Promise<{ user: UserRow,
     throw createError({ statusCode: 403, statusMessage: 'Admin access required' })
   }
 
+  // MFA gate (ADR-0012). A privileged password account that hasn't enrolled
+  // keeps its session — being locked out of your own account is worse — but
+  // does no admin work until it does.
+  if (await isMfaRequired(user) && (await enrolledFactors(user.id)).length === 0) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Set up two-factor authentication on your account before using admin tools',
+      data: { mfaEnrolmentRequired: true },
+    })
+  }
+
   return { user, roles }
 }

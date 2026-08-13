@@ -8,7 +8,7 @@ The estate is a set of small Nuxt 4 apps on Cloudflare Workers, each with its ow
 
 Goals: one account per person estate-wide; Google SSO for Workspace accounts; email+password for everyone else (audience members who only book tickets are the majority user); guest checkout preserved; one place to manage users and roles; bus-factor reduction.
 
-Non-goals (v1): payments, passkeys/MFA, magic links, being a general OIDC provider, central *authorisation* (apps keep their own permission logic).
+Non-goals (v1): payments, magic links, being a general OIDC provider, central *authorisation* (apps keep their own permission logic). Passkeys and MFA were a v1 non-goal and shipped in v2 — see [ADR-0012](decisions/0012-sso-only-workspace-and-mfa.md).
 
 ## The one-diagram version
 

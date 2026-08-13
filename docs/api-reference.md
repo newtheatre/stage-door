@@ -16,6 +16,17 @@ Three auth levels:
 
 `{ email, password }` → seals session, updates `last_login`, returns `{ user }`. 401 `Invalid email or password` for unknown user, wrong password, **and** password-less (guest/SSO-only) accounts — indistinguishable by design. Disabled accounts: same 401.
 
+**If the account has a second factor enrolled, no session is sealed.** The response is `{ mfaRequired: true, attemptId, methods: ('totp'|'passkey')[] }`; the client completes at `/api/auth/mfa/verify` (or with a passkey, below). If MFA is *required* of the account (ADR-0012) but nothing is enrolled yet, the session **is** sealed and the response carries `mfaEnrolmentRequired: true` — admin endpoints stay 403 until they enrol.
+
+### `POST /api/auth/mfa/verify` — public [RL]
+`{ attemptId, code }` → seals the session and returns `{ user, usedRecoveryCode }`. Accepts a TOTP code or a recovery code; both are single-use (a TOTP step is never accepted twice, a recovery code is marked used and audited). A wrong code burns the attempt and returns `401 { data: { attemptId } }` with a fresh one, so a typo doesn't cost the password step. Attempts expire after 5 minutes.
+
+### `POST /api/webauthn/register` — session [AUD]
+Two-leg passkey enrolment (nuxt-auth-utils' route shape): `{ user: { userName, label? }, verify: false }` returns `{ creationOptions, attemptId }`; `{ …, verify: true, attemptId, response }` verifies and stores the credential. The account is always taken from the session, never from the body. Requires a discoverable credential with user verification (PIN/biometric) — a presence-only tap is refused. Enrolling a first factor bumps `session_epoch` and re-seals the caller's session.
+
+### `POST /api/webauthn/authenticate` — public [RL]
+Same two legs, no `userName`: passkey sign-in is usernameless, so nothing here reveals whether an address has a passkey. On success it seals a full login session — a passkey with user verification is possession plus a factor already, and is phishing-resistant, so it is not treated as a second step after a password.
+
 ### `POST /api/auth/register` — public [RL]
 `{ email, name, password }` (policy: ≥8 chars, upper+lower+digit) → creates user (no roles), sends verification email, seals session, returns `{ ok: true }`. Addresses on undeliverable domains (`.invalid`/`.test`/`.example`/`example.com|org|net` — see [security.md](security.md)) get the same generic response with nothing created, claimed, or sealed; forgot-password likewise skips them. If the email already belongs to a **shadow** account, this *claims* it in place (sets password, keeps id and history). If it belongs to a full account: the same `{ ok: true }` response (enumeration-safe — the body never differs), but nothing is changed, no session is sealed, and a "you already have an account" email is sent instead. *(Amended at build time: the original spec said success returns `{ user }`, which would have made the existing-account response distinguishable; a uniform body resolves the contradiction in favour of enumeration safety. The client reads login state from the session after the call.)*
 
@@ -51,15 +62,16 @@ All require session + `auth:ADMIN` unless noted. All mutations **[AUD]**.
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /api/users?q=&page=` | Search/list (email, name; filters: role — **active holders only**, guest, disabled). Anonymised/placeholder accounts (undeliverable domains) are excluded by default and counted in `hiddenAnonymised`; `anonymised=true` lists only them |
+| `GET /api/users?q=&page=` | Search/list (email, name; filters: role — **active holders only**, guest, disabled). Anonymised/placeholder accounts (undeliverable domains) are excluded by default and counted in `hiddenAnonymised`; `anonymised=true` lists only them. `attention=workspace-password\|admin-no-mfa` filters the two ADR-0012 rollout lists, whose standing counts are returned as `needsAttention` |
 | `POST /api/users` | Create user `{ email, name, roles? }` → sends **set-password email** (no generated passwords in responses — deliberate change from rooms's old flow) |
-| `GET /api/users/:id` | Profile incl. roles, linked Google, `last_login`, legacy ids |
+| `GET /api/users/:id` | Profile incl. roles, linked Google, `last_login`, legacy ids, and `mfa` (required? which factors, passkey count, recovery codes left — never a secret) |
 | `PUT /api/users/:id` | Update `name` / `email` (re-verification triggered on email change) |
 | `PUT /api/users/:id/roles` | Replace grant set `{ roles: Array<string \| { role, expiresAt?: epoch-ms\|null, note? }> }` — bare strings = permanent grants (back-compat). Applied as a diff: unchanged grants keep provenance; a changed expiry clears the warning flag (renewal re-arms it). Duplicates 400 |
 | `POST /api/users/:id/reset-password` | Admin-initiated reset (24 h token, emailed; cannot target self) |
 | `POST /api/users/:id/force-logout` | Bumps `session_epoch` |
 | `POST /api/users/:id/disable` / `enable` | Disabled users can't log in and fail refresh |
 | `POST /api/users/:id/unlink-google` | Clears `google_sub` (guard: refuse if it would leave the account with no login method) |
+| `POST /api/users/:id/mfa-reset` | Clear every second factor — the "lost my phone" path. Verify identity out of band first ([operations.md](operations.md)); the account keeps working but admin tools stay closed until they re-enrol |
 | `POST /api/users/:id/clear-password` | Null the password so the account can only use Google (ADR-0012). Refuses unless Google is linked — clearing first would lock the account out. Bumps `session_epoch` |
 | `PUT /api/users/:id/pending-google` | Set/clear `pending_google_email` — admin-directed link: the next Google sign-in with that address attaches to this account. Validated `@newtheatre.org.uk`; refuses addresses already linked or pending elsewhere |
 | `GET /api/users/:id/export` | Subject-access bundle: auth record + each app's hook contribution ([gdpr-retention.md](gdpr-retention.md)) |
@@ -74,6 +86,11 @@ Self-service (session, own account only — all verify the account live: exists,
 | `PUT /api/account/password` | Change — or, for SSO-only accounts, set — the password. Verifies the current password where one exists; bumps epoch; re-seals this session |
 | `POST /api/account/unlink-google` **[AUD]** | Disconnect Google; refuses if it would leave no login method |
 | `POST /api/account/logout-everywhere` **[AUD]** | Bump own epoch + clear this session |
+| `GET /api/account/mfa` | Own factor status: `{ required, factors, passkeys, recoveryCodesRemaining }` |
+| `POST /api/account/mfa/totp` | Begin TOTP enrolment → `{ secret, uri }`. Nothing gates a login until it's confirmed, so an abandoned setup can't lock anyone out |
+| `POST /api/account/mfa/totp-confirm` **[AUD]** | `{ code }` proves the app works and arms it. First enrolment returns `{ recoveryCodes }` **once**, bumps epoch, re-seals this session |
+| `POST /api/account/mfa/recovery-codes` **[AUD]** | Regenerate the eight codes; returns them once and invalidates the old set |
+| `DELETE /api/account/mfa/:id` **[AUD]** | Remove a passkey (row id) or the literal `totp`. Refuses to remove your last factor while MFA is required of the account |
 | `GET /api/account/export` | Own subject-access bundle (JSON download) |
 | `POST /api/account/erase` **[AUD]** | Close own account: `{ confirmEmail, password? }` — irreversible anonymisation everywhere, session cleared |
 

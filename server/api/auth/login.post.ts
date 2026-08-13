@@ -47,8 +47,25 @@ export default defineEventHandler(async (event) => {
     throw createError(INVALID_CREDENTIALS)
   }
 
+  // Second factor (ADR-0012). Enrolled factors gate the session: the
+  // password is accepted but nothing is sealed until the factor is proven.
+  const factors = await enrolledFactors(user.id)
+  if (factors.length > 0) {
+    return {
+      mfaRequired: true,
+      attemptId: await createMfaAttempt(user.id),
+      methods: factors,
+    }
+  }
+
+  // Required but not yet enrolled: seal the session anyway — they gave the
+  // right password, and locking the ITM out of their own account is worse
+  // than the gap. requireAuthAdmin refuses admin work until they enrol.
   await sealLoginSession(event, user)
   const { user: sessionUser } = await getUserSession(event)
 
-  return { user: sessionUser }
+  return {
+    user: sessionUser,
+    ...(await isMfaRequired(user) ? { mfaEnrolmentRequired: true } : {}),
+  }
 })

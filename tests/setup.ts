@@ -25,6 +25,8 @@ import { eraseUser } from '../server/utils/erase'
 import { exportUser } from '../server/utils/exportUser'
 import { planRetention } from '../server/utils/retentionPlan'
 import { RETENTION_CONFIG } from '../server/utils/retentionConfig'
+import { base32Encode, base32Decode, generateTotpSecret, totpStep, totpCode, verifyTotp, totpUri } from '../server/utils/totp'
+import { MFA_ATTEMPT_TTL_MS, WEBAUTHN_CHALLENGE_TTL_MS, isMfaRequired, enrolledFactors, createMfaAttempt, consumeMfaAttempt, storeWebauthnChallenge, getWebauthnChallenge, sweepMfaChallenges, regenerateRecoveryCodes, useRecoveryCode, remainingRecoveryCodes, clearAllFactors, listPasskeys } from '../server/utils/mfa'
 
 // ── H3 fakes ────────────────────────────────────────────────────────────────
 
@@ -41,10 +43,14 @@ export interface FakeEvent {
 class HttpError extends Error {
   statusCode: number
   statusMessage: string
-  constructor(opts: { statusCode: number, statusMessage: string }) {
+  // h3 carries `data` through to the client (that's how the login page gets
+  // `useGoogle` and a re-issued MFA attempt) — the fake must too.
+  data?: unknown
+  constructor(opts: { statusCode: number, statusMessage: string, data?: unknown }) {
     super(opts.statusMessage)
     this.statusCode = opts.statusCode
     this.statusMessage = opts.statusMessage
+    this.data = opts.data
   }
 }
 
@@ -52,7 +58,7 @@ const g = globalThis as Record<string, unknown>
 
 g.defineEventHandler = (handler: unknown) => handler
 g.defineTask = (task: unknown) => task
-g.createError = (opts: { statusCode: number, statusMessage: string }) => new HttpError(opts)
+g.createError = (opts: { statusCode: number, statusMessage: string, data?: unknown }) => new HttpError(opts)
 g.readValidatedBody = async (event: FakeEvent, parse: (body: unknown) => unknown) => parse(event.body)
 g.getRequestHeader = (event: FakeEvent, name: string) => event.headers[name.toLowerCase()]
 g.getQuery = (event: FakeEvent) => event.query ?? {}
@@ -171,6 +177,27 @@ Object.assign(g, {
   exportUser,
   planRetention,
   RETENTION_CONFIG,
+  base32Encode,
+  base32Decode,
+  generateTotpSecret,
+  totpStep,
+  totpCode,
+  verifyTotp,
+  totpUri,
+  MFA_ATTEMPT_TTL_MS,
+  WEBAUTHN_CHALLENGE_TTL_MS,
+  isMfaRequired,
+  enrolledFactors,
+  createMfaAttempt,
+  consumeMfaAttempt,
+  storeWebauthnChallenge,
+  getWebauthnChallenge,
+  sweepMfaChallenges,
+  regenerateRecoveryCodes,
+  useRecoveryCode,
+  remainingRecoveryCodes,
+  clearAllFactors,
+  listPasskeys,
 })
 
 // ── Per-test reset ──────────────────────────────────────────────────────────

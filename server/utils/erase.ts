@@ -44,6 +44,8 @@ export async function eraseUser(userId: string, actor: { id: string | null, via:
     await db.delete(schema.userRoles).where(eq(schema.userRoles.userId, userId))
     await db.delete(schema.emailVerifications).where(eq(schema.emailVerifications.userId, userId))
     await db.delete(schema.passwordResets).where(eq(schema.passwordResets.userId, userId))
+    // Second factors are credentials and personal data both (ADR-0012).
+    await clearAllFactors(userId)
   }
 
   // App hooks are idempotent — always call them, even on re-runs, so a

@@ -59,13 +59,23 @@ Historical note: the `proscenium` and `rooms` tokens issued at cutover (2026-08-
 | Disable an account | User → Disable | Blocks login and refresh. Use for compromise or misuse; it is reversible, erasure is not. |
 | Erasure (GDPR) | User → Data & GDPR → Erase… | Anonymises auth + all app data via hooks. **Irreversible** (typed email confirmation required). Confirm identity of the requester first; note the request date (one-month statutory clock). If a hook fails the erasure reports incomplete — fix the app and re-run (idempotent). |
 | Subject-access export | User → Data & GDPR → Download | Produces the JSON bundle; send securely to the verified requester. |
+| Reset someone's second factor | User → Two-step sign-in → Reset | The "lost my phone / lost my recovery codes" path. **Verify who you're talking to out of band first** — this removes their protection entirely. They can still sign in with their password; admin tools stay closed until they re-enrol. Audit-logged. |
+| Clear a password on an NNT address | User → Two-step sign-in → Clear password | For handed-over role accounts: link their Google account, re-grant the roles to the person's own account, then clear the password so the address is Google-only (ADR-0012). Refuses unless Google is linked. The `/admin` dashboard banners list who's left. |
 | Annual handover | See below | |
+
+### When someone loses their second factor
+
+1. Confirm identity **out of band** — in person, or a video call, or via a committee member who knows them. An email asking for an MFA reset is exactly what an attacker sends.
+2. Reset from their user page (above), and tell them to re-enrol immediately at `/account`.
+3. If they still hold their recovery codes, don't reset — one code signs them in, and they can regenerate the set afterwards.
+
+**The `auth:ADMIN` exception.** There may be no second admin to reset *you*. Before enrolling, put your recovery codes in the committee password manager; that is the only path back if you lose your phone. If it happens anyway, recovery means editing the D1 database directly (`npx wrangler d1 execute auth --remote --command "delete from totp_secrets where user_id = '…'"`) — which requires the Cloudflare account, so guard that access accordingly.
 
 ## Annual handover checklist (add to the Archivist runbook)
 
 1. Incoming ITM granted `auth:ADMIN`; outgoing revoked (after a two-week overlap). Committee-year roles lapse automatically on 31 July — the old revoke-everything sweep shrinks to **reviewing permanent grants** (`/admin`, filter by role).
 2. Rotate: session seal secret, all service tokens, Resend key. (Google OAuth secret only if the outgoing ITM had raw access.)
-3. Password-manager access transferred per the Workspace policy.
+3. Password-manager access transferred per the Workspace policy — including the incoming ITM's **recovery codes** (see above) and any shared account's TOTP seed.
 4. Review `audit_log` for the year (spot-check), review role grants for leavers.
 5. Run the backup-restore drill; log it in the estate tracker.
 6. Read this doc top to bottom; fix anything that's drifted.

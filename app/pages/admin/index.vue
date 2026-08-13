@@ -2,6 +2,27 @@
   <UContainer class="flex flex-col gap-4 p-4 flex-1">
     <AdminNav />
 
+    <!-- Rollout hints for the Workspace/MFA rules (ADR-0012). Each one is a
+         filter, so "who is left?" is one click rather than a search. -->
+    <UAlert
+      v-if="data?.needsAttention?.workspacePassword"
+      color="warning"
+      variant="subtle"
+      icon="i-lucide-key-round"
+      title="NNT addresses still holding a password"
+      :description="`${data.needsAttention.workspacePassword} @newtheatre.org.uk ${data.needsAttention.workspacePassword === 1 ? 'account' : 'accounts'} can still be signed into with a password. These are usually handed-over role accounts: link the person's Google account, re-grant their roles to it, then clear the password.`"
+      :actions="[{ label: 'Show them', variant: 'outline', onClick: () => { filter = 'workspace-password' } }]"
+    />
+    <UAlert
+      v-if="data?.needsAttention?.adminNoMfa"
+      color="warning"
+      variant="subtle"
+      icon="i-lucide-shield-alert"
+      title="Admins without a second factor"
+      :description="`${data.needsAttention.adminNoMfa} password ${data.needsAttention.adminNoMfa === 1 ? 'account holds' : 'accounts hold'} an admin role with no second factor set up. They can sign in, but admin tools stay closed until they enrol.`"
+      :actions="[{ label: 'Show them', variant: 'outline', onClick: () => { filter = 'admin-no-mfa' } }]"
+    />
+
     <div class="flex flex-wrap gap-2 items-end">
       <UInput
         v-model="q"
@@ -146,6 +167,8 @@ const filterOptions = [
   { label: 'Guests (shadow)', value: 'guest' },
   { label: 'Disabled', value: 'disabled' },
   { label: 'Anonymised / placeholders', value: 'anonymised' },
+  { label: 'NNT address with password', value: 'workspace-password' },
+  { label: 'Admins without 2-step', value: 'admin-no-mfa' },
 ]
 
 const query = computed(() => ({
@@ -154,6 +177,8 @@ const query = computed(() => ({
   ...(filter.value === 'full' ? { guest: 'false' } : {}),
   ...(filter.value === 'disabled' ? { disabled: 'true' } : {}),
   ...(filter.value === 'anonymised' ? { anonymised: 'true' } : {}),
+  ...(filter.value === 'workspace-password' ? { attention: 'workspace-password' } : {}),
+  ...(filter.value === 'admin-no-mfa' ? { attention: 'admin-no-mfa' } : {}),
   page: page.value,
 }))
 

@@ -260,6 +260,71 @@
         </UPageCard>
 
         <UPageCard
+          title="Two-step sign-in"
+          icon="i-lucide-shield-check"
+        >
+          <div class="flex flex-col gap-3 text-sm">
+            <p v-if="user.mfa.factors.length">
+              Enrolled:
+              <strong>{{ user.mfa.factors.includes('totp') ? 'authenticator app' : '' }}{{ user.mfa.factors.length === 2 ? ', ' : '' }}{{ user.mfa.passkeys ? `${user.mfa.passkeys} passkey${user.mfa.passkeys === 1 ? '' : 's'}` : '' }}</strong>.
+              {{ user.mfa.recoveryCodesRemaining }} recovery
+              {{ user.mfa.recoveryCodesRemaining === 1 ? 'code' : 'codes' }} unused.
+            </p>
+            <p
+              v-else-if="user.mfa.required"
+              class="text-warning"
+            >
+              Required but not set up — this account holds an admin role and
+              signs in with a password. Admin tools stay closed until they
+              enrol.
+            </p>
+            <p
+              v-else
+              class="text-muted"
+            >
+              Not set up (not required for this account).
+            </p>
+
+            <UButton
+              v-if="user.mfa.factors.length"
+              variant="outline"
+              color="error"
+              size="sm"
+              class="self-start"
+              @click="mfaReset"
+            >
+              Reset second factors
+            </UButton>
+            <p
+              v-if="user.mfa.factors.length"
+              class="text-xs text-muted"
+            >
+              The "lost my phone" path. Verify who you are talking to out of
+              band first — this removes their protection until they re-enrol.
+            </p>
+
+            <template v-if="isWorkspaceAddress && user.hasPassword">
+              <USeparator />
+              <p class="text-warning">
+                This is an <code>@newtheatre.org.uk</code> address with a
+                password set. Workspace accounts sign in with Google only;
+                once the account is linked, clear the password so the rule is
+                enforced by data as well as code.
+              </p>
+              <UButton
+                variant="outline"
+                color="warning"
+                size="sm"
+                class="self-start"
+                @click="clearPassword"
+              >
+                Clear password
+              </UButton>
+            </template>
+          </div>
+        </UPageCard>
+
+        <UPageCard
           title="Data & GDPR"
           icon="i-lucide-file-lock"
         >
@@ -399,6 +464,7 @@ interface AdminUserDetail {
   roles: string[]
   grants: { role: string, expiresAt: number | null, grantedAt: number | null, grantedBy: string | null, note: string | null, expired: boolean }[]
   legacyIds: { source: string, legacyId: string }[]
+  mfa: { required: boolean, factors: string[], passkeys: number, recoveryCodesRemaining: number }
 }
 
 // Dynamic URL defeats Nitro's route typing — assert the shape instead.
@@ -493,6 +559,8 @@ function addFreeText() {
   newRole.value = ''
 }
 
+const isWorkspaceAddress = computed(() => user.value?.email.endsWith('@newtheatre.org.uk') ?? false)
+
 const loginMethods = computed(() => {
   const methods = []
   if (user.value?.hasPassword) methods.push('password')
@@ -583,4 +651,8 @@ const setPendingGoogle = () => act('Pending link set', () =>
   $fetch(`/api/users/${id}/pending-google`, { method: 'PUT', body: { email: pendingEmail.value } }))
 const clearPendingGoogle = () => act('Pending link cleared', () =>
   $fetch(`/api/users/${id}/pending-google`, { method: 'PUT', body: { email: null } }))
+const mfaReset = () => act('Second factors cleared', () =>
+  $fetch(`/api/users/${id}/mfa-reset`, { method: 'POST' }))
+const clearPassword = () => act('Password cleared — Google sign-in only', () =>
+  $fetch(`/api/users/${id}/clear-password`, { method: 'POST' }))
 </script>

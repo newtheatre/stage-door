@@ -15,6 +15,7 @@ Why the service is the way it is. One decision per file, numbered, never edited 
 | [0009](0009-d1-backed-rate-limiting.md) | Rate limiting via D1-backed fixed-window counters | Accepted |
 | [0010](0010-legacy-roles-dormant-namespace.md) | Legacy-import roles land in a dormant `ticketing:*` namespace | Accepted |
 | [0011](0011-role-definitions-and-expiry.md) | Role definitions and grant expiry (roles v2) | Accepted |
+| [0012](0012-sso-only-workspace-and-mfa.md) | Workspace addresses are SSO-only; MFA (passkeys + TOTP) for the residual privileged accounts | Accepted |
 
 ## Template
 

@@ -12,5 +12,13 @@ export default defineEventHandler(async (event) => {
     legacyId: schema.legacyIds.legacyId,
   }).from(schema.legacyIds).where(eq(schema.legacyIds.userId, user.id)).all()
 
-  return { user: { ...adminUserView(user, grants), legacyIds } }
+  // Second-factor state (ADR-0012) — what is enrolled, never a secret.
+  const mfa = {
+    required: await isMfaRequired(user),
+    factors: await enrolledFactors(user.id),
+    passkeys: (await listPasskeys(user.id)).length,
+    recoveryCodesRemaining: await remainingRecoveryCodes(user.id),
+  }
+
+  return { user: { ...adminUserView(user, grants), legacyIds, mfa } }
 })
