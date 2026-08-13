@@ -16,47 +16,6 @@
         description="Until you finish, you can still use your account normally, but admin tools will refuse to open."
       />
 
-      <!-- One-time reveal: codes are hashed the moment they are generated. -->
-      <UAlert
-        v-if="revealedCodes"
-        color="success"
-        icon="i-lucide-life-buoy"
-        title="Save your recovery codes now"
-      >
-        <template #description>
-          <p class="mb-3">
-            Each code works once, if you ever lose your phone or passkey. This
-            is the only time they are shown — keep them in your password
-            manager.
-          </p>
-          <ul class="grid grid-cols-2 gap-1 font-mono text-sm mb-3">
-            <li
-              v-for="code in revealedCodes"
-              :key="code"
-            >
-              {{ code }}
-            </li>
-          </ul>
-          <div class="flex gap-2">
-            <UButton
-              size="sm"
-              variant="outline"
-              icon="i-lucide-copy"
-              @click="copy(revealedCodes.join('\n'), 'Recovery codes copied')"
-            >
-              Copy
-            </UButton>
-            <UButton
-              size="sm"
-              variant="ghost"
-              @click="dismissCodes"
-            >
-              I've saved them
-            </UButton>
-          </div>
-        </template>
-      </UAlert>
-
       <!-- Passkeys -->
       <div class="flex flex-col gap-3">
         <h3 class="font-medium">
@@ -156,55 +115,6 @@
           </UButton>
         </template>
 
-        <template v-else-if="setup">
-          <p class="text-sm text-muted">
-            Scan this with your authenticator app — or, for a shared account,
-            paste the key into the committee password manager.
-          </p>
-          <img
-            :src="qrSrc"
-            alt="QR code containing your authenticator setup key"
-            class="w-40 rounded-md bg-white p-2"
-          >
-          <div class="flex items-center gap-2">
-            <code class="grow break-all rounded-md bg-elevated p-2 text-sm">{{ setup.secret }}</code>
-            <UButton
-              size="sm"
-              variant="outline"
-              icon="i-lucide-copy"
-              aria-label="Copy setup key"
-              @click="copy(setup!.secret, 'Setup key copied')"
-            />
-          </div>
-          <UFormField
-            label="Enter the six-digit code to finish"
-            name="totpCode"
-          >
-            <UInput
-              v-model="totpCode"
-              placeholder="123456"
-              autocomplete="one-time-code"
-              inputmode="numeric"
-              class="w-full max-w-40"
-            />
-          </UFormField>
-          <div class="flex gap-2">
-            <UButton
-              :loading="busy === 'totp-confirm'"
-              @click="confirmTotp"
-            >
-              Confirm
-            </UButton>
-            <UButton
-              variant="ghost"
-              color="neutral"
-              @click="cancelTotp"
-            >
-              Cancel
-            </UButton>
-          </div>
-        </template>
-
         <template v-else>
           <p class="text-sm text-muted">
             Use an app such as Google Authenticator, 1Password or Authy to
@@ -239,6 +149,7 @@
             variant="outline"
             color="neutral"
             class="self-start"
+            icon="i-lucide-life-buoy"
             :loading="busy === 'recovery'"
             @click="regenerateCodes"
           >
@@ -248,6 +159,126 @@
       </template>
     </div>
 
+    <!-- ── TOTP enrolment modal ─────────────────────────────────────────── -->
+    <UModal
+      v-model:open="totpOpen"
+      title="Set up your authenticator app"
+      description="Scan the QR code, then enter the six-digit code it shows to finish."
+      :dismissible="false"
+    >
+      <template #body>
+        <div
+          v-if="setup"
+          class="flex flex-col items-center gap-4"
+        >
+          <img
+            :src="qrSrc"
+            alt="QR code containing your authenticator setup key"
+            class="w-44 rounded-md bg-white p-2"
+          >
+
+          <div class="w-full">
+            <p class="mb-1 text-xs text-muted">
+              Can't scan? Paste this key into the app — or, for a shared
+              account, into the committee password manager:
+            </p>
+            <div class="flex items-center gap-2">
+              <code class="grow break-all rounded-md bg-elevated p-2 text-sm">{{ setup.secret }}</code>
+              <UButton
+                size="sm"
+                variant="outline"
+                icon="i-lucide-copy"
+                aria-label="Copy setup key"
+                @click="copy(setup!.secret, 'Setup key copied')"
+              />
+            </div>
+          </div>
+
+          <USeparator />
+
+          <UFormField
+            :label="confirmError ?? 'Enter the six-digit code'"
+            :error="!!confirmError"
+            class="flex flex-col items-center"
+          >
+            <UPinInput
+              v-model="pin"
+              :length="6"
+              otp
+              type="number"
+              autofocus
+              :autofocus-delay="300"
+              size="lg"
+              :disabled="busy === 'totp-confirm'"
+              @complete="confirmTotp"
+            />
+          </UFormField>
+
+          <div class="flex gap-2">
+            <UButton
+              :loading="busy === 'totp-confirm'"
+              :disabled="pin.join('').length < 6"
+              @click="confirmTotp"
+            >
+              Confirm
+            </UButton>
+            <UButton
+              variant="ghost"
+              color="neutral"
+              @click="cancelTotp"
+            >
+              Cancel
+            </UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- ── Recovery codes modal (the only time they are ever shown) ────── -->
+    <UModal
+      v-model:open="codesOpen"
+      title="Save your recovery codes"
+      description="Each code works once, if you ever lose your phone or passkey. This is the only time they are shown — keep them in your password manager."
+      :dismissible="false"
+    >
+      <template #body>
+        <div class="flex flex-col gap-4">
+          <ul class="grid grid-cols-2 gap-2 rounded-md bg-elevated p-4 font-mono text-sm">
+            <li
+              v-for="code in revealedCodes"
+              :key="code"
+            >
+              {{ code }}
+            </li>
+          </ul>
+          <div class="flex flex-wrap gap-2">
+            <UButton
+              variant="outline"
+              icon="i-lucide-download"
+              @click="downloadCodes"
+            >
+              Download
+            </UButton>
+            <UButton
+              variant="outline"
+              color="neutral"
+              icon="i-lucide-copy"
+              @click="copy(revealedCodes!.join('\n'), 'Recovery codes copied')"
+            >
+              Copy
+            </UButton>
+            <UButton
+              class="ms-auto"
+              @click="dismissCodes"
+            >
+              I've saved them
+            </UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- ── Factor removal confirmation ─────────────────────────────────── -->
     <UModal
       v-model:open="removalOpen"
       title="Remove this sign-in method"
@@ -279,17 +310,21 @@
 import { renderSVG } from 'uqr'
 
 const toast = useToast()
-const { fetch: refreshSession } = useUserSession()
+const { fetch: refreshSession, user } = useUserSession()
 const { register, isSupported: passkeySupported } = useWebAuthn()
-const { user } = useUserSession()
 
 const { data: status, refresh } = await useFetch('/api/account/mfa')
 
 const busy = ref<string | null>(null)
-const setup = ref<{ secret: string, uri: string } | null>(null)
-const totpCode = ref('')
 const passkeyLabel = ref('')
-const revealedCodes = ref<string[] | null>(null)
+
+// ── TOTP enrolment ──────────────────────────────────────────────────────────
+
+const totpOpen = ref(false)
+const setup = ref<{ secret: string, uri: string } | null>(null)
+// `type="number"` makes UPinInput's model number[] (and numeric keyboards on mobile).
+const pin = ref<number[]>([])
+const confirmError = ref<string | null>(null)
 
 // Rendered as a data URI rather than v-html — no raw markup injection, and
 // the QR never leaves the browser.
@@ -297,36 +332,13 @@ const qrSrc = computed(() => setup.value
   ? `data:image/svg+xml;utf8,${encodeURIComponent(renderSVG(setup.value.uri, { border: 1 }))}`
   : '')
 
-function dismissCodes() {
-  revealedCodes.value = null
-}
-
-function cancelTotp() {
-  setup.value = null
-}
-
-function closeRemoval() {
-  removalOpen.value = false
-}
-
-function formatDate(ms: number) {
-  return new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-async function copy(text: string, title: string) {
-  await navigator.clipboard.writeText(text)
-  toast.add({ title, color: 'success' })
-}
-
-function fail(error: unknown, fallback: string) {
-  toast.add({ title: getErrorMessage(error, fallback), color: 'error' })
-}
-
 async function startTotp() {
   busy.value = 'totp-start'
   try {
     setup.value = await $fetch('/api/account/mfa/totp', { method: 'POST' })
-    totpCode.value = ''
+    pin.value = []
+    confirmError.value = null
+    totpOpen.value = true
   }
   catch (error) {
     fail(error, 'Could not start setting up an authenticator app')
@@ -337,26 +349,90 @@ async function startTotp() {
 }
 
 async function confirmTotp() {
+  const code = pin.value.join('')
+  if (code.length < 6 || busy.value === 'totp-confirm') return
+
   busy.value = 'totp-confirm'
+  confirmError.value = null
   try {
     const { recoveryCodes } = await $fetch('/api/account/mfa/totp-confirm', {
       method: 'POST',
-      body: { code: totpCode.value.trim() },
+      body: { code },
     })
+    totpOpen.value = false
     setup.value = null
-    if (recoveryCodes) revealedCodes.value = recoveryCodes
     // Enrolling a first factor bumps the epoch; the session was re-sealed
     // server-side, so pull the new one down before anything else reads it.
     await Promise.all([refresh(), refreshSession()])
     toast.add({ title: 'Authenticator app set up', color: 'success' })
+    // Chain straight into the one-time recovery-codes reveal.
+    if (recoveryCodes) revealCodes(recoveryCodes)
   }
   catch (error) {
-    fail(error, 'That code was not correct')
+    confirmError.value = getErrorMessage(error, 'That code was not correct — try the next one')
+    pin.value = []
   }
   finally {
     busy.value = null
   }
 }
+
+// An abandoned enrolment is harmless server-side (the secret is unconfirmed
+// and never gates a login), so cancel just closes.
+function cancelTotp() {
+  totpOpen.value = false
+  setup.value = null
+}
+
+// ── Recovery codes ──────────────────────────────────────────────────────────
+
+const codesOpen = ref(false)
+const revealedCodes = ref<string[] | null>(null)
+
+function revealCodes(codes: string[]) {
+  revealedCodes.value = codes
+  codesOpen.value = true
+}
+
+function dismissCodes() {
+  codesOpen.value = false
+  revealedCodes.value = null
+}
+
+function downloadCodes() {
+  if (!revealedCodes.value) return
+  const content = [
+    'NNT account recovery codes — each works once.',
+    `Account: ${user.value?.email ?? ''}`,
+    `Generated: ${new Date().toISOString().slice(0, 10)}`,
+    '',
+    ...revealedCodes.value,
+    '',
+  ].join('\n')
+  const url = URL.createObjectURL(new Blob([content], { type: 'text/plain' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'nnt-recovery-codes.txt'
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+async function regenerateCodes() {
+  busy.value = 'recovery'
+  try {
+    const { recoveryCodes } = await $fetch('/api/account/mfa/recovery-codes', { method: 'POST' })
+    revealCodes(recoveryCodes)
+    await refresh()
+  }
+  catch (error) {
+    fail(error, 'Could not generate recovery codes')
+  }
+  finally {
+    busy.value = null
+  }
+}
+
+// ── Passkeys ────────────────────────────────────────────────────────────────
 
 async function addPasskey() {
   busy.value = 'passkey-add'
@@ -385,12 +461,18 @@ async function addPasskey() {
   }
 }
 
+// ── Removal ─────────────────────────────────────────────────────────────────
+
 const removalOpen = ref(false)
 const pendingRemoval = ref<{ id: string, label: string } | null>(null)
 
 function askRemove(id: string, label: string) {
   pendingRemoval.value = { id, label }
   removalOpen.value = true
+}
+
+function closeRemoval() {
+  removalOpen.value = false
 }
 
 async function removeFactor() {
@@ -412,18 +494,18 @@ async function removeFactor() {
   }
 }
 
-async function regenerateCodes() {
-  busy.value = 'recovery'
-  try {
-    const { recoveryCodes } = await $fetch('/api/account/mfa/recovery-codes', { method: 'POST' })
-    revealedCodes.value = recoveryCodes
-    await refresh()
-  }
-  catch (error) {
-    fail(error, 'Could not generate recovery codes')
-  }
-  finally {
-    busy.value = null
-  }
+// ── Shared helpers ──────────────────────────────────────────────────────────
+
+function formatDate(ms: number) {
+  return new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+async function copy(text: string, title: string) {
+  await navigator.clipboard.writeText(text)
+  toast.add({ title, color: 'success' })
+}
+
+function fail(error: unknown, fallback: string) {
+  toast.add({ title: getErrorMessage(error, fallback), color: 'error' })
 }
 </script>

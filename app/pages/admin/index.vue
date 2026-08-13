@@ -2,6 +2,17 @@
   <UContainer class="flex flex-col gap-4 p-4 flex-1">
     <AdminNav />
 
+    <!-- A failed list fetch must never render as "0 users". (The MFA-gate
+         403 can't normally reach here — the admin middleware redirects
+         unenrolled admins to enrolment first.) -->
+    <UAlert
+      v-if="listError"
+      color="error"
+      icon="i-lucide-alert-circle"
+      title="Could not load users"
+      :description="getErrorMessage(listError, 'Something went wrong — try reloading.')"
+    />
+
     <!-- Rollout hints for the Workspace/MFA rules (ADR-0012). Each one is a
          filter, so "who is left?" is one click rather than a search. -->
     <UAlert
@@ -186,7 +197,7 @@ watch([q, filter], () => {
   page.value = 1
 })
 
-const { data, pending, refresh } = await useFetch('/api/users', { query })
+const { data, pending, refresh, error: listError } = await useFetch('/api/users', { query })
 
 // A pager for a single page of results is noise.
 const showPagination = computed(() => (data.value?.total ?? 0) > (data.value?.pageSize ?? 20))

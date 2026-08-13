@@ -29,8 +29,10 @@ export default defineOAuthGoogleEventHandler({
 
     await sealLoginSession(event, user)
 
+    // No state = they started here, not at an app — stay on the account
+    // home. An invalid state still falls back to the apex (invariant 6).
     const { state } = getQuery(event)
-    return sendRedirect(event, validateRedirect(state), 302)
+    return sendRedirect(event, typeof state === 'string' && state ? validateRedirect(state) : '/', 302)
   },
 
   onError(event, error) {
