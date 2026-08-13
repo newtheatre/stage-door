@@ -1,6 +1,24 @@
 import { db, schema } from '@nuxthub/db'
-import { eq } from 'drizzle-orm'
+import { and, eq, like, or, sql } from 'drizzle-orm'
 import type { RoleGrant } from './session'
+
+// Anonymised/placeholder accounts live on undeliverable domains (mirrors
+// isUndeliverableEmail; SQL so filters happen in the database). The legacy
+// import brought in ~8.3k of them — records, not people who can log in.
+const UNDELIVERABLE_LIKE = [
+  '%.invalid', '%.test', '%.example', '%.localhost',
+  '%@example.com', '%@example.org', '%@example.net',
+]
+
+/** WHERE: this users row is an anonymised/placeholder account. */
+export function isAnonymisedRow() {
+  return or(...UNDELIVERABLE_LIKE.map(p => like(schema.users.email, p)))
+}
+
+/** WHERE: this users row is a real, mailable account. */
+export function isRealRow() {
+  return and(...UNDELIVERABLE_LIKE.map(p => sql`${schema.users.email} NOT LIKE ${p}`))
+}
 
 type UserRow = typeof schema.users.$inferSelect
 

@@ -18,7 +18,7 @@ import { refreshSession } from '../server/utils/refresh'
 import { requireServiceToken, createServiceToken, hashServiceToken, generateServiceToken } from '../server/utils/serviceToken'
 import { requireAuthAdmin } from '../server/utils/adminGuard'
 import { requireAccountUser } from '../server/utils/accountGuard'
-import { loadUserOr404, adminUserView } from '../server/utils/adminUsers'
+import { loadUserOr404, adminUserView, isAnonymisedRow, isRealRow } from '../server/utils/adminUsers'
 import { isWorkspaceProfile, resolveGoogleUser, WORKSPACE_DOMAIN } from '../server/utils/googleAccount'
 import { callAppHook, callAllAppHooks, HOOK_APPS } from '../server/utils/appHooks'
 import { eraseUser } from '../server/utils/erase'
@@ -172,6 +172,8 @@ Object.assign(g, {
   requireAccountUser,
   loadUserOr404,
   adminUserView,
+  isAnonymisedRow,
+  isRealRow,
   isWorkspaceProfile,
   resolveGoogleUser,
   WORKSPACE_DOMAIN,

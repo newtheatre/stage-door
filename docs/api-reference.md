@@ -108,7 +108,7 @@ Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/service-tokens` (names + 
 
 ## Role definitions (ADR-0011)
 
-Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/role-definitions` (each with computed `defaultExpiresAt` — what a grant made now would default to), `POST { namespace, role, description, defaultExpiry: {kind:'none'|'committee-year'} | {kind:'days',days} }` (409 on duplicate), `PUT /api/role-definitions/:id` (description/default; identity immutable), `DELETE` (grants untouched). The daily `roles:expiry-warn` task emails holders 14 days before a grant lapses and digests to the ITM.
+Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/role-definitions` (each with computed `defaultExpiresAt` — what a grant made now would default to — and `holders`, the count of active grants on real accounts, matching what `GET /api/users?role=` lists), `POST { namespace, role, description, defaultExpiry: {kind:'none'|'committee-year'} | {kind:'days',days} }` (409 on duplicate), `PUT /api/role-definitions/:id` (description/default; identity immutable), `DELETE` (grants untouched). The daily `roles:expiry-warn` task emails holders 14 days before a grant lapses and digests to the ITM.
 
 ## Service endpoints
 
