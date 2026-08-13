@@ -33,6 +33,12 @@ Production sets `cookie.domain = '.newtheatre.org.uk'`; localhost has no subdoma
 - Running the auth service **plus a consumer app** locally (e.g. auth on `:3000`, Proscenium on `:3001`): host-only cookies don't cross ports' hostnames — they do share `localhost`, so this works as long as both use the same cookie name and secret. Set the same `NUXT_SESSION_PASSWORD` in both `.env` files and log in via the auth service; the consumer app on another port will read the session. (Same host = same cookie jar; the port is irrelevant to cookies.)
 - Consumer-app-only development (most app work): you don't need the auth service running at all. Use the app's dev seed, which creates a session via a **dev-only** login route guarded by `import.meta.dev` — that route is the single sanctioned exception to the "apps never write sessions" rule and must not exist in production builds.
 
+## Passkeys in dev
+
+WebAuthn needs a secure context; `http://localhost:3000` counts, so passkeys work locally with no extra setup. But `rpID` defaults to the request hostname, so **a passkey registered on localhost is not usable on `auth.newtheatre.org.uk`, and vice versa** — that is the spec working as intended, not a bug to fix. Chrome DevTools → More tools → WebAuthn → "Enable virtual authenticator environment" gives you a fake authenticator (set "Supports resident keys" and "Supports user verification" — the service requires both) so you can test enrolment and sign-in without touching real hardware.
+
+TOTP needs nothing special: enrol at `/account`, scan the QR with any authenticator app, or paste the shown key into it.
+
 ## Google OAuth in dev
 
 A separate "NNT Auth (dev)" OAuth client exists in the Workspace Google Cloud project with `http://localhost:3000/auth/google` **and** `http://localhost:3000/auth/google-link` (the /account "Connect Google" flow) as authorised redirect URIs — the production client needs the same pair on `https://auth.newtheatre.org.uk`. The `hd` check still applies — you need a `newtheatre.org.uk` account to test SSO. For non-Workspace flows, test with email+password; for the rejection page, any personal Google account demonstrates it.

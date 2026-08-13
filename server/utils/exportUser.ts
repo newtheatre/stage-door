@@ -28,6 +28,19 @@ export async function exportUser(userId: string) {
     .where(or(eq(schema.auditLog.target, userId), eq(schema.auditLog.actorUserId, userId)))
     .all()
 
+  // Second factors: types and dates only — never a secret or a public key
+  // (ADR-0012).
+  const totp = await db.select().from(schema.totpSecrets).where(eq(schema.totpSecrets.userId, userId)).get()
+  const mfa = {
+    totp: totp?.confirmedAt ? { enrolledAt: totp.confirmedAt } : null,
+    passkeys: (await listPasskeys(userId)).map(p => ({
+      name: p.name,
+      createdAt: new Date(p.createdAt),
+      lastUsedAt: p.lastUsedAt === null ? null : new Date(p.lastUsedAt),
+    })),
+    recoveryCodesRemaining: await remainingRecoveryCodes(userId),
+  }
+
   const hooks = await callAllAppHooks<{ data: unknown }>('export', { userId })
 
   return {
@@ -43,6 +56,7 @@ export async function exportUser(userId: string) {
       lastLogin: user.lastLogin,
       roles: roleGrants,
       legacyIds,
+      mfa,
     },
     auditEntries,
     // Hooks answer { data: <app-held personal data> } — unwrap per contract.

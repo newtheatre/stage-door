@@ -4,7 +4,8 @@ import { eq } from 'drizzle-orm'
 import { eraseUser } from '../server/utils/erase'
 import { exportUser } from '../server/utils/exportUser'
 import { fetchMock } from './setup'
-import { createUser, grantRole } from './helpers/users'
+import { createUser, grantRole, enrolTotp } from './helpers/users'
+import { regenerateRecoveryCodes } from '../server/utils/mfa'
 
 function hooksSucceed() {
   fetchMock.mockResolvedValue({ ok: true })
@@ -27,6 +28,8 @@ describe('eraseUser — anonymise, never delete (ADR-0008)', () => {
     })
     await grantRole(user.id, 'rooms:ADMIN')
     await db.insert(schema.passwordResets).values({ userId: user.id, token: 't1', expiresAt: new Date(Date.now() + 60_000) })
+    await enrolTotp(user.id)
+    await regenerateRecoveryCodes(user.id)
 
     const result = await eraseUser(user.id, { id: 'admin-1', via: 'admin' })
 
@@ -44,6 +47,9 @@ describe('eraseUser — anonymise, never delete (ADR-0008)', () => {
 
     expect(await db.select().from(schema.userRoles).where(eq(schema.userRoles.userId, user.id)).all()).toHaveLength(0)
     expect(await db.select().from(schema.passwordResets).where(eq(schema.passwordResets.userId, user.id)).all()).toHaveLength(0)
+    // Second factors are credentials too (ADR-0012).
+    expect(await db.select().from(schema.totpSecrets).all()).toHaveLength(0)
+    expect(await db.select().from(schema.mfaRecoveryCodes).all()).toHaveLength(0)
 
     // Both apps' anonymise hooks called with the stored hash as bearer.
     expect(fetchMock).toHaveBeenCalledTimes(2)
@@ -110,6 +116,9 @@ describe('exportUser — the subject-access bundle', () => {
     expect(bundle.account.roles).toHaveLength(1)
     expect(bundle.account.roles[0]).toMatchObject({ role: 'rooms:ADMIN', expiresAt: null, expired: false })
     expect(bundle.account).not.toHaveProperty('password')
+    // Factor types and dates belong in a SAR; secrets and public keys don't.
+    expect(bundle.account.mfa).toMatchObject({ totp: null, passkeys: [], recoveryCodesRemaining: 0 })
+    expect(JSON.stringify(bundle.account.mfa)).not.toContain('JBSWY3DPEHPK3PXP')
     expect(bundle.apps.rooms).toEqual({ bookings: [1, 2] })
     expect(bundle.apps.proscenium).toEqual({ reservations: [3] })
   })

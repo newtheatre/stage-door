@@ -5,7 +5,54 @@
       highlight
       highlight-color="secondary"
     >
+      <!-- Second step: password accepted, factor outstanding (ADR-0012). -->
       <UAuthForm
+        v-if="challenge"
+        :schema="codeSchema"
+        :fields="codeFields"
+        title="Enter your code"
+        :description="challenge.methods.includes('totp')
+          ? 'Open your authenticator app and enter the 6-digit code for your NNT account. You can also use one of your recovery codes.'
+          : 'Enter one of your recovery codes.'"
+        icon="i-lucide-shield-check"
+        :submit="{ label: 'Verify' }"
+        @submit="onVerify"
+      >
+        <template #validation>
+          <UAlert
+            v-if="errorMessage"
+            color="error"
+            icon="i-lucide-alert-circle"
+            :title="errorMessage"
+          />
+        </template>
+
+        <template #footer>
+          <UButton
+            v-if="challenge.methods.includes('passkey') && passkeySupported"
+            variant="outline"
+            color="neutral"
+            icon="i-lucide-key-round"
+            block
+            class="mb-4"
+            :loading="passkeyBusy"
+            @click="onPasskey"
+          >
+            Use a passkey instead
+          </UButton>
+          <UButton
+            variant="link"
+            color="neutral"
+            class="p-0"
+            @click="restart"
+          >
+            Start again
+          </UButton>
+        </template>
+      </UAuthForm>
+
+      <UAuthForm
+        v-else
         :schema="schema"
         :fields="fields"
         title="Log in to your NNT account"
@@ -54,6 +101,18 @@
           >
             Sign in with Google (NNT accounts)
           </UButton>
+          <UButton
+            v-if="passkeySupported"
+            variant="outline"
+            color="neutral"
+            icon="i-lucide-key-round"
+            block
+            class="mb-4"
+            :loading="passkeyBusy"
+            @click="onPasskey"
+          >
+            Sign in with a passkey
+          </UButton>
           Don't have an account?
           <ULink
             :to="withRedirect('/register')"
@@ -94,6 +153,21 @@ const googleHref = computed(() =>
   raw.value ? `/auth/google?state=${encodeURIComponent(raw.value)}` : '/auth/google',
 )
 
+const codeSchema = z.object({
+  code: z.string('Enter the code from your authenticator app').min(6, 'Enter the code from your authenticator app'),
+})
+
+const codeFields: AuthFormField[] = [
+  {
+    name: 'code',
+    type: 'text' as const,
+    label: 'Code',
+    placeholder: '123456',
+    required: true,
+    autocomplete: 'one-time-code',
+  },
+]
+
 const schema = z.object({
   email: z.email('Please enter a valid email address'),
   password: z.string('Password is required').min(1, 'Password is required'),
@@ -120,14 +194,71 @@ const fields: AuthFormField[] = [
   },
 ]
 
+// Second-factor state, set when /api/auth/login answers `mfaRequired`. The
+// attemptId is the only handle on the half-finished login — nothing is
+// sealed until it is exchanged for a proven factor.
+const challenge = ref<{ attemptId: string, methods: string[] } | null>(null)
+
+const { authenticate, isSupported: passkeySupported } = useWebAuthn()
+const passkeyBusy = ref(false)
+
+async function onPasskey() {
+  errorMessage.value = ''
+  passkeyBusy.value = true
+  try {
+    await authenticate()
+    await refreshSession()
+    await navigateToTarget()
+  }
+  catch (error) {
+    // A cancelled prompt throws too — say nothing rather than alarm them.
+    if ((error as { name?: string })?.name !== 'NotAllowedError') {
+      errorMessage.value = getErrorMessage(error, 'That passkey could not be used. Try your password instead.')
+    }
+  }
+  finally {
+    passkeyBusy.value = false
+  }
+}
+
+function restart() {
+  challenge.value = null
+  errorMessage.value = ''
+}
+
+async function onVerify(event: FormSubmitEvent<{ code: string }>) {
+  errorMessage.value = ''
+
+  try {
+    await $fetch('/api/auth/mfa/verify', {
+      method: 'POST',
+      body: { attemptId: challenge.value!.attemptId, code: event.data.code },
+    })
+    await refreshSession()
+    await navigateToTarget()
+  }
+  catch (error) {
+    // A wrong code burns the attempt; the server hands back a fresh one so a
+    // typo doesn't cost the password step as well.
+    const reissued = (error as { data?: { data?: { attemptId?: string } } })?.data?.data?.attemptId
+    if (reissued && challenge.value) challenge.value = { ...challenge.value, attemptId: reissued }
+    else challenge.value = null
+    errorMessage.value = getErrorMessage(error, 'That code was not correct.')
+  }
+}
+
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   errorMessage.value = ''
 
   try {
-    await $fetch('/api/auth/login', {
+    const result = await $fetch('/api/auth/login', {
       method: 'POST',
       body: event.data,
     })
+    if ('mfaRequired' in result && result.mfaRequired) {
+      challenge.value = { attemptId: result.attemptId, methods: result.methods }
+      return
+    }
     await refreshSession()
     await navigateToTarget()
   }

@@ -9,6 +9,7 @@ const querySchema = z.object({
   guest: z.enum(['true', 'false']).optional(),
   disabled: z.enum(['true', 'false']).optional(),
   anonymised: z.enum(['true']).optional(),
+  attention: z.enum(['workspace-password', 'admin-no-mfa']).optional(),
   page: z.coerce.number().int().min(1).default(1),
 })
 
@@ -22,6 +23,21 @@ const UNDELIVERABLE_LIKE = [
   '%.invalid', '%.test', '%.example', '%.localhost',
   '%@example.com', '%@example.org', '%@example.net',
 ]
+// Accounts the ADR-0012 rollout wants an operator's eye on:
+//  - a Workspace address that still has a password (should be Google-only,
+//    and is usually a handed-over role account);
+//  - an admin that signs in with a password and has no second factor.
+const hasWorkspacePassword = and(
+  like(schema.users.email, '%@newtheatre.org.uk'),
+  isNotNull(schema.users.password),
+)
+const isAdminWithoutMfa = and(
+  isNotNull(schema.users.password),
+  sql`exists (select 1 from ${schema.userRoles} where ${schema.userRoles.userId} = ${schema.users.id} and ${schema.userRoles.role} like '%:ADMIN' and (${schema.userRoles.expiresAt} is null or ${schema.userRoles.expiresAt} > ${Date.now()}))`,
+  sql`not exists (select 1 from ${schema.totpSecrets} where ${schema.totpSecrets.userId} = ${schema.users.id} and ${schema.totpSecrets.confirmedAt} is not null)`,
+  sql`not exists (select 1 from ${schema.webauthnCredentials} where ${schema.webauthnCredentials.userId} = ${schema.users.id})`,
+)
+
 const isAnonymisedRow = or(...UNDELIVERABLE_LIKE.map(p => like(schema.users.email, p)))
 const isRealRow = and(...UNDELIVERABLE_LIKE.map(p => sql`${schema.users.email} NOT LIKE ${p}`))
 
@@ -32,7 +48,7 @@ const isRealRow = and(...UNDELIVERABLE_LIKE.map(p => sql`${schema.users.email} N
  */
 export default defineEventHandler(async (event) => {
   await requireAuthAdmin(event)
-  const { q, role, guest, disabled, anonymised, page } = await getValidatedQuery(event, querySchema.parse)
+  const { q, role, guest, disabled, anonymised, attention, page } = await getValidatedQuery(event, querySchema.parse)
 
   const conditions = [anonymised === 'true' ? isAnonymisedRow : isRealRow]
 
@@ -54,6 +70,9 @@ export default defineEventHandler(async (event) => {
     conditions.push(sql`exists (select 1 from ${schema.userRoles} where ${schema.userRoles.userId} = ${schema.users.id} and ${schema.userRoles.role} = ${role} and (${schema.userRoles.expiresAt} is null or ${schema.userRoles.expiresAt} > ${Date.now()}))`)
   }
 
+  if (attention === 'workspace-password') conditions.push(hasWorkspacePassword)
+  if (attention === 'admin-no-mfa') conditions.push(isAdminWithoutMfa)
+
   const where = conditions.length ? and(...conditions) : undefined
 
   const total = (await db.select({ total: sql<number>`count(*)` })
@@ -63,6 +82,15 @@ export default defineEventHandler(async (event) => {
   // (unfiltered — it's a standing fact about the store, not the search).
   const hiddenAnonymised = (await db.select({ n: sql<number>`count(*)` })
     .from(schema.users).where(isAnonymisedRow).get())?.n ?? 0
+
+  // Standing counts for the dashboard banner — unfiltered, like the
+  // anonymised count above.
+  const needsAttention = {
+    workspacePassword: (await db.select({ n: sql<number>`count(*)` })
+      .from(schema.users).where(and(hasWorkspacePassword, isRealRow)).get())?.n ?? 0,
+    adminNoMfa: (await db.select({ n: sql<number>`count(*)` })
+      .from(schema.users).where(and(isAdminWithoutMfa, isRealRow)).get())?.n ?? 0,
+  }
 
   const rows = await db.select().from(schema.users)
     .where(where)
@@ -94,5 +122,6 @@ export default defineEventHandler(async (event) => {
     page,
     pageSize: PAGE_SIZE,
     hiddenAnonymised,
+    needsAttention,
   }
 })

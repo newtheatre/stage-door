@@ -9,7 +9,7 @@ import definitionsCreateHandler from '../server/api/role-definitions/index.post'
 import definitionsDeleteHandler from '../server/api/role-definitions/[id].delete'
 import { makeEvent } from './setup'
 import type { FakeEvent } from './setup'
-import { createUser, grantRole } from './helpers/users'
+import { createUser, grantRole, enrolTotp } from './helpers/users'
 
 const putRoles = rolesHandler as unknown as (event: unknown) => Promise<unknown>
 const listDefinitions = definitionsListHandler as unknown as (event: unknown) => Promise<{ definitions: { id: string, defaultExpiresAt: number | null }[] }>
@@ -24,6 +24,7 @@ async function adminEvent(extra: Partial<FakeEvent> = {}): Promise<{ event: Fake
   adminCounter += 1
   const admin = await createUser({ email: `roles-admin${adminCounter}@example-user.co.uk`, plainPassword: 'Passw0rd', verified: true })
   await grantRole(admin.id, 'auth:ADMIN')
+  await enrolTotp(admin.id)
 
   const event = makeEvent(extra)
   await (globalThis as never as { setUserSession: (e: unknown, s: unknown) => Promise<unknown> })

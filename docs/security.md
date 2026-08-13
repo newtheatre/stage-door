@@ -12,7 +12,7 @@ This service protects a student theatre's box office, room bookings, and member 
 |---|---|
 | Credential stuffing / brute force | Rate limits per IP + per account on login/register/forgot; scrypt hashing; no enumeration signals anywhere. |
 | Claiming placeholder/anonymised accounts | Register's shadow-claim seals a session with **no email round-trip**, so accounts on undeliverable domains (`.invalid`/`.test`/`example.com` — the legacy import created ~8.3k, one owning reservations with third-party names in notes) were claimable by anyone. `isUndeliverableEmail` makes them unregisterable/unclaimable/unresettable, and the rows are additionally `disabled`. Found and hotfixed 2026-08-11 (PR #10) before any exploitation. |
-| Phishing of members | **`@newtheatre.org.uk` addresses cannot use password login at all** (ADR-0012) — they sign in with Google, inheriting Workspace's enforced 2SV. Non-Workspace accounts get standard hygiene; MFA for the residual privileged accounts is the second half of ADR-0012. |
+| Phishing of members | **`@newtheatre.org.uk` addresses cannot use password login at all** (ADR-0012) — they sign in with Google, inheriting Workspace's enforced 2SV. The residual privileged accounts (personal/SU addresses) must hold a second factor: a passkey, which is phishing-resistant by construction, or an authenticator app. Everyone else may opt in. |
 | Open-redirect / OAuth mixups | Strict redirect allowlist; server-side `hd` + `email_verified` checks; `google_sub` linkage (not email) after first sign-in. |
 | Session theft (XSS in a consumer app) | `httpOnly` cookie can't be read by JS; but any XSS on any subdomain can *act* as the user. Consumer apps inherit responsibility: standard Nuxt escaping, no `v-html` on user input. This is the price of cookie SSO — noted in every integration review. |
 | Session forgery via secret leak | The known weak point. Any worker holding the seal secret can mint sessions for the whole estate. Mitigations: secret only ever in worker secrets + password manager; rotation drill is one command per app; suspected leak = rotate first, ask questions later. |
@@ -46,7 +46,7 @@ For any PR touching auth logic, the reviewer (human, with Claude Code's help) co
 
 ## Known accepted risks (revisit yearly at handover)
 
-1. No MFA for email+password `*:ADMIN` accounts — **largely closed** by ADR-0012: Workspace addresses can no longer use password login at all, so they inherit Google's 2SV. What remains is the residual set that genuinely can't use Workspace SSO (the ITM's personal address, the SU account); MFA for those is the second half of ADR-0012.
+1. ~~No MFA for email+password `*:ADMIN` accounts~~ — **closed** by [ADR-0012](decisions/0012-sso-only-workspace-and-mfa.md). Workspace addresses cannot use password login at all (so they inherit Google's 2SV), and the residual password admins must enrol a passkey or an authenticator app: `requireAuthAdmin` refuses admin work until they do. What remains is a smaller, named risk: **an admin who loses both their factor and their recovery codes needs another admin to reset them, and `auth:ADMIN` may have no peer** — hence the standing instruction to keep the ITM's recovery codes in the committee password manager ([operations.md](operations.md)).
 2. 15-minute revocation window on privileged surfaces; up to 30-day window on unprivileged reads for a demoted-but-not-force-logged-out user.
 3. Shared seal secret across workers (see threat model).
 4. Consumer-app XSS ≈ session abuse for that user across the estate.

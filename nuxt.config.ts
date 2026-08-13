@@ -84,6 +84,23 @@ export default defineNuxtConfig({
             if (id === '@react-email/render') return 'export {}'
           },
         },
+        // @simplewebauthn/server top-level re-exports cross-fetch, which has
+        // no exports map — rollup can resolve it to node-fetch@2 and drag in
+        // node:http. It's only used by MetadataService/isCertRevoked, neither
+        // of which we touch, so point it at the platform fetch. Unlike the
+        // stub above this needs a real named export, since deps.js re-exports
+        // `fetch` by name.
+        {
+          name: 'stub-cross-fetch',
+          resolveId(id: string) {
+            if (id === 'cross-fetch') return id
+          },
+          load(id: string) {
+            if (id === 'cross-fetch') {
+              return 'export const fetch = globalThis.fetch\nexport default globalThis.fetch'
+            }
+          },
+        },
       ],
     },
     cloudflare: {
@@ -121,6 +138,14 @@ export default defineNuxtConfig({
     kv: false,
     cache: false,
     blob: false,
+  },
+
+  // Passkeys (ADR-0012). Off by default in nuxt-auth-utils; enabling it
+  // requires the @simplewebauthn peers (the module process.exit(1)s at build
+  // without them). Note the casing: module option `webAuthn`, runtimeConfig
+  // key `webauthn`.
+  auth: {
+    webAuthn: true,
   },
 
   eslint: {

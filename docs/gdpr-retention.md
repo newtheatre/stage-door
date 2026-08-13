@@ -20,7 +20,7 @@ Data minimisation is a design rule: no DOB, no address, no phone, no analytics i
 
 `reservations.user_id` is NOT NULL/`restrict`, and sales records carry a 6-year financial retention — so **erasure rewrites, it doesn't remove rows**. `POST /api/users/:id/erase` (admin) / `POST /api/account/erase` (self-service, password- or session-confirmed):
 
-1. Auth `users` row → email `deleted-<id>@anonymised.invalid`, name `Deleted user`, password NULL, `google_sub` NULL, `email_verified` 0, `disabled` 1; verification/reset tokens deleted; roles deleted.
+1. Auth `users` row → email `deleted-<id>@anonymised.invalid`, name `Deleted user`, password NULL, `google_sub` NULL, `email_verified` 0, `disabled` 1; verification/reset tokens deleted; roles deleted; second factors (passkeys, TOTP secret, recovery codes) deleted.
 2. For each registered app: `POST <app>/api/_hooks/auth/anonymise { userId }` — the app rewrites its mirror row identically and scrubs free-text fields that may hold personal data (Proscenium: `customer_notes`; each app documents its own scrub list in its hook implementation). Hooks are idempotent; failures are retried and surfaced to the admin — an erasure isn't "done" until every hook has succeeded.
 3. `session_epoch` bumped (live sessions die), action audit-logged (the audit entry references the anonymous id only).
 
@@ -30,7 +30,7 @@ Bookings and reservations survive as anonymous rows: attendance counts, revenue,
 
 ## Right of access
 
-`GET /api/users/:id/export` (admin) and self-service from `/account`: a JSON bundle of the auth record (profile, roles, linked identity, `last_login`, relevant audit entries) plus each app's `export` hook contribution (their reservations, bookings, preferences). One statutory month to respond; the export takes seconds, so the clock is about identity verification, not tooling.
+`GET /api/users/:id/export` (admin) and self-service from `/account`: a JSON bundle of the auth record (profile, roles, linked identity, `last_login`, second-factor types and enrolment dates — never the secrets themselves, relevant audit entries) plus each app's `export` hook contribution (their reservations, bookings, preferences). One statutory month to respond; the export takes seconds, so the clock is about identity verification, not tooling.
 
 ## Inactive-account retention sweep
 

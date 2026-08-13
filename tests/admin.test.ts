@@ -9,7 +9,7 @@ import unlinkGoogleHandler from '../server/api/users/[id]/unlink-google.post'
 import createUserHandler from '../server/api/users/index.post'
 import { makeEvent, sentEmails } from './setup'
 import type { FakeEvent } from './setup'
-import { createUser, grantRole } from './helpers/users'
+import { createUser, grantRole, enrolTotp } from './helpers/users'
 
 const putRoles = rolesHandler as unknown as (event: unknown) => Promise<unknown>
 const disable = disableHandler as unknown as (event: unknown) => Promise<unknown>
@@ -25,6 +25,7 @@ async function adminEvent(extra: Partial<FakeEvent> = {}): Promise<{ event: Fake
   adminCounter += 1
   const admin = await createUser({ email: `admin${adminCounter}@example.com`, plainPassword: 'Passw0rd', verified: true })
   await grantRole(admin.id, 'auth:ADMIN')
+  await enrolTotp(admin.id)
 
   const event = makeEvent(extra)
   await (globalThis as never as { setUserSession: (e: unknown, s: unknown) => Promise<unknown> })

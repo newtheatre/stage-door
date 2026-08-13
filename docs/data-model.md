@@ -65,6 +65,19 @@ Both: `user_id` (FK cascade), `token` (text unique — `randomBytes(32)` hex), `
 
 Warning-email bookkeeping for the retention sweep: `user_id` (FK cascade), `stage` (`warning-60d` | `warning-30d`, unique per user), `sent_at`. Rows are cleared when the user logs in again (their clock resets) and cascade away on erasure.
 
+### MFA tables (ADR-0012)
+
+Four small tables, all `user_id` FK cascade:
+
+| Table | Notes |
+|---|---|
+| `webauthn_credentials` | Passkeys: `credential_id` (unique), `public_key`, `counter`, `transports` (JSON), `backed_up`, `name` (user's device label), `created_at`, `last_used_at`. Shape mirrors the `WebAuthnCredential` nuxt-auth-utils hands to `onSuccess`, so registration is a straight insert |
+| `totp_secrets` | One row per user (`user_id` is the PK): `secret` (base32), `confirmed_at` (null = enrolment started but never proved, which never gates a login), `last_used_step` (replay guard — a code is valid for its whole window, so the accepted step is remembered and never re-accepted) |
+| `mfa_recovery_codes` | `code_hash` (SHA-256 hex, like service tokens — plaintext shown once and never stored), `used_at`. Eight per user, replaced wholesale on regeneration |
+| `mfa_challenges` | Short-lived server state doing two jobs: WebAuthn challenges (`kind` = `webauthn-register` / `webauthn-authenticate`, with `challenge`) and pending logins (`kind` = `login`, password accepted but factor outstanding). `user_id` is nullable — a passkey *authentication* challenge is usernameless, so there is no account to attribute it to when it's issued. Single-use on read, and swept by the nightly `rate-limits:sweep` task |
+
+Erasure clears all four (`clearAllFactors`); the subject-access export lists factor types and dates but never a secret, a public key, or a code.
+
 ### `rate_limits`
 
 Fixed-window counters: `key` (`<scope>:<subject>`, e.g. `login:ip:1.2.3.4`, `login:acct:<email>`), `window_start`, `count`. One row per key, window reset in place by an atomic upsert; swept nightly by the `rate-limits:sweep` task. Chosen over Cloudflare WAF rules at build time — [ADR-0009](decisions/0009-d1-backed-rate-limiting.md). Limits live in `RATE_LIMITS` in `server/utils/rateLimit.ts`.

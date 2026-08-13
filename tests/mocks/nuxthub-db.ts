@@ -14,6 +14,7 @@ import * as serviceSchema from '../../server/db/schema/service'
 import * as auditSchema from '../../server/db/schema/audit'
 import * as rateLimitSchema from '../../server/db/schema/rateLimit'
 import * as retentionSchema from '../../server/db/schema/retention'
+import * as mfaSchema from '../../server/db/schema/mfa'
 
 export const schema = {
   ...userSchema,
@@ -22,6 +23,7 @@ export const schema = {
   ...auditSchema,
   ...rateLimitSchema,
   ...retentionSchema,
+  ...mfaSchema,
 }
 
 const sqlite = new Database(':memory:')
@@ -49,6 +51,10 @@ export function resetDb(): void {
     DELETE FROM audit_log;
     DELETE FROM rate_limits;
     DELETE FROM retention_notices;
+    DELETE FROM webauthn_credentials;
+    DELETE FROM totp_secrets;
+    DELETE FROM mfa_recovery_codes;
+    DELETE FROM mfa_challenges;
     DELETE FROM users;
   `)
 }
