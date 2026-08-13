@@ -24,7 +24,14 @@
 
         <template #validation>
           <UAlert
-            v-if="errorMessage"
+            v-if="useGoogleInstead"
+            color="info"
+            icon="i-simple-icons-google"
+            title="NNT accounts sign in with Google"
+            description="Your @newtheatre.org.uk account doesn't use a password here — use the Google button below and you'll be signed in with everything you had before."
+          />
+          <UAlert
+            v-else-if="errorMessage"
             color="error"
             icon="i-lucide-alert-circle"
             :title="errorMessage"
@@ -78,6 +85,9 @@ const errorMessage = ref(
   route.query.error === 'google' ? 'Google sign-in failed. Please try again, or use email and password.' : '',
 )
 
+// Set when the submitted address is an NNT Workspace one (ADR-0012).
+const useGoogleInstead = ref(false)
+
 // The redirect target rides through the OAuth round-trip as `state`
 // (validated server-side on the way back out).
 const googleHref = computed(() =>
@@ -122,6 +132,13 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     await navigateToTarget()
   }
   catch (error) {
+    // A Workspace address hit the domain rule (ADR-0012) — point at Google
+    // rather than leaving them re-typing a password that will never work.
+    if ((error as { data?: { data?: { useGoogle?: boolean } } })?.data?.data?.useGoogle) {
+      useGoogleInstead.value = true
+      errorMessage.value = ''
+      return
+    }
     errorMessage.value = getErrorMessage(error, 'An unexpected error occurred. Please try again.')
   }
 }

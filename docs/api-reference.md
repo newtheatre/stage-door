@@ -11,6 +11,9 @@ Three auth levels:
 ## Auth flows
 
 ### `POST /api/auth/login` — public [RL]
+
+**`@newtheatre.org.uk` addresses are refused with `403 { data: { useGoogle: true } }`** — NNT accounts always sign in with Google (ADR-0012), which brings Google's enforced 2SV. This is the single deliberate exception to enumeration-safe login errors: the domain policy is a public fact about the address, not about whether an account exists. `forgot-password` and `register` no-op for the domain too (enumeration-safe `{ ok: true }`), so a reset can't restore password login.
+
 `{ email, password }` → seals session, updates `last_login`, returns `{ user }`. 401 `Invalid email or password` for unknown user, wrong password, **and** password-less (guest/SSO-only) accounts — indistinguishable by design. Disabled accounts: same 401.
 
 ### `POST /api/auth/register` — public [RL]
@@ -57,6 +60,7 @@ All require session + `auth:ADMIN` unless noted. All mutations **[AUD]**.
 | `POST /api/users/:id/force-logout` | Bumps `session_epoch` |
 | `POST /api/users/:id/disable` / `enable` | Disabled users can't log in and fail refresh |
 | `POST /api/users/:id/unlink-google` | Clears `google_sub` (guard: refuse if it would leave the account with no login method) |
+| `POST /api/users/:id/clear-password` | Null the password so the account can only use Google (ADR-0012). Refuses unless Google is linked — clearing first would lock the account out. Bumps `session_epoch` |
 | `PUT /api/users/:id/pending-google` | Set/clear `pending_google_email` — admin-directed link: the next Google sign-in with that address attaches to this account. Validated `@newtheatre.org.uk`; refuses addresses already linked or pending elsewhere |
 | `GET /api/users/:id/export` | Subject-access bundle: auth record + each app's hook contribution ([gdpr-retention.md](gdpr-retention.md)) |
 | `POST /api/users/:id/erase` | Anonymise everywhere (auth + app hooks + epoch bump). Requires `{ confirmEmail }` matching the account; cannot target self; returns per-hook status and is idempotent — re-POST to retry failed hooks. Also self-service from `/account` (password-confirmed). |

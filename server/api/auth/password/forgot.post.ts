@@ -22,7 +22,11 @@ export default defineEventHandler(async (event) => {
   // Undeliverable addresses (anonymised/placeholder accounts) get the same
   // generic response with no send — the mail could never arrive, and Resend
   // bounces are noise (docs/operations.md#monitoring).
-  if (isUndeliverableEmail(email)) {
+  //
+  // Workspace addresses likewise: they sign in with Google (ADR-0012), so a
+  // reset link would hand them back the password login the domain rule
+  // exists to remove. Silent no-op keeps this enumeration-safe.
+  if (isUndeliverableEmail(email) || isWorkspaceEmail(email)) {
     return { ok: true }
   }
 
