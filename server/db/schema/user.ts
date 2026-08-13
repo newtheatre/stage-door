@@ -35,6 +35,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   userRoles: many(userRoles),
   emailVerifications: many(emailVerifications),
   passwordResets: many(passwordResets),
+  magicLinks: many(magicLinks),
 }))
 
 // Scoped role strings 'app:ROLE' (ADR-0004, expiry per ADR-0011). No central
@@ -117,6 +118,26 @@ export const passwordResets = sqliteTable('password_resets', {
 export const passwordResetsRelations = relations(passwordResets, ({ one }) => ({
   user: one(users, {
     fields: [passwordResets.userId],
+    references: [users.id],
+  }),
+}))
+
+// Magic sign-in links (ADR-0013). 15 minutes; single-use; one outstanding
+// per user. Hashed at rest — a magic link grants an instant session, so it
+// gets the service-token treatment, not the plaintext one.
+export const magicLinks = sqliteTable('magic_links', {
+  id: text('id').primaryKey().$defaultFn(() => nanoid()),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+}, table => [
+  index('magic_links_user_id_idx').on(table.userId),
+])
+
+export const magicLinksRelations = relations(magicLinks, ({ one }) => ({
+  user: one(users, {
+    fields: [magicLinks.userId],
     references: [users.id],
   }),
 }))

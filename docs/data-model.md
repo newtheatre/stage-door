@@ -39,9 +39,9 @@ No central registry of apps or roles — a namespace exists the moment a role in
 
 Optional UX metadata driving the admin grant dropdown ([ADR-0011](decisions/0011-role-definitions-and-expiry.md)): `namespace` + `role` (unique pair), `description`, `default_expiry_kind` (`none` | `committee-year` | `days`) + `default_expiry_days`. A grant never requires a definition; deleting one never touches grants. The committee year end (31 July) lives in `server/utils/rolesConfig.ts`.
 
-### `email_verifications` / `password_resets`
+### `email_verifications` / `password_resets` / `magic_links`
 
-Both: `user_id` (FK cascade), `token` (text unique — `randomBytes(32)` hex), `expires_at`. Ported semantics from Proscenium: verification tokens live 24 h; reset tokens 1 h (self-service) or 24 h (admin-initiated); single-use; issuing a new reset deletes outstanding ones for that user.
+All three: `user_id` (FK cascade), a unique token column, `expires_at`. Tokens are `randomBytes(32)` hex, **stored as their SHA-256 (ADR-0013)** — the plaintext exists only in the email. Verification tokens live 24 h; reset tokens 1 h (self-service) or 24 h (admin-initiated); magic links 15 minutes. All single-use; issuing a new reset or magic link deletes outstanding ones for that user. Expired magic links are also swept nightly.
 
 ### `legacy_ids`
 

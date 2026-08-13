@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
 
   const verification = await db.select()
     .from(schema.emailVerifications)
-    .where(eq(schema.emailVerifications.token, token))
+    .where(eq(schema.emailVerifications.token, hashLoginToken(token)))
     .get()
 
   if (!verification) {

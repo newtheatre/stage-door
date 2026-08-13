@@ -55,6 +55,7 @@ export function resetDb(): void {
     DELETE FROM totp_secrets;
     DELETE FROM mfa_recovery_codes;
     DELETE FROM mfa_challenges;
+    DELETE FROM magic_links;
     DELETE FROM users;
   `)
 }

@@ -20,12 +20,12 @@ Differences from the sketch worth knowing: **both** factor types shipped, not pa
 
 ## R4 — Candidate features *(gathered, not committed — review each year at handover)*
 
-- **Passwordless login for ticket bookers (email one-time code or magic link).** The audience population forgets passwords between shows; a 6-digit emailed code at login would cut forgot-password traffic and pair naturally with shadow-account claiming ("enter the code we sent to confirm it's you"). Small build on existing token machinery + Resend. Probably the highest-value item in this list for actual users.
+- ~~Passwordless login for ticket bookers~~ — **GRADUATED 2026-08-14 → [ADR-0013](decisions/0013-magic-links-and-the-mfa-seam.md)** as magic links (the emailed-OTP variant was considered and not built — the link wins on a population that opens the email on the same phone it signs in on). Shadow accounts included; MFA still gates enrolled accounts.
 - **Role sync from Google Workspace Groups.** The theatre already administers committee membership as Workspace role groups (per the Workspace plan); a nightly job could map configured groups → role grants (e.g. members of `boxoffice@` get `proscenium:BOX_OFFICE` with end-of-year expiry), ending double administration. Needs a service account with Groups read scope and careful thought about which direction wins on conflict. Investigate after R1, since it wants expiry semantics to exist.
 - **"Sign in with NNT" (OIDC provider mode).** Only if a third-party tool (forum, wiki, external ticketing) ever needs our accounts. Explicitly out of v1 (ADR-0001/0003); would be a significant addition — do not drift into it accidentally.
 - **Sessions/devices UI ("log out that library computer").** Requires server-side session state, which ADR-0003 deliberately avoided. The epoch mechanism already gives "log out everywhere"; per-device management is the one thing it can't do. Revisit only if it becomes a real complaint.
 - **New-login notification emails** ("new sign-in to your NNT account"). Cheap, but noisy for a population that logs in twice a year; if built, admins-only.
-- **Booking-history claim nudge analytics** — measure how many shadow accounts convert after the confirmation-email nudge; informs whether passwordless (above) is worth it.
+- **Booking-history claim nudge analytics** — measure how many shadow accounts convert after the confirmation-email nudge, and now how many use magic links (ADR-0013).
 
 ## Parking rules
 

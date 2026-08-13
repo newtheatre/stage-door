@@ -82,6 +82,22 @@ export async function sendPasswordResetEmail(email: string, token: string): Prom
   })
 }
 
+/** Send a magic sign-in link (ADR-0013). */
+export async function sendMagicLinkEmail(email: string, token: string, redirect?: string): Promise<void> {
+  const { public: { baseURL } } = useRuntimeConfig()
+  const url = `${baseURL}/magic-link?token=${token}${redirect ? `&redirect=${encodeURIComponent(redirect)}` : ''}`
+
+  await sendEmail({
+    to: email,
+    subject: 'Your NNT sign-in link',
+    html: emailLayout(`
+      <p>Click the link below to sign in to your NNT account:</p>
+      <p><a href="${url}">${url}</a></p>
+      <p>The link works once and expires in 15 minutes. If you didn't request it, no action is needed — nobody can sign in without it.</p>
+    `),
+  })
+}
+
 /** Role expiry warning to the holder — 14 days out (ADR-0011). */
 export async function sendRoleExpiryWarningEmail(
   email: string,
