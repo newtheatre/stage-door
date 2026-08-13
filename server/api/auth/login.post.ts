@@ -25,6 +25,20 @@ export default defineEventHandler(async (event) => {
   await enforceRateLimit('login:ip', getClientIP(event))
   await enforceRateLimit('login:acct', email)
 
+  // NNT Workspace addresses always sign in with Google (ADR-0012), which
+  // brings Google's enforced 2SV with it. This is the one deliberate
+  // exception to enumeration-safe login errors: the domain policy is a
+  // public fact about the *address*, not a fact about whether an account
+  // exists — and a generic "invalid email or password" here would strand
+  // committee members with no idea why their password stopped working.
+  if (isWorkspaceEmail(email)) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'NNT accounts sign in with Google. Use the "Sign in with Google" button below.',
+      data: { useGoogle: true },
+    })
+  }
+
   const user = await db.select().from(schema.users).where(eq(schema.users.email, email)).get()
 
   const validPassword = await verifyPasswordGuarded(user?.password ?? null, password)

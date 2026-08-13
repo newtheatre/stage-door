@@ -28,7 +28,10 @@ export default defineEventHandler(async (event) => {
   // claimable — the legacy import created thousands of placeholder rows on
   // them (some owning reservations with other customers' data). Same
   // enumeration-safe response as every other path.
-  if (isUndeliverableEmail(email)) {
+  // Workspace addresses get their account from signing in with Google
+  // (ADR-0012) — registering one with a password would create exactly the
+  // password login the domain rule removes.
+  if (isUndeliverableEmail(email) || isWorkspaceEmail(email)) {
     return { ok: true }
   }
 

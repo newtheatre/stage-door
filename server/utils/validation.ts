@@ -41,6 +41,16 @@ export const roleGrantSchema = z.union([
 ])
 
 /**
+ * NNT Workspace addresses sign in with Google, never with a password
+ * (ADR-0012). Exact-domain match only: subdomains like
+ * `someone@dev.newtheatre.org.uk` are NOT Workspace accounts — which is
+ * what keeps the dev seed usable locally.
+ */
+export function isWorkspaceEmail(email: string): boolean {
+  return email.toLowerCase().endsWith('@newtheatre.org.uk')
+}
+
+/**
  * Addresses that can never receive mail: RFC 2606 reserved TLDs/domains,
  * plus our own anonymisation convention (`@anonymised.invalid`). The legacy
  * import created thousands of placeholder/anonymised accounts on these —
