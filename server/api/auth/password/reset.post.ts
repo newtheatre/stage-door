@@ -12,8 +12,10 @@ const bodySchema = z.object({
  *
  * Consumes the token, bumps `session_epoch` so existing sessions everywhere
  * are invalidated at their next refresh, and seals a fresh session for the
- * caller (docs/api-reference.md). Setting a password on a shadow account
- * claims it — `guest` flips to false at this seal.
+ * caller (docs/api-reference.md) — unless the account has a second factor
+ * enrolled, in which case the response is the same `mfaRequired` challenge
+ * as login (ADR-0013). Setting a password on a shadow account claims it —
+ * `guest` flips to false at this seal.
  */
 export default defineEventHandler(async (event) => {
   const { token, password } = await readValidatedBody(event, bodySchema.parse)
@@ -22,7 +24,7 @@ export default defineEventHandler(async (event) => {
 
   const resetRecord = await db.select()
     .from(schema.passwordResets)
-    .where(eq(schema.passwordResets.token, token))
+    .where(eq(schema.passwordResets.token, hashLoginToken(token)))
     .get()
 
   if (!resetRecord) {
@@ -61,7 +63,11 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  await sealLoginSession(event, user)
+  // The same MFA seam as login (ADR-0013): mailbox control resets the
+  // password, but an enrolled account's second factor still gates the
+  // session — a reset must not be the bypass.
+  const challenge = await sealOrChallenge(event, user)
+  if (challenge) return challenge
 
   return { ok: true }
 })

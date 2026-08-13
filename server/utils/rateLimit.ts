@@ -33,6 +33,8 @@ export const RATE_LIMITS = {
   'verify-request:acct': { limit: 3, windowMs: 60 * 60_000 },
   // Second-factor attempts. Tight per-account: this is where a stolen
   // password meets a 6-digit code, and recovery codes share the endpoint.
+  'magic:ip': { limit: 10, windowMs: 60 * 60_000 },
+  'magic:acct': { limit: 3, windowMs: 60 * 60_000 },
   'mfa:ip': { limit: 30, windowMs: 15 * 60_000 },
   'mfa:acct': { limit: 8, windowMs: 15 * 60_000 },
 } as const satisfies Record<string, RateLimitRule>

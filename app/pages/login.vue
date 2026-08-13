@@ -6,50 +6,13 @@
       highlight-color="secondary"
     >
       <!-- Second step: password accepted, factor outstanding (ADR-0012). -->
-      <UAuthForm
+      <MfaChallenge
         v-if="challenge"
-        :schema="codeSchema"
-        :fields="codeFields"
-        title="Enter your code"
-        :description="challenge.methods.includes('totp')
-          ? 'Open your authenticator app and enter the 6-digit code for your NNT account. You can also use one of your recovery codes.'
-          : 'Enter one of your recovery codes.'"
-        icon="i-lucide-shield-check"
-        :submit="{ label: 'Verify' }"
-        @submit="onVerify"
-      >
-        <template #validation>
-          <UAlert
-            v-if="errorMessage"
-            color="error"
-            icon="i-lucide-alert-circle"
-            :title="errorMessage"
-          />
-        </template>
-
-        <template #footer>
-          <UButton
-            v-if="challenge.methods.includes('passkey') && passkeySupported"
-            variant="outline"
-            color="neutral"
-            icon="i-lucide-key-round"
-            block
-            class="mb-4"
-            :loading="passkeyBusy"
-            @click="onPasskey"
-          >
-            Use a passkey instead
-          </UButton>
-          <UButton
-            variant="link"
-            color="neutral"
-            class="p-0"
-            @click="restart"
-          >
-            Start again
-          </UButton>
-        </template>
-      </UAuthForm>
+        :attempt-id="challenge.attemptId"
+        :methods="challenge.methods"
+        @verified="navigateToTarget"
+        @restart="restart"
+      />
 
       <UAuthForm
         v-else
@@ -113,6 +76,16 @@
           >
             Sign in with a passkey
           </UButton>
+          <UButton
+            :to="withRedirect('/magic-link')"
+            variant="outline"
+            color="neutral"
+            icon="i-lucide-mail"
+            block
+            class="mb-4"
+          >
+            Email me a sign-in link
+          </UButton>
           Don't have an account?
           <ULink
             :to="withRedirect('/register')"
@@ -152,21 +125,6 @@ const useGoogleInstead = ref(false)
 const googleHref = computed(() =>
   raw.value ? `/auth/google?state=${encodeURIComponent(raw.value)}` : '/auth/google',
 )
-
-const codeSchema = z.object({
-  code: z.string('Enter the code from your authenticator app').min(6, 'Enter the code from your authenticator app'),
-})
-
-const codeFields: AuthFormField[] = [
-  {
-    name: 'code',
-    type: 'text' as const,
-    label: 'Code',
-    placeholder: '123456',
-    required: true,
-    autocomplete: 'one-time-code',
-  },
-]
 
 const schema = z.object({
   email: z.email('Please enter a valid email address'),
@@ -224,27 +182,6 @@ async function onPasskey() {
 function restart() {
   challenge.value = null
   errorMessage.value = ''
-}
-
-async function onVerify(event: FormSubmitEvent<{ code: string }>) {
-  errorMessage.value = ''
-
-  try {
-    await $fetch('/api/auth/mfa/verify', {
-      method: 'POST',
-      body: { attemptId: challenge.value!.attemptId, code: event.data.code },
-    })
-    await refreshSession()
-    await navigateToTarget()
-  }
-  catch (error) {
-    // A wrong code burns the attempt; the server hands back a fresh one so a
-    // typo doesn't cost the password step as well.
-    const reissued = (error as { data?: { data?: { attemptId?: string } } })?.data?.data?.attemptId
-    if (reissued && challenge.value) challenge.value = { ...challenge.value, attemptId: reissued }
-    else challenge.value = null
-    errorMessage.value = getErrorMessage(error, 'That code was not correct.')
-  }
 }
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {

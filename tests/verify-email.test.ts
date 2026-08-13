@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { db, schema } from '@nuxthub/db'
+import { hashLoginToken } from '../server/utils/tokens'
 import { eq } from 'drizzle-orm'
 import verifyHandler from '../server/api/auth/email/verify.post'
 import { makeEvent, sealedSession, sentEmails } from './setup'
@@ -11,7 +12,7 @@ async function issueToken(userId: string, expiresInMs = 24 * 60 * 60_000): Promi
   const token = `verify-${userId}-${Math.random().toString(36).slice(2)}`
   await db.insert(schema.emailVerifications).values({
     userId,
-    token,
+    token: hashLoginToken(token), // hashed at rest (ADR-0013)
     expiresAt: new Date(Date.now() + expiresInMs),
   })
   return token
@@ -66,7 +67,7 @@ describe('POST /api/auth/email/verify', () => {
     const records = await db.select().from(schema.emailVerifications)
       .where(eq(schema.emailVerifications.userId, user.id)).all()
     expect(records).toHaveLength(1)
-    expect(records[0]!.token).not.toBe(token)
+    expect(records[0]!.token).not.toBe(hashLoginToken(token))
   })
 
   it('rejects an unknown token', async () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { db, schema } from '@nuxthub/db'
+import { hashLoginToken } from '../server/utils/tokens'
 import { eq } from 'drizzle-orm'
 import forgotHandler from '../server/api/auth/password/forgot.post'
 import resetHandler from '../server/api/auth/password/reset.post'
@@ -20,7 +21,9 @@ describe('POST /api/auth/password/forgot', () => {
 
     const record = await db.select().from(schema.passwordResets)
       .where(eq(schema.passwordResets.userId, user.id)).get()
-    expect(record?.token).toBe(sentEmails[0]!.token)
+    // Hashed at rest: the stored value is the SHA-256 of what was emailed.
+    expect(record?.token).toBe(hashLoginToken(sentEmails[0]!.token!))
+    expect(record?.token).not.toBe(sentEmails[0]!.token)
   })
 
   it('sends a reset email for a shadow account — the claiming path', async () => {
@@ -52,7 +55,7 @@ describe('POST /api/auth/password/forgot', () => {
     const records = await db.select().from(schema.passwordResets)
       .where(eq(schema.passwordResets.userId, user.id)).all()
     expect(records).toHaveLength(1)
-    expect(records[0]!.token).toBe(sentEmails[1]!.token)
+    expect(records[0]!.token).toBe(hashLoginToken(sentEmails[1]!.token!))
   })
 })
 
@@ -61,7 +64,7 @@ describe('POST /api/auth/password/reset', () => {
     const token = `token-${userId}-${Math.random().toString(36).slice(2)}`
     await db.insert(schema.passwordResets).values({
       userId,
-      token,
+      token: hashLoginToken(token), // hashed at rest (ADR-0013)
       expiresAt: new Date(Date.now() + expiresInMs),
     })
     return token

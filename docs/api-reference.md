@@ -30,6 +30,12 @@ Same two legs, no `userName`: passkey sign-in is usernameless, so nothing here r
 ### `POST /api/auth/register` — public [RL]
 `{ email, name, password }` (policy: ≥8 chars, upper+lower+digit) → creates user (no roles), sends verification email, seals session, returns `{ ok: true }`. Addresses on undeliverable domains (`.invalid`/`.test`/`.example`/`example.com|org|net` — see [security.md](security.md)) get the same generic response with nothing created, claimed, or sealed; forgot-password likewise skips them. If the email already belongs to a **shadow** account, this *claims* it in place (sets password, keeps id and history). If it belongs to a full account: the same `{ ok: true }` response (enumeration-safe — the body never differs), but nothing is changed, no session is sealed, and a "you already have an account" email is sent instead. *(Amended at build time: the original spec said success returns `{ user }`, which would have made the existing-account response distinguishable; a uniform body resolves the contradiction in favour of enumeration safety. The client reads login state from the session after the call.)*
 
+### `POST /api/auth/magic-link/request` — public [RL]
+`{ email, redirect? }` → always `{ ok: true }`, emailed iff the account exists and isn't disabled — **shadow accounts included** (the passwordless path for bookers, ADR-0013). The optional `redirect` rides through the email into the link and is validated at consumption, never here. Undeliverable addresses no-op silently; **Workspace addresses get the same deliberate `403 { data: { useGoogle: true } }` as login**. Links live 15 minutes, single-use, one outstanding per user.
+
+### `POST /api/auth/magic-link/verify` — public [RL]
+`{ token }` → `{ user }` with a sealed session, or the same `{ mfaRequired, attemptId, methods }` challenge as login — **a magic link replaces the password step, never the second factor** (ADR-0013). Consuming a link also sets `verified` (mailbox proven). Expired/used/unknown/disabled all produce one generic 400. No epoch bump.
+
 ### `POST /api/auth/logout` — public (idempotent)
 Clears the session cookie (domain-wide), returns `{ ok: true }` whether or not a session existed. Apps POST here; they never clear the cookie themselves. Browser-facing variant: `POST /logout?redirect=<url>` clears and 302s to the validated target.
 
@@ -49,7 +55,7 @@ Resend verification email. Enumeration-safe.
 `{ email }` → always `{ ok: true }`. Sends reset email iff the account exists (shadow accounts included — this is the account-claiming path advertised in booking confirmations).
 
 ### `POST /api/auth/password/reset` — public [RL]
-`{ token, password }` → sets password, consumes token, bumps `session_epoch` (invalidate old sessions), seals a fresh session.
+`{ token, password }` → sets password, consumes token, bumps `session_epoch` (invalidate old sessions), then **the same MFA seam as login** (ADR-0013): no factors → seals a fresh session, `{ ok: true }`; enrolled → `{ mfaRequired, attemptId, methods }` and no session — the password changed but the factor still gates. Mailbox control alone no longer logs in an enrolled account.
 
 ## Session maintenance
 

@@ -48,6 +48,27 @@ export async function enrolledFactors(userId: string): Promise<('totp' | 'passke
   return factors
 }
 
+/**
+ * The single seam between "credentials proven" and "session exists"
+ * (ADR-0013). Every password-equivalent entry point — password login,
+ * password reset, magic link — must route through this, or it is an MFA
+ * bypass: an enrolled account gets a pending attempt back, never a session.
+ */
+export async function sealOrChallenge(event: Parameters<typeof sealLoginSession>[0], user: UserRow): Promise<
+  { mfaRequired: true, attemptId: string, methods: ('totp' | 'passkey')[] } | null
+> {
+  const factors = await enrolledFactors(user.id)
+  if (factors.length > 0) {
+    return {
+      mfaRequired: true,
+      attemptId: await createMfaAttempt(user.id),
+      methods: factors,
+    }
+  }
+  await sealLoginSession(event, user)
+  return null
+}
+
 // ── Pending logins & challenges ─────────────────────────────────────────────
 
 /** Create the opaque handle returned to a client that passed the password. */
@@ -130,7 +151,9 @@ export async function sweepMfaChallenges(): Promise<number> {
 // ── Recovery codes ──────────────────────────────────────────────────────────
 
 function hashRecoveryCode(code: string): string {
-  return createHash('sha256').update(code.toLowerCase().replace(/-/g, '')).digest('hex')
+  // Case, dashes, and whitespace are all forgiven — these get read off a
+  // screen or pasted from the downloaded .txt, stray characters included.
+  return createHash('sha256').update(code.toLowerCase().replace(/[-\s]/g, '')).digest('hex')
 }
 
 /** Readable groups, e.g. `k4f9-2xqp-7m3d`. */

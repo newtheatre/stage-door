@@ -7,7 +7,7 @@
 import { beforeEach, vi } from 'vitest'
 import { resetDb } from './mocks/nuxthub-db'
 import { passwordSchema, emailSchema, roleSchema, roleGrantSchema, namespaceSchema, roleNameSchema, isUndeliverableEmail, isWorkspaceEmail } from '../server/utils/validation'
-import { TOKEN_EXPIRY, generateVerificationToken, createEmailVerificationToken, createPasswordResetToken } from '../server/utils/tokens'
+import { TOKEN_EXPIRY, generateVerificationToken, hashLoginToken, createEmailVerificationToken, createPasswordResetToken, createMagicLinkToken } from '../server/utils/tokens'
 import { enforceRateLimit, getClientIP, sweepRateLimits, RATE_LIMITS } from '../server/utils/rateLimit'
 import { verifyPasswordGuarded } from '../server/utils/passwordCheck'
 import { loadRoles, loadRoleGrants, activeRoleCondition, sealUserSession, sealLoginSession } from '../server/utils/session'
@@ -26,7 +26,7 @@ import { exportUser } from '../server/utils/exportUser'
 import { planRetention } from '../server/utils/retentionPlan'
 import { RETENTION_CONFIG } from '../server/utils/retentionConfig'
 import { base32Encode, base32Decode, generateTotpSecret, totpStep, totpCode, verifyTotp, totpUri } from '../server/utils/totp'
-import { MFA_ATTEMPT_TTL_MS, WEBAUTHN_CHALLENGE_TTL_MS, isMfaRequired, enrolledFactors, createMfaAttempt, consumeMfaAttempt, storeWebauthnChallenge, getWebauthnChallenge, sweepMfaChallenges, regenerateRecoveryCodes, useRecoveryCode, remainingRecoveryCodes, clearAllFactors, listPasskeys } from '../server/utils/mfa'
+import { MFA_ATTEMPT_TTL_MS, WEBAUTHN_CHALLENGE_TTL_MS, isMfaRequired, enrolledFactors, sealOrChallenge, createMfaAttempt, consumeMfaAttempt, storeWebauthnChallenge, getWebauthnChallenge, sweepMfaChallenges, regenerateRecoveryCodes, useRecoveryCode, remainingRecoveryCodes, clearAllFactors, listPasskeys } from '../server/utils/mfa'
 
 // ── H3 fakes ────────────────────────────────────────────────────────────────
 
@@ -116,6 +116,9 @@ g.sendPasswordResetEmail = async (to: string, token: string) => {
 g.sendAccountExistsEmail = async (to: string) => {
   sentEmails.push({ kind: 'account-exists', to })
 }
+g.sendMagicLinkEmail = async (to: string, token: string) => {
+  sentEmails.push({ kind: 'magic-link', to, token })
+}
 g.sendRoleExpiryWarningEmail = async (to: string, grants: { role: string }[]) => {
   sentEmails.push({ kind: 'role-expiry-warning', to, token: grants.map(g => g.role).join(',') })
 }
@@ -142,8 +145,10 @@ Object.assign(g, {
   isWorkspaceEmail,
   TOKEN_EXPIRY,
   generateVerificationToken,
+  hashLoginToken,
   createEmailVerificationToken,
   createPasswordResetToken,
+  createMagicLinkToken,
   enforceRateLimit,
   getClientIP,
   sweepRateLimits,
@@ -188,6 +193,7 @@ Object.assign(g, {
   WEBAUTHN_CHALLENGE_TTL_MS,
   isMfaRequired,
   enrolledFactors,
+  sealOrChallenge,
   createMfaAttempt,
   consumeMfaAttempt,
   storeWebauthnChallenge,

@@ -1,8 +1,18 @@
 <template>
   <UContainer class="flex flex-col items-center justify-center gap-4 p-4 flex-1">
     <UPageCard class="w-full max-w-md">
+      <!-- Second step for MFA-enrolled accounts: the reset changed the
+           password, but the factor still gates the session (ADR-0013). -->
+      <MfaChallenge
+        v-if="challenge"
+        :attempt-id="challenge.attemptId"
+        :methods="challenge.methods"
+        @verified="navigateToTarget"
+        @restart="onChallengeRestart"
+      />
+
       <UAuthForm
-        v-if="token"
+        v-else-if="token"
         :schema="schema"
         :fields="fields"
         title="Choose a new password"
@@ -62,6 +72,15 @@ definePageMeta({
 const token = computed(() => typeof route.query.token === 'string' ? route.query.token : '')
 const errorMessage = ref('')
 
+// Set when the reset succeeds but the account has a second factor enrolled.
+const challenge = ref<{ attemptId: string, methods: string[] } | null>(null)
+
+function onChallengeRestart() {
+  // The password DID change; only the attempt died. Back to login, where
+  // the new password starts a fresh challenge.
+  navigateTo('/login')
+}
+
 const schema = z.object({
   password: z.string('Password is required')
     .min(8, 'Password must be at least 8 characters')
@@ -87,10 +106,14 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   errorMessage.value = ''
 
   try {
-    await $fetch('/api/auth/password/reset', {
+    const result = await $fetch('/api/auth/password/reset', {
       method: 'POST',
       body: { token: token.value, password: event.data.password },
     })
+    if ('mfaRequired' in result && result.mfaRequired) {
+      challenge.value = { attemptId: result.attemptId, methods: result.methods }
+      return
+    }
     // A successful reset logs the user in (docs/api-reference.md).
     await refreshSession()
     await navigateToTarget()

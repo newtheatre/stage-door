@@ -16,6 +16,7 @@ Why the service is the way it is. One decision per file, numbered, never edited 
 | [0010](0010-legacy-roles-dormant-namespace.md) | Legacy-import roles land in a dormant `ticketing:*` namespace | Accepted |
 | [0011](0011-role-definitions-and-expiry.md) | Role definitions and grant expiry (roles v2) | Accepted |
 | [0012](0012-sso-only-workspace-and-mfa.md) | Workspace addresses are SSO-only; MFA (passkeys + TOTP) for the residual privileged accounts | Accepted |
+| [0013](0013-magic-links-and-the-mfa-seam.md) | Magic-link sign-in; one MFA seam for every password-equivalent entry point; emailed tokens hashed at rest | Accepted |
 
 ## Template
 

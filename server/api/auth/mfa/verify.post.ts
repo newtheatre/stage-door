@@ -4,7 +4,7 @@ import { z } from 'zod/v4'
 
 const bodySchema = z.object({
   attemptId: z.string().min(1),
-  code: z.string().min(1).max(64),
+  code: z.string().trim().min(1).max(64),
 })
 
 /**

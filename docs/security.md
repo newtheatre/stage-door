@@ -10,7 +10,8 @@ This service protects a student theatre's box office, room bookings, and member 
 
 | Threat | Stance |
 |---|---|
-| Credential stuffing / brute force | Rate limits per IP + per account on login/register/forgot; scrypt hashing; no enumeration signals anywhere. |
+| Credential stuffing / brute force | Rate limits per IP + per account on login/register/forgot/magic-link; scrypt hashing; no enumeration signals anywhere. |
+| Mailbox compromise | Password reset and magic links both prove only mailbox control, so **neither bypasses an enrolled second factor**: every password-equivalent entry point routes through the `sealOrChallenge` seam (ADR-0013). Emailed tokens are hashed at rest — a database leak yields no live links. |
 | Claiming placeholder/anonymised accounts | Register's shadow-claim seals a session with **no email round-trip**, so accounts on undeliverable domains (`.invalid`/`.test`/`example.com` — the legacy import created ~8.3k, one owning reservations with third-party names in notes) were claimable by anyone. `isUndeliverableEmail` makes them unregisterable/unclaimable/unresettable, and the rows are additionally `disabled`. Found and hotfixed 2026-08-11 (PR #10) before any exploitation. |
 | Phishing of members | **`@newtheatre.org.uk` addresses cannot use password login at all** (ADR-0012) — they sign in with Google, inheriting Workspace's enforced 2SV. The residual privileged accounts (personal/SU addresses) must hold a second factor: a passkey, which is phishing-resistant by construction, or an authenticator app. Everyone else may opt in. |
 | Open-redirect / OAuth mixups | Strict redirect allowlist; server-side `hd` + `email_verified` checks; `google_sub` linkage (not email) after first sign-in. |
@@ -25,7 +26,7 @@ This service protects a student theatre's box office, room bookings, and member 
 
 - **Passwords**: scrypt PHC via nuxt-auth-utils; policy ≥8 chars upper+lower+digit; hashes never leave the auth DB; password change/reset bumps `session_epoch`.
 - **Tokens** (verify/reset): `randomBytes(32)` hex, single-use, TTLs 24 h / 1 h / 24 h (admin), outstanding resets invalidated on reissue.
-- **Enumeration safety**: register, forgot, resend-verification return identical responses regardless of account existence; login's 401 is identical for unknown / wrong-password / guest / disabled. **One deliberate exception**: `@newtheatre.org.uk` addresses get a distinct 403 telling them to use Google (ADR-0012) — the domain policy is a public fact about the address, not about whether an account exists, and a generic error there would strand committee members.
+- **Enumeration safety**: register, forgot, resend-verification return identical responses regardless of account existence; login's 401 is identical for unknown / wrong-password / guest / disabled. **One deliberate exception**: `@newtheatre.org.uk` addresses get a distinct 403 telling them to use Google (ADR-0012; also on magic-link requests, ADR-0013) — the domain policy is a public fact about the address, not about whether an account exists, and a generic error there would strand committee members.
 - **Cookies**: `Secure; HttpOnly; SameSite=Lax`, domain `.newtheatre.org.uk`, sealed (encrypted + MACed).
 - **Headers**: HSTS via Cloudflare; auth pages send `Cache-Control: no-store`; CSP on hosted UI (default-src 'self', no inline script beyond Nuxt's hydration needs).
 - **Logging**: audit log for admin/identity actions; worker logs contain **no** passwords, tokens, or full cookies (assert in code review); `console.log` debugging stripped before merge (rooms shipped one in its login handler — don't repeat it).
