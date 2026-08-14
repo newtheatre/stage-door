@@ -124,13 +124,14 @@ const rooms = loadDump('rooms')
 
 const prosUsersRaw = pros.prepare('SELECT id, email, name, password, email_verified, created_at, last_login FROM users').all() as ProsUser[]
 
-// ── Intra-source case-duplicate fold (discovered in production 2026-08-11) ──
-// Proscenium's email uniqueness is case-sensitive; four people guest-booked
-// twice with different capitalisation, so lowercasing collides. All such
-// pairs are shadow rows (no password, never logged in). Fold each group into
-// one canonical row: winner = earliest created (the original), name from the
-// most recently active row, password/verified = any non-null/max across the
-// group. Losers' reservations are re-pointed via proscenium-fixes.sql and
+// ── Intra-source case-duplicate fold ──────────────────────────────────────
+// Proscenium's email uniqueness is case-sensitive, so a handful of people
+// guest-booked twice with different capitalisation and lowercasing collides.
+// All such pairs are shadow rows.
+//
+// Fold each group into one canonical row: winner = earliest created, name from
+// the most recently active row, password/verified = any non-null/max across
+// the group. Losers' reservations are re-pointed via proscenium-fixes.sql and
 // the loser rows deleted; every source id still gets a legacy_ids entry.
 
 const prosLatestRes = new Map<string, number>()
