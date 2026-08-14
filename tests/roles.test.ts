@@ -9,7 +9,7 @@ import definitionsCreateHandler from '../server/api/role-definitions/index.post'
 import definitionsDeleteHandler from '../server/api/role-definitions/[id].delete'
 import { makeEvent } from './setup'
 import type { FakeEvent } from './setup'
-import { createUser, grantRole, enrolTotp } from './helpers/users'
+import { createUser, grantRole, enrolTotp, defineRole } from './helpers/users'
 
 const putRoles = rolesHandler as unknown as (event: unknown) => Promise<unknown>
 const listDefinitions = definitionsListHandler as unknown as (event: unknown) => Promise<{ definitions: { id: string, defaultExpiresAt: number | null }[] }>
@@ -128,6 +128,7 @@ describe('role definitions', () => {
 
 describe('PUT /api/users/:id/roles — grant diff semantics', () => {
   it('accepts bare strings (back-compat) as permanent grants', async () => {
+    await defineRole('rooms', 'ADMIN')
     const target = await createUser({ email: 'target@example-user.co.uk' })
     const { event, adminId } = await adminEvent({
       params: { id: target.id },
@@ -143,6 +144,7 @@ describe('PUT /api/users/:id/roles — grant diff semantics', () => {
   })
 
   it('persists expiry and note from grant objects', async () => {
+    await defineRole('proscenium', 'BOX_OFFICE')
     const target = await createUser({ email: 'target@example-user.co.uk' })
     const expiresAt = Date.now() + 90 * DAY
     const { event } = await adminEvent({
@@ -188,7 +190,37 @@ describe('PUT /api/users/:id/roles — grant diff semantics', () => {
     expect(renewed!.grantedBy).toBe(adminId) // fresh act of granting
   })
 
+  it('refuses to create a grant with no definition, but leaves held ones editable (ADR-0014)', async () => {
+    const target = await createUser({ email: 'undefined-role@example-user.co.uk' })
+    // ticketing:* — the dormant legacy namespace deliberately has no
+    // definitions (ADR-0010), and history like it must stay manageable.
+    await grantRole(target.id, 'ticketing:LEGACY')
+
+    // A brand-new undefined role is refused outright…
+    const refused = await adminEvent({
+      params: { id: target.id },
+      body: { roles: ['ticketing:LEGACY', 'madeup:ROLE'] },
+    })
+    await expect(putRoles(refused.event)).rejects.toMatchObject({ statusCode: 400 })
+
+    // …but renewing/annotating the definition-less grant they already hold
+    // is fine, as is removing it.
+    const renew = await adminEvent({
+      params: { id: target.id },
+      body: { roles: [{ role: 'ticketing:LEGACY', expiresAt: Date.now() + 30 * DAY, note: 'winding down' }] },
+    })
+    await putRoles(renew.event)
+    const row = await db.select().from(schema.userRoles)
+      .where(and(eq(schema.userRoles.userId, target.id), eq(schema.userRoles.role, 'ticketing:LEGACY'))).get()
+    expect(row!.note).toBe('winding down')
+
+    const remove = await adminEvent({ params: { id: target.id }, body: { roles: [] } })
+    await putRoles(remove.event)
+    expect(await db.select().from(schema.userRoles).where(eq(schema.userRoles.userId, target.id)).all()).toHaveLength(0)
+  })
+
   it('removes grants absent from the body and rejects duplicates', async () => {
+    await defineRole('rooms', 'ADMIN')
     const target = await createUser({ email: 'target@example-user.co.uk' })
     await grantRole(target.id, 'rooms:ADMIN')
 

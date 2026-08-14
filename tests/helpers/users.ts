@@ -41,3 +41,16 @@ export async function grantRole(
 export async function enrolTotp(userId: string, secret = 'JBSWY3DPEHPK3PXP') {
   await db.insert(schema.totpSecrets).values({ userId, secret, confirmedAt: new Date() })
 }
+
+/**
+ * Insert a role definition so a grant of `namespace:role` is legal — new
+ * grants must reference one (ADR-0014).
+ */
+export async function defineRole(namespace: string, role: string) {
+  await db.insert(schema.roleDefinitions).values({
+    namespace,
+    role,
+    description: `${namespace} ${role} (test)`,
+    defaultExpiryKind: 'none',
+  })
+}

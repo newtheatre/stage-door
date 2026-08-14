@@ -9,7 +9,7 @@ import unlinkGoogleHandler from '../server/api/users/[id]/unlink-google.post'
 import createUserHandler from '../server/api/users/index.post'
 import { makeEvent, sentEmails } from './setup'
 import type { FakeEvent } from './setup'
-import { createUser, grantRole, enrolTotp } from './helpers/users'
+import { createUser, grantRole, enrolTotp, defineRole } from './helpers/users'
 
 const putRoles = rolesHandler as unknown as (event: unknown) => Promise<unknown>
 const disable = disableHandler as unknown as (event: unknown) => Promise<unknown>
@@ -71,6 +71,8 @@ describe('admin guard', () => {
 
 describe('admin user operations', () => {
   it('replaces the role set, validates format, and audits the change', async () => {
+    await defineRole('rooms', 'ADMIN')
+    await defineRole('proscenium', 'BOX_OFFICE')
     const target = await createUser({ email: 'target@example.com', plainPassword: 'Passw0rd' })
     await grantRole(target.id, 'proscenium:ADMIN')
 
