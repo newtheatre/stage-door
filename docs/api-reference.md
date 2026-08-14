@@ -77,6 +77,7 @@ All require session + `auth:ADMIN` unless noted. All mutations **[AUD]**.
 | `POST /api/users/:id/force-logout` | Bumps `session_epoch` |
 | `POST /api/users/:id/disable` / `enable` | Disabled users can't log in and fail refresh |
 | `POST /api/users/:id/unlink-google` | Clears `google_sub` (guard: refuse if it would leave the account with no login method) |
+| `POST /api/users/:id/merge` | Absorb another account into `:id` (the winner): `{ loserId, confirmEmail?, dryRun? }`. Dry run returns the full plan (role outcomes, credential gains, per-app counts, warnings) with no writes; a commit requires `confirmEmail` matching the LOSING account and runs hooks-first — a hook failure changes nothing central and is re-runnable (ADR-0015). The loser is erased |
 | `POST /api/users/:id/mfa-reset` | Clear every second factor — the "lost my phone" path. Verify identity out of band first ([operations.md](operations.md)); the account keeps working but admin tools stay closed until they re-enrol |
 | `POST /api/users/:id/clear-password` | Null the password so the account can only use Google (ADR-0012). Refuses unless Google is linked — clearing first would lock the account out. Bumps `session_epoch` |
 | `PUT /api/users/:id/pending-google` | Set/clear `pending_google_email` — admin-directed link: the next Google sign-in with that address attaches to this account. Validated `@newtheatre.org.uk`; refuses addresses already linked or pending elsewhere |
@@ -127,6 +128,7 @@ Each integrated app exposes these, authenticated by the **SHA-256 of its own ser
 | `POST <app>/api/_hooks/auth/export` | `{ userId }` → `{ data: <JSON-serialisable app-held personal data> }` |
 | `POST <app>/api/_hooks/auth/anonymise` | `{ userId }` → rewrite mirror row to anonymised values, scrub free-text personal data (e.g. `customer_notes`), return `{ ok: true }`. Must be idempotent. |
 | `POST <app>/api/_hooks/auth/last-activity` | `{ userIds: [] }` → `{ [userId]: epochMs \| null }` — feeds the retention sweep |
+| `POST <app>/api/_hooks/auth/merge` | `{ fromUserId, toUserId, dryRun? }` → `{ ok: true, notMirrored, counts }` — re-point every user-referencing row onto the winner, delete the losing mirror row; `dryRun` returns counts only. Must be idempotent (ADR-0015) |
 
 Hook base URLs are registered in `server/utils/appHooks.ts` ([integrating-an-app.md](integrating-an-app.md)).
 

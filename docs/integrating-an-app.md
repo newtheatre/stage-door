@@ -164,7 +164,7 @@ If the auth service is unreachable, fail the operation with a retry message — 
 
 ## Step 8 — GDPR hooks (required if you store any personal data)
 
-Implement the three hook endpoints from [api-reference.md](api-reference.md#app-hooks) — `export`, `anonymise`, `last-activity` — authenticated by your service token, and register your base URL with the ITM. (A fourth hook, `merge`, arrives with the account-merge tool — [roadmap R3](roadmap.md); if you're integrating after that ships, implement it too.) Ship them with the integration even though the auth-service callers arrive in Phase 7; they're small, and retrofitting them across the estate later is exactly the kind of debt this service exists to end.
+Implement the three hook endpoints from [api-reference.md](api-reference.md#app-hooks) — `export`, `anonymise`, `last-activity` — authenticated by your service token, and register your base URL with the ITM. (The fourth hook is `merge` (ADR-0015): `POST /api/_hooks/auth/merge { fromUserId, toUserId, dryRun? }` re-points every user-referencing column in your database onto `toUserId` and deletes the losing mirror row, returning `{ ok: true, notMirrored, counts }` — with `dryRun: true`, the counts only, writing nothing. Idempotent, like the others: stage-door calls every app before changing anything central, and retries the whole merge if any app fails. Don't miss indirect references (staff-attribution columns, "issued by" fields) — proscenium's implementation re-points four columns, not one.) Ship them with the integration even though the auth-service callers arrive in Phase 7; they're small, and retrofitting them across the estate later is exactly the kind of debt this service exists to end.
 
 ## Step 9 — Local development
 
@@ -195,6 +195,6 @@ Your app middleware then sends logged-out visitors to `/dev-login` in dev and th
 - [ ] Global middleware fails closed; public paths are an explicit list
 - [ ] Privileged routes enforce the 15-minute staleness refresh (test: demote a user, watch access die)
 - [ ] Mirror upsert idempotent (if applicable)
-- [ ] GDPR hooks implemented + registered; erasure dry-run tested
+- [ ] GDPR + merge hooks implemented + registered; erasure dry-run tested
 - [ ] `docs/integrating-an-app.md` role-namespace table updated
 - [ ] ITM has issued the service token and recorded it in the password manager

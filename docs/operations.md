@@ -61,6 +61,7 @@ Historical note: the `proscenium` and `rooms` tokens issued at cutover (2026-08-
 | Subject-access export | User → Data & GDPR → Download | Produces the JSON bundle; send securely to the verified requester. |
 | Reset someone's second factor | User → Two-step sign-in → Reset | The "lost my phone / lost my recovery codes" path. **Verify who you're talking to out of band first** — this removes their protection entirely. They can still sign in with their password; admin tools stay closed until they re-enrol. Audit-logged. |
 | Clear a password on an NNT address | User → Two-step sign-in → Clear password | For handed-over role accounts: link their Google account, re-grant the roles to the person's own account, then clear the password so the address is Google-only (ADR-0012). Refuses unless Google is linked. The `/admin` dashboard banners list who's left. |
+| Merge duplicate accounts | User → Merge accounts (from the WINNER's page) | Review the dry-run report, then type the absorbed account's email. The absorbed account is **erased** — irreversible short of a backup restore. Hooks-first: a site being unreachable aborts with nothing changed; re-run once it's back. **Never merge accounts belonging to two different people** — shared mailboxes happen; a merge is for one person's duplicates only. Second factors don't move: a privileged winner may need to re-enrol two-step sign-in. |
 | Annual handover | See below | |
 
 ### When someone loses their second factor

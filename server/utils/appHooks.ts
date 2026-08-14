@@ -36,7 +36,7 @@ async function hookBearer(app: HookApp): Promise<string> {
 }
 
 /** Call one hook on one app. Never throws — failures come back in the result. */
-export async function callAppHook<T>(app: HookApp, hook: 'export' | 'anonymise' | 'last-activity', body: Record<string, unknown>): Promise<HookResult<T>> {
+export async function callAppHook<T>(app: HookApp, hook: 'export' | 'anonymise' | 'last-activity' | 'merge', body: Record<string, unknown>): Promise<HookResult<T>> {
   const { baseURL } = HOOK_APPS.find(a => a.name === app)!
   try {
     const bearer = await hookBearer(app)
@@ -57,6 +57,6 @@ export async function callAppHook<T>(app: HookApp, hook: 'export' | 'anonymise' 
 }
 
 /** Call the same hook on every registered app. */
-export async function callAllAppHooks<T>(hook: 'export' | 'anonymise' | 'last-activity', body: Record<string, unknown>): Promise<HookResult<T>[]> {
+export async function callAllAppHooks<T>(hook: 'export' | 'anonymise' | 'last-activity' | 'merge', body: Record<string, unknown>): Promise<HookResult<T>[]> {
   return Promise.all(HOOK_APPS.map(({ name }) => callAppHook<T>(name, hook, body)))
 }

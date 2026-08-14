@@ -7,7 +7,9 @@ import { users } from './user'
 export const legacyIds = sqliteTable('legacy_ids', {
   id: text('id').primaryKey().$defaultFn(() => nanoid()),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  source: text('source', { enum: ['proscenium', 'rooms'] }).notNull(),
+  // 'merge' rows are markers, not imports: legacyId holds the erased
+  // account's users.id so a merged-away identity stays findable (ADR-0015).
+  source: text('source', { enum: ['proscenium', 'rooms', 'merge'] }).notNull(),
   legacyId: text('legacy_id').notNull(),
 }, table => [
   index('legacy_ids_user_id_idx').on(table.userId),

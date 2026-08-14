@@ -47,7 +47,7 @@ All three: `user_id` (FK cascade), a unique token column, `expires_at`. Tokens a
 
 | Column | Notes |
 |---|---|
-| `user_id` FK cascade · `source` (`'proscenium'` \| `'rooms'`) · `legacy_id` text | Unique on `(source, legacy_id)`. Written for **every** migrated user, even where ids were preserved. Read-only after migration; keep forever (it is tiny and it answers "who was rooms user X?"). |
+| `user_id` FK cascade · `source` (`'proscenium'` \| `'rooms'` \| `'merge'`) · `legacy_id` text | Unique on `(source, legacy_id)`. Written for **every** migrated user, even where ids were preserved. `'merge'` rows are markers, not imports: `legacy_id` holds the erased account's `users.id`, so a merged-away identity is always traceable to its winner (ADR-0015). Read-only after migration; keep forever (it is tiny and it answers "who was rooms user X?"). |
 
 ### `service_tokens`
 

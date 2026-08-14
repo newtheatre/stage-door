@@ -22,6 +22,7 @@ import { loadUserOr404, adminUserView, isAnonymisedRow, isRealRow } from '../ser
 import { isWorkspaceProfile, resolveGoogleUser, WORKSPACE_DOMAIN } from '../server/utils/googleAccount'
 import { callAppHook, callAllAppHooks, HOOK_APPS } from '../server/utils/appHooks'
 import { eraseUser } from '../server/utils/erase'
+import { mergeUsers } from '../server/utils/mergeUsers'
 import { exportUser } from '../server/utils/exportUser'
 import { planRetention } from '../server/utils/retentionPlan'
 import { RETENTION_CONFIG } from '../server/utils/retentionConfig'
@@ -181,6 +182,7 @@ Object.assign(g, {
   callAllAppHooks,
   HOOK_APPS,
   eraseUser,
+  mergeUsers,
   exportUser,
   planRetention,
   RETENTION_CONFIG,
