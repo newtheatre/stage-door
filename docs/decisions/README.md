@@ -18,6 +18,7 @@ Why the service is the way it is. One decision per file, numbered, never edited 
 | [0012](0012-sso-only-workspace-and-mfa.md) | Workspace addresses are SSO-only; MFA (passkeys + TOTP) for the residual privileged accounts | Accepted |
 | [0013](0013-magic-links-and-the-mfa-seam.md) | Magic-link sign-in; one MFA seam for every password-equivalent entry point; emailed tokens hashed at rest | Accepted |
 | [0014](0014-grants-require-definitions.md) | New grants must reference a role definition; free-text granting removed | Accepted |
+| [0015](0015-account-merge.md) | Account merge: winner absorbs loser, app hooks first, loser erased | Accepted |
 
 ## Template
 

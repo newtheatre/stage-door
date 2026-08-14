@@ -238,6 +238,11 @@
           </div>
         </UPageCard>
 
+        <AdminMergeAccounts
+          :user-id="id"
+          @merged="refresh"
+        />
+
         <UPageCard
           title="Data & GDPR"
           icon="i-lucide-file-lock"
