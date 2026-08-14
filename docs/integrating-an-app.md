@@ -215,7 +215,11 @@ export default defineEventHandler(async (event) => {
   if (!import.meta.dev) throw createError({ statusCode: 404 })
   const now = Date.now()
   await setUserSession(event, {
-    user: { id: 'dev-admin', email: 'dev-admin@myapp.test', name: 'Dev Admin', verified: true, guest: false, roles: ['myapp:ADMIN'] },
+    // `@dev.newtheatre.org.uk`, matching the stage-door seed. Never a reserved
+    // TLD (`.test`, `.invalid`, `example.com`): `isUndeliverableEmail` treats
+    // those as anonymised placeholders, so the fixture user disappears from
+    // /admin and is blocked from register/claim/forgot — see development.md.
+    user: { id: 'dev-admin', email: 'dev-admin@dev.newtheatre.org.uk', name: 'Dev Admin', verified: true, guest: false, roles: ['myapp:ADMIN'] },
     loggedInAt: now, refreshedAt: now, epoch: 0,
   })
   return sendRedirect(event, '/', 302)
