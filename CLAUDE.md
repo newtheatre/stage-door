@@ -49,9 +49,22 @@ npx wrangler d1 ...    # production D1 — read docs/operations.md before touchi
 - Tests: every auth-flow change needs a test that fails without the change (login, refresh staleness, epoch bump, redirect allowlist, hd rejection are the high-value suites).
 - British English in UI copy and docs.
 
+## Comments
+
+A comment carries what the code cannot: a constraint, a trap, a contract that is not obvious from the signature. It does not narrate, and it does not argue.
+
+- **State the rule, not the story.** The rule is a comment; the incident that taught it is an ADR.
+- **Reasoning goes to `docs/decisions/`.** If the *why* needs a paragraph, it needs an ADR; the comment cites it and stops.
+- **Do not restate the code.** `@param count — Number of rooms selected` says nothing the signature does not, and a "Features:" list in a component header is out of date by the next release.
+- **No unprovenanced figures.** A comment cannot honestly carry a row count, because nothing updates it. Put the number in the ADR, dated.
+- **Say plainly when something is not implemented**, at the thing that is not implemented.
+
+One to five lines is the usual size. Past about ten, ask whether you are writing an ADR.
+
 ## Things Claude Code should proactively flag
 
 - Any change that would require rotating `NUXT_SESSION_PASSWORD` (it logs out the entire estate).
 - Any new endpoint lacking rate limiting or audit logging where peers have it.
 - Any consumer-app PR (Proscenium/rooms) that reintroduces local credential storage or role editing.
 - Drift between `docs/api-reference.md` and actual routes (cheap to check, expensive to discover late).
+- A comment growing past ten lines — that is an ADR asking to be written.
