@@ -50,7 +50,7 @@ Two things to know before touching it:
 - **The binding is `SESSION_PASSWORD`, the secret is `NUXT_SESSION_PASSWORD`.**
   The `NUXT_` prefix is deliberately dropped on the binding side; a
   NUXT_-prefixed binding breaks session sealing on every app at once. The reason
-  is in `server/plugins/secrets-store.ts` — read it before adding a binding.
+  is in `server/plugins/0.secrets-store.ts` — read it before adding a binding.
 
 ## Rotating the session seal secret
 
@@ -74,6 +74,27 @@ the binding: `npx wrangler versions view <version-id> --name <worker>` lists
 bindings, and a worker with neither the binding nor a `NUXT_SESSION_PASSWORD`
 worker secret returns 500 from `/api/_auth/session` while its homepage still
 serves fine.
+
+**"Login works on auth, but app X never shows me as logged in"** is a different
+fault with three known causes, none of which errors:
+
+1. A `NUXT_SESSION_PASSWORD` worker secret still set on that app. It *overrides*
+   the store binding — `defu` gives `process.env` priority — so the app seals
+   with a stale key. Delete it and redeploy. The plugin logs a loud error when
+   it sees both.
+2. Something in that app read the session before `server/plugins/0.secrets-store.ts`
+   hydrated the password. nuxt-auth-utils memoises the password on the first
+   read per isolate, so the isolate is anonymous for life. The `0.` prefix
+   exists to prevent this; do not rename the file. Middleware is safe, plugins
+   are not.
+3. The app is running an isolate from before a rotation. Redeploy.
+
+⚠️ **A `200` from `/api/_auth/session` does not mean sessions work.** h3's
+`getSession` swallows unseal failures, so a wrong, empty or stale password
+still returns `200` with an anonymous `{ id }`. The signature of a healthy
+session is a **`user` key in the body**, from a request carrying a real cookie.
+Checking status codes alone is what let the 2026-08-14 incident look resolved
+while Proscenium was still broken.
 
 ## Service tokens
 

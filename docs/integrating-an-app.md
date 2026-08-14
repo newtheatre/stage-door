@@ -59,22 +59,43 @@ secrets_store_secrets: [
 ],
 ```
 
-Then copy `server/plugins/secrets-store.ts` from any estate app verbatim. It
+Then copy `server/plugins/0.secrets-store.ts` from any estate app verbatim. It
 reads the binding on Nitro's `request` hook and writes it into
 `runtimeConfig.session.password` before your handlers run — necessary because a
 Secrets Store binding is an object with an async `get()`, while nuxt-auth-utils
 reads the password synchronously.
 
-**Do not name the binding `NUXT_SESSION_PASSWORD`.** On Workers `process.env` is
-a proxy over the bindings object and Nitro copies `NUXT_*` keys straight onto
+Three ways to get this wrong. All three fail silently, and none of them looks
+like a secrets problem from the outside — the app simply never sees a logged-in
+user.
+
+**1. Do not name the binding `NUXT_SESSION_PASSWORD`.** On Workers `process.env`
+is a proxy over the bindings object and Nitro copies `NUXT_*` keys straight onto
 the matching `runtimeConfig` path, so the prefix would put the binding *object*
-where the password belongs. The plugin's header comment says this at greater
-length; it is the one thing worth reading before you copy it.
+where the password belongs.
+
+**2. Do not also set `NUXT_SESSION_PASSWORD` as a worker secret.** It does not
+duplicate the store value, it *overrides* it: nuxt-auth-utils resolves the
+password as `defu({ password: process.env.NUXT_SESSION_PASSWORD },
+runtimeConfig.session)` and `defu` gives its first argument priority. The plugin
+logs a loud error if it sees both.
+
+**3. Do not rename the file.** The `0.` prefix orders it ahead of your other
+plugins: Nitro sorts `server/plugins/` by filename, and nuxt-auth-utils memoises
+the session password on the *first* session read an isolate performs. A plugin
+that reads the session before this one runs pins the empty default password for
+that isolate's whole life. Server middleware is fine — it runs after all plugin
+`request` hooks.
 
 There is no binding in dev, where the plugin no-ops and the password comes from
 `.env` ([development.md](development.md)). The upshot is that this step is only
-exercised in production — check `/api/_auth/session` returns 200 straight after
-your first deploy, rather than waiting for a user to find out.
+exercised in production.
+
+**Checking it worked — do not trust the status code.** h3's `getSession`
+swallows unseal failures, so `/api/_auth/session` returns `200` with an
+anonymous `{ id }` whether the password is right, wrong, or empty. A 200 proves
+only that the password resolved to *something*. Log in for real, and confirm
+the response body has a **`user` key**.
 
 ## Step 2 — Read sessions; never write them
 
@@ -226,7 +247,7 @@ Your app middleware then sends logged-out visitors to `/dev-login` in dev and th
 
 ## Integration acceptance checklist
 
-- [ ] Session config byte-identical to the contract; `SESSION_PASSWORD` binding + `server/plugins/secrets-store.ts` both present, and `/api/_auth/session` returns 200 on the deployed worker
+- [ ] Session config byte-identical to the contract; `SESSION_PASSWORD` binding + `server/plugins/0.secrets-store.ts` both present, no `NUXT_SESSION_PASSWORD` worker secret, and a **real login** on the deployed worker returns a session body with a `user` key (a 200 alone proves nothing — see §1b)
 - [ ] No `setUserSession`/`clearUserSession`/`hashPassword` calls anywhere in the app
 - [ ] No local auth pages, credential columns, or role-editing UI remain
 - [ ] Global middleware fails closed; public paths are an explicit list
