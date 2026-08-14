@@ -2,6 +2,21 @@
  * Copies Cloudflare Secrets Store values into runtimeConfig at the start of
  * every request.
  *
+ * ⚠️ THE `0.` PREFIX IS LOAD-BEARING — DO NOT RENAME THIS FILE. Nitro sorts
+ * `server/plugins/` with `localeCompare` on the filename and calls their
+ * `request` hooks in that order, so this must sort ahead of every other
+ * plugin. nuxt-auth-utils memoises its whole session config — password
+ * included — on the *first* session read an isolate performs, and keeps it for
+ * that isolate's life. A plugin that reads the session before this one has
+ * hydrated the password therefore pins the empty default, permanently and
+ * silently: h3's `getSession` swallows unseal failures (`.catch(() => {})`),
+ * so `/api/_auth/session` still answers 200 with an anonymous `{ id }` and
+ * nothing appears in the logs. This is exactly what happened to Proscenium on
+ * 2026-08-14, where `authorization-resolver.ts` sorted first.
+ *
+ * Server middleware is safe — it runs after every plugin `request` hook. It is
+ * plugins that need the ordering.
+ *
  * `NUXT_SESSION_PASSWORD` is shared by every app on the estate
  * (docs/session-contract.md), so it lives in the account Secrets Store rather
  * than as four worker secrets that have to be rotated in lockstep. The
@@ -34,6 +49,7 @@ interface SecretsStoreSecret {
 // when it is recycled — the same staleness plain worker secrets have, since
 // nuxt-auth-utils memoises its own session config on first use regardless.
 let sessionPassword: Promise<string> | undefined
+let warnedAboutWorkerSecret = false
 
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('request', async (event) => {
@@ -42,6 +58,24 @@ export default defineNitroPlugin((nitroApp) => {
       | undefined
     const secret = env?.SESSION_PASSWORD
     if (!secret) return
+
+    // A leftover worker secret of this name BEATS the store. nuxt-auth-utils
+    // resolves the password as
+    //   defu({ password: process.env.NUXT_SESSION_PASSWORD }, runtimeConfig.session)
+    // and defu gives its first argument priority, so whatever we write below
+    // loses. The failure is silent and looks nothing like its cause: this app
+    // seals with the stale key, the rest of the estate seals with the store
+    // key, and a user who logs in successfully is bounced straight back to the
+    // login page. It cost an evening on 2026-08-14 (ADR-0016).
+    if (!warnedAboutWorkerSecret && process.env.NUXT_SESSION_PASSWORD) {
+      warnedAboutWorkerSecret = true
+      console.error(
+        '[secrets-store] NUXT_SESSION_PASSWORD is set as a worker secret and takes '
+        + 'priority over the SESSION_PASSWORD store binding — this app is sealing '
+        + 'sessions with the wrong key. Run `wrangler secret delete '
+        + 'NUXT_SESSION_PASSWORD --name stage-door`, then redeploy.',
+      )
+    }
 
     try {
       sessionPassword ??= secret.get()

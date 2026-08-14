@@ -26,7 +26,7 @@ each worker via `secrets_store_secrets` in `nitro.cloudflare.wrangler`. Secrets
 used by exactly one worker stay plain worker secrets.
 
 Because a Secrets Store binding is an object with an async `get()` rather than a
-string, each app carries `server/plugins/secrets-store.ts`, which reads the
+string, each app carries `server/plugins/0.secrets-store.ts`, which reads the
 binding on Nitro's `request` hook and writes the value into
 `runtimeConfig.session.password` before any handler runs.
 
