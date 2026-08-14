@@ -8,8 +8,10 @@ You're building a new NNT app — or retrofitting an old one — and want login,
 
 From the ITM (or via [operations.md](operations.md) if that's you):
 
-1. **`NUXT_SESSION_PASSWORD`** — the shared session seal secret. Set it as a worker secret. Treat it like the master key it is: it never goes in code, config files, or CI variables in plaintext.
-2. **A service token** for your app (`nnt_svc_…`), if your app needs server-to-server calls (shadow users, hooks). Set as worker secret `AUTH_SERVICE_TOKEN`.
+1. **The session seal secret** — you do not get a copy. It lives in the account
+   Secrets Store and you bind it into your worker ([ADR-0016](decisions/0016-estate-secrets-in-secrets-store.md)); see Step 1b. Treat the
+   binding as the master key it is.
+2. **A service token** for your app (`nnt_svc_…`), if your app needs server-to-server calls (shadow users, hooks). Set as worker secret **`NUXT_AUTH_SERVICE_TOKEN`** — the `NUXT_` prefix is load-bearing, since Nuxt only maps `NUXT_*` env onto `runtimeConfig`. A secret named `AUTH_SERVICE_TOKEN` is silently ignored; that cost us a broken guest checkout between the Phase 5 cutover and Phase 7.
 
 ## Step 1 — Install the shared bits
 
@@ -38,6 +40,41 @@ export default defineNuxtConfig({
   },
 })
 ```
+
+## Step 1b — Bind the seal secret
+
+`password: ''` above is filled in at runtime from the Secrets Store. Two pieces,
+both required — a binding with no plugin leaves the password empty, and every
+session read returns 500.
+
+`nuxt.config.ts`, inside `nitro.cloudflare.wrangler`:
+
+```ts
+secrets_store_secrets: [
+  {
+    binding: 'SESSION_PASSWORD',
+    store_id: 'fdfe08b6b01f498fbddbc08c2891cadb',
+    secret_name: 'NUXT_SESSION_PASSWORD',
+  },
+],
+```
+
+Then copy `server/plugins/secrets-store.ts` from any estate app verbatim. It
+reads the binding on Nitro's `request` hook and writes it into
+`runtimeConfig.session.password` before your handlers run — necessary because a
+Secrets Store binding is an object with an async `get()`, while nuxt-auth-utils
+reads the password synchronously.
+
+**Do not name the binding `NUXT_SESSION_PASSWORD`.** On Workers `process.env` is
+a proxy over the bindings object and Nitro copies `NUXT_*` keys straight onto
+the matching `runtimeConfig` path, so the prefix would put the binding *object*
+where the password belongs. The plugin's header comment says this at greater
+length; it is the one thing worth reading before you copy it.
+
+There is no binding in dev, where the plugin no-ops and the password comes from
+`.env` ([development.md](development.md)). The upshot is that this step is only
+exercised in production — check `/api/_auth/session` returns 200 straight after
+your first deploy, rather than waiting for a user to find out.
 
 ## Step 2 — Read sessions; never write them
 
@@ -153,7 +190,7 @@ Guest/shadow users (only if you take bookings from people who aren't logged in):
 ```ts
 const res = await $fetch('https://auth.newtheatre.org.uk/api/users/shadow', {
   method: 'POST',
-  headers: { Authorization: `Bearer ${process.env.AUTH_SERVICE_TOKEN}` },
+  headers: { Authorization: `Bearer ${useRuntimeConfig().authServiceToken}` },
   body: { email, name },
 })
 await ensureLocalUser({ id: res.id, email, name })
@@ -189,7 +226,7 @@ Your app middleware then sends logged-out visitors to `/dev-login` in dev and th
 
 ## Integration acceptance checklist
 
-- [ ] Session config byte-identical to the contract; `NUXT_SESSION_PASSWORD` set as a worker secret
+- [ ] Session config byte-identical to the contract; `SESSION_PASSWORD` binding + `server/plugins/secrets-store.ts` both present, and `/api/_auth/session` returns 200 on the deployed worker
 - [ ] No `setUserSession`/`clearUserSession`/`hashPassword` calls anywhere in the app
 - [ ] No local auth pages, credential columns, or role-editing UI remain
 - [ ] Global middleware fails closed; public paths are an explicit list
