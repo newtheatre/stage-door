@@ -44,7 +44,7 @@ npx wrangler d1 ...    # production D1 — read docs/operations.md before touchi
 - Drizzle schema in `server/db/schema/`, one file per domain area; migrations generated, then hand-reviewed — D1 is SQLite, no `ALTER COLUMN`.
 - Zod for every request body/query (`server/utils/validation.ts`), same style as Proscenium.
 - Server handlers: one route = one file under `server/api/` (Nitro conventions). Auth pages under `app/pages/`, `@nuxt/ui` components.
-- Shared session types + `hasRole`/`hasAnyRole` helpers are published from `packages/auth-types` (or the documented copy-paste module) — change them there, never inline in an app.
+- Shared session types + `hasRole`/`hasAnyRole` helpers are defined in `packages/auth-types` and **copied** into each consumer app as `shared/utils/nntAuth.ts` (the package is not published). Change the source and re-copy to all three in the same PR; never redeclare them inline.
 - Errors: `createError({ statusCode, statusMessage })`; no stack traces or internal detail in responses.
 - Tests: every auth-flow change needs a test that fails without the change (login, refresh staleness, epoch bump, redirect allowlist, hd rejection are the high-value suites).
 - British English in UI copy and docs.

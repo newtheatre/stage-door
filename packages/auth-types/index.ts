@@ -1,9 +1,12 @@
 /**
  * The NNT session contract — see docs/session-contract.md (version 1.0).
  *
- * Every consumer app imports this package instead of redeclaring the session
- * shape. Additive changes only; removals/renames need an ADR and a
- * coordinated release of every app.
+ * This is the source of truth. It is NOT published to a registry: consumer
+ * apps copy it to `shared/utils/nntAuth.ts` and mark the copy read-only
+ * (docs/integrating-an-app.md §1). Change it here and re-copy to all three.
+ *
+ * Additive changes only; removals/renames need an ADR and a coordinated
+ * release of every app.
  */
 
 declare module '#auth-utils' {
