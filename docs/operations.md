@@ -28,20 +28,52 @@ Weekly `wrangler d1 export` of the `auth` DB to the `nnt-db-backups` R2 bucket (
 
 | Secret | Where set | Where recorded |
 |---|---|---|
-| `NUXT_SESSION_PASSWORD` | Worker secret on auth + **every** consumer app | Password manager → "NNT session seal" |
+| `NUXT_SESSION_PASSWORD` | **Secrets Store** (see below), bound into all four workers | Password manager → "NNT session seal" |
 | `NUXT_RESEND_API_KEY` | Auth worker | Password manager |
 | `NUXT_OAUTH_GOOGLE_CLIENT_ID/SECRET` | Auth worker | Password manager (Google Cloud project: NNT Workspace) |
-| Service tokens (one per app) | Consumer app workers (`AUTH_SERVICE_TOKEN`) | Password manager, one entry per app |
+| Service tokens (one per app) | Consumer app workers (`NUXT_AUTH_SERVICE_TOKEN`) | Password manager, one entry per app |
+
+A secret shared by more than one worker lives in the account Secrets Store
+(`default_secrets_store`, id `fdfe08b6b01f498fbddbc08c2891cadb`) so there is one
+copy to rotate rather than four to keep in step — [ADR-0016](decisions/0016-estate-secrets-in-secrets-store.md).
+Single-worker secrets stay plain worker secrets. Store contents:
+
+```bash
+npx wrangler secrets-store secret list fdfe08b6b01f498fbddbc08c2891cadb --remote
+```
+
+Two things to know before touching it:
+
+- **The store cannot read a value back.** Neither can `wrangler secret list`. The
+  password manager is the only place a value survives — losing that entry means
+  rotating, not looking it up.
+- **The binding is `SESSION_PASSWORD`, the secret is `NUXT_SESSION_PASSWORD`.**
+  The `NUXT_` prefix is deliberately dropped on the binding side; a
+  NUXT_-prefixed binding breaks session sealing on every app at once. The reason
+  is in `server/plugins/secrets-store.ts` — read it before adding a binding.
 
 ## Rotating the session seal secret
 
-**Effect: every user on every app is logged out immediately.** This is the estate-wide kill switch — use it for suspected secret compromise, or on a calm schedule (annually at handover, term-time avoided).
+**Effect: every user on every app is logged out.** This is the estate-wide kill switch — use it for suspected secret compromise, or on a calm schedule (annually at handover, term-time avoided).
 
 1. Generate: `openssl rand -base64 48`.
 2. Update the password-manager entry.
-3. `npx wrangler secret put NUXT_SESSION_PASSWORD` on **auth first**, then each consumer app, then redeploy each (workers read secrets at deploy). Order matters only in that until an app is updated its users appear logged out — do them within minutes of each other.
+3. Write it once to the store:
+   ```bash
+   npx wrangler secrets-store secret update fdfe08b6b01f498fbddbc08c2891cadb \
+     --name NUXT_SESSION_PASSWORD --remote
+   ```
+   No redeploys. Workers pick the new value up as their isolates recycle, so the
+   estate converges on its own — expect a few minutes during which some requests
+   still seal with the old value.
 4. Post a brief "you'll need to log in again" notice if done outside an incident.
 5. Audit-log it (the admin UI has a "record manual action" entry; use it).
+
+If sealing looks broken on one app but not another, check that app actually has
+the binding: `npx wrangler versions view <version-id> --name <worker>` lists
+bindings, and a worker with neither the binding nor a `NUXT_SESSION_PASSWORD`
+worker secret returns 500 from `/api/_auth/session` while its homepage still
+serves fine.
 
 ## Service tokens
 

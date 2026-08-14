@@ -19,7 +19,7 @@ Every app sets identical values in `nuxt.config.ts`:
 runtimeConfig: {
   session: {
     name: 'nnt-session',
-    password: '', // provided via NUXT_SESSION_PASSWORD worker secret
+    password: '', // filled at runtime from the Secrets Store — see integrating-an-app.md §1b
     maxAge: 60 * 60 * 24 * 30,
     cookie: { domain: '.newtheatre.org.uk', sameSite: 'lax', secure: true },
   },
