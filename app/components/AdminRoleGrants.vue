@@ -82,13 +82,32 @@
             :name="`date-${i}`"
             size="sm"
           >
-            <UInput
-              :model-value="toDateInput(row.expiresAt)"
-              type="date"
+            <UInputDate
+              :model-value="toCalendarDate(row.expiresAt)"
+              :min-value="today"
               size="sm"
-              class="w-36"
-              @update:model-value="value => setCustomDate(i, value as string)"
-            />
+              @update:model-value="value => setCustomDate(i, value)"
+            >
+              <template #trailing>
+                <UPopover :content="{ align: 'end' }">
+                  <UButton
+                    variant="link"
+                    color="neutral"
+                    size="xs"
+                    icon="i-lucide-calendar"
+                    aria-label="Pick a date from the calendar"
+                  />
+                  <template #content>
+                    <UCalendar
+                      :model-value="toCalendarDate(row.expiresAt)"
+                      :min-value="today"
+                      class="p-2"
+                      @update:model-value="value => setCustomDate(i, value as CalendarDate)"
+                    />
+                  </template>
+                </UPopover>
+              </template>
+            </UInputDate>
           </UFormField>
           <UFormField
             label="Note"
@@ -120,7 +139,9 @@
         No roles — this account can log in everywhere but administer nothing.
       </p>
 
-      <!-- Add -->
+      <!-- Add — definitions only (ADR-0014): a role that isn't defined
+           can't be granted, so there's nothing free-text could do but
+           create typos. -->
       <div class="flex flex-wrap gap-2 items-center">
         <USelectMenu
           v-model="pickedDefinition"
@@ -130,31 +151,12 @@
           class="w-64"
           @update:model-value="addFromDefinition"
         />
-        <UButton
-          variant="ghost"
-          color="neutral"
-          size="sm"
-          @click="toggleAdvanced"
+        <ULink
+          to="/admin/roles"
+          class="text-xs text-muted hover:text-primary"
         >
-          {{ advanced ? 'Hide advanced' : 'Advanced' }}
-        </UButton>
-      </div>
-      <div
-        v-if="advanced"
-        class="flex gap-2"
-      >
-        <UInput
-          v-model="newRole"
-          placeholder="app:ROLE (free-text — a namespace can exist before its definitions do)"
-          class="flex-1"
-          @keyup.enter="addFreeText"
-        />
-        <UButton
-          variant="outline"
-          @click="addFreeText"
-        >
-          Add
-        </UButton>
+          Missing a role? Define it first
+        </ULink>
       </div>
 
       <!-- Staged-changes bar -->
@@ -188,6 +190,8 @@
 </template>
 
 <script lang="ts" setup>
+import { CalendarDate, today as todayIn, getLocalTimeZone } from '@internationalized/date'
+
 interface ServerGrant {
   role: string
   expiresAt: number | null
@@ -298,17 +302,19 @@ function setExpiryKind(index: number, kind: string) {
   }
 }
 
-// Date-only input ⇄ epoch ms (expiries land at 23:59:59 UTC on the chosen day).
-function toDateInput(expiresAt: number | null): string {
-  return expiresAt === null ? '' : new Date(expiresAt).toISOString().slice(0, 10)
+const today = todayIn(getLocalTimeZone())
+
+// CalendarDate ⇄ epoch ms (expiries land at 23:59:59.999 UTC on the chosen
+// day, same instant the server's committee-year default uses).
+function toCalendarDate(expiresAt: number | null): CalendarDate | undefined {
+  if (expiresAt === null) return undefined
+  const date = new Date(expiresAt)
+  return new CalendarDate(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate())
 }
 
-function setCustomDate(index: number, value: string) {
-  if (!value) return
-  rows.value[index]!.expiresAt = Date.UTC(
-    Number(value.slice(0, 4)), Number(value.slice(5, 7)) - 1, Number(value.slice(8, 10)),
-    23, 59, 59, 999,
-  )
+function setCustomDate(index: number, value: unknown) {
+  if (!(value instanceof CalendarDate)) return
+  rows.value[index]!.expiresAt = Date.UTC(value.year, value.month - 1, value.day, 23, 59, 59, 999)
 }
 
 function shortDate(ms: number): string {
@@ -328,12 +334,6 @@ interface Definition {
 const { data: definitionsData } = await useFetch<{ definitions: Definition[] }>('/api/role-definitions')
 
 const pickedDefinition = ref<{ label: string, value: string, description: string } | undefined>()
-const advanced = ref(false)
-const newRole = ref('')
-
-function toggleAdvanced() {
-  advanced.value = !advanced.value
-}
 
 const definitionItems = computed(() => (definitionsData.value?.definitions ?? [])
   .filter(d => !rows.value.some(r => r.role === `${d.namespace}:${d.role}` && r.status !== 'removed'))
@@ -359,12 +359,6 @@ function addFromDefinition(picked: { value: string } | undefined) {
   if (definition) appendRole(`${definition.namespace}:${definition.role}`, definition.defaultExpiresAt)
   // Reset AFTER the v-model write lands, or the picker keeps the label.
   nextTick(() => (pickedDefinition.value = undefined))
-}
-
-function addFreeText() {
-  const role = newRole.value.trim()
-  if (role) appendRole(role, null)
-  newRole.value = ''
 }
 
 function markRemoved(index: number) {

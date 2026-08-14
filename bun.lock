@@ -5,6 +5,7 @@
     "": {
       "name": "auth",
       "dependencies": {
+        "@internationalized/date": "^3.12.3",
         "@newtheatre/auth-types": "workspace:*",
         "@nuxt/eslint": "1.15.1",
         "@nuxt/ui": "4.4.0",

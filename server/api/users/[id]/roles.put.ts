@@ -16,6 +16,12 @@ const bodySchema = z.object({
  * expiry clears `expiry_warned_at` — that's how a renewal re-arms the
  * expiry warning. A past `expiresAt` is allowed (revoke-with-history).
  *
+ * NEW grants must reference a role definition (ADR-0014): an undefined
+ * role can no longer come into existence. Grants the user already holds
+ * are exempt, so definition-less history — the dormant `ticketing:*`
+ * namespace, or a definition deleted after granting — stays editable,
+ * renewable, and removable.
+ *
  * Active-role changes propagate within 15 minutes on privileged surfaces
  * via the staleness refresh; pair with force-logout for instant effect.
  */
@@ -32,6 +38,18 @@ export default defineEventHandler(async (event) => {
   const existing = await db.select().from(schema.userRoles)
     .where(eq(schema.userRoles.userId, user.id)).all()
   const existingByRole = new Map(existing.map(r => [r.role, r]))
+
+  // New grants only exist by definition (ADR-0014).
+  const definitions = await db.select().from(schema.roleDefinitions).all()
+  const defined = new Set(definitions.map(d => `${d.namespace}:${d.role}`))
+  for (const grant of roles) {
+    if (!existingByRole.has(grant.role) && !defined.has(grant.role)) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: `No definition for ${grant.role} — define it under Role definitions first`,
+      })
+    }
+  }
   const before = await loadRoleGrants(user.id)
 
   // Removals: anything not in the wanted set (expired rows included — the
