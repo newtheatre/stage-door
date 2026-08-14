@@ -2,9 +2,8 @@ import { db, schema } from '@nuxthub/db'
 import { and, eq, like, or, sql } from 'drizzle-orm'
 import type { RoleGrant } from './session'
 
-// Anonymised/placeholder accounts live on undeliverable domains (mirrors
-// isUndeliverableEmail; SQL so filters happen in the database). The legacy
-// import brought in ~8.3k of them — records, not people who can log in.
+// Anonymised accounts live on undeliverable domains. SQL, so the filter
+// happens in the database.
 const UNDELIVERABLE_LIKE = [
   '%.invalid', '%.test', '%.example', '%.localhost',
   '%@example.com', '%@example.org', '%@example.net',
@@ -35,9 +34,8 @@ export async function loadUserOr404(id: string | undefined): Promise<UserRow> {
 }
 
 /**
- * The admin-facing profile shape — never includes the password hash.
- * `roles` stays the active-only string list (what the session would carry);
- * `grants` is the full per-grant detail including expired rows (ADR-0011).
+ * The admin-facing profile shape — never the password hash. `roles` is
+ * active-only; `grants` carries the full per-grant detail (ADR-0011).
  */
 export function adminUserView(user: UserRow, grants: RoleGrant[] = []) {
   return {

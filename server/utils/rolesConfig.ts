@@ -5,10 +5,8 @@
 
 export const ROLES_CONFIG = {
   /**
-   * Committee year end (UTC). Grants made with the end-of-committee-year
-   * default expire at 23:59:59 UTC on the NEXT such date — granted October
-   * 2026 → expires 31 July 2027; handover stops depending on anyone
-   * remembering to revoke.
+   * Committee year end (UTC). A grant made now expires at the NEXT one, so
+   * handover stops depending on anyone remembering to revoke.
    */
   committeeYearEnd: { month: 7, day: 31 },
 
@@ -19,10 +17,8 @@ export const ROLES_CONFIG = {
   digestEmail: 'archive@newtheatre.org.uk',
 
   /**
-   * Cosmetic cleanup: delete grants expired longer than this many days
-   * (0 disables). Read-time enforcement makes this optional; 90 days keeps
-   * recently-expired grants visible in the admin UI for one-click renewal
-   * through the handover period.
+   * Cosmetic cleanup only (0 disables) — read-time enforcement already makes
+   * an expired grant inert. 90 days keeps one-click renewal available.
    */
   cleanupAfterDays: 90,
 } as const

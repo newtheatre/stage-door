@@ -1,9 +1,7 @@
 <script lang="ts" setup>
 import { hasRole } from '@newtheatre/auth-types'
 
-// The header reflects the session: nothing for logged-out visitors (they're
-// on /login or /register and have no account yet), name + admin link once
-// signed in — the only way back to /account from within this service.
+// Logged out, the header is empty — those visitors are on /login or /register.
 const { loggedIn, user } = useUserSession()
 const isAdmin = computed(() => hasRole(user.value, 'auth', 'ADMIN'))
 </script>

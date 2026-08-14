@@ -38,11 +38,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   magicLinks: many(magicLinks),
 }))
 
-// Scoped role strings 'app:ROLE' (ADR-0004, expiry per ADR-0011). No central
-// registry of apps — a namespace exists the moment a role in it is granted.
-// Expiry is enforced at READ time (activeRoleCondition in session.ts): an
-// expired grant vanishes from sessions within the 15-minute staleness window
-// without any cron being involved.
+// Scoped role strings, expiry enforced at READ time — an expired grant
+// vanishes within the staleness window with no cron. ADR-0004, ADR-0011.
 export const userRoles = sqliteTable('user_roles', {
   id: text('id').primaryKey().$defaultFn(() => nanoid()),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -63,9 +60,8 @@ export const userRoles = sqliteTable('user_roles', {
   uniqueIndex('user_roles_user_id_role_unique').on(table.userId, table.role),
 ])
 
-// Optional UX metadata driving the admin grant dropdown and expiry defaults
-// (ADR-0011). A grant never requires a definition — free-text grants survive
-// (ADR-0004) — and deleting a definition never touches grants.
+// UX metadata for the admin dropdown (ADR-0011). A grant never requires a
+// definition, and deleting one never touches grants.
 export const roleDefinitions = sqliteTable('role_definitions', {
   id: text('id').primaryKey().$defaultFn(() => nanoid()),
   namespace: text('namespace').notNull(), // 'proscenium'
@@ -122,9 +118,8 @@ export const passwordResetsRelations = relations(passwordResets, ({ one }) => ({
   }),
 }))
 
-// Magic sign-in links (ADR-0013). 15 minutes; single-use; one outstanding
-// per user. Hashed at rest — a magic link grants an instant session, so it
-// gets the service-token treatment, not the plaintext one.
+// Magic sign-in links (ADR-0013). Hashed at rest — a link grants an instant
+// session, so it gets the service-token treatment.
 export const magicLinks = sqliteTable('magic_links', {
   id: text('id').primaryKey().$defaultFn(() => nanoid()),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),

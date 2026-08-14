@@ -1,9 +1,7 @@
 <template>
   <!--
-    Labels are hidden below `sm` — at 375px four labelled tabs compress to
-    "U." / "A..." / "Servic...", which is worse than icons alone (#18).
-    Each item keeps an accessible name via aria-label so the icon-only
-    state stays usable with a screen reader.
+  Labels hide below `sm`; each item keeps an aria-label so the icon-only
+  state stays usable with a screen reader.
   -->
   <UNavigationMenu
     :items="items"

@@ -1,14 +1,6 @@
 /**
- * GET /auth/google-link — self-service "Connect NNT Google account" from
- * /account (docs/architecture.md §identity-continuity, path (a)).
- *
- * Binds the Google identity to the *current session's* account regardless of
- * address (the hd check still applies). Sensitive: requires a fresh session
- * (recent login). Refuses identities already linked to another account —
- * that's a merge situation, not a link. Audit-logged.
- *
- * The Google Cloud OAuth client must list this route as a second authorised
- * redirect URI (docs/development.md#google-oauth-in-dev).
+ * Self-service "Connect NNT Google account". Requires a fresh session, and
+ * refuses an identity already linked elsewhere — that is a merge, not a link.
  */
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'

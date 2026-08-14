@@ -2,24 +2,8 @@ import { db, schema } from '@nuxthub/db'
 import { eq, sql } from 'drizzle-orm'
 
 /**
- * POST /api/webauthn/register — enrol a passkey (ADR-0012) [AUD].
- *
- * The route shape is nuxt-auth-utils': one endpoint serving both legs of the
- * ceremony (`verify: false` issues options, `verify: true` submits the
- * attestation). Three things here are not the module's defaults and matter:
- *
- * - `storeChallenge`/`getChallenge` are a typed all-or-nothing pair. Omit
- *   them and the module verifies against `expectedChallenge: ''` — replay
- *   protection off. They are backed by `mfa_challenges`.
- * - `requireUserVerification: false` is hardcoded in the module, so a passkey
- *   could be presence-only (a tap). We assert `userVerified` ourselves, and
- *   ask for `userVerification: 'required'` up front.
- * - `getOptions` must return a stable `userID`; SimpleWebAuthn v11 otherwise
- *   generates a random one per call and the passkey wouldn't identify the
- *   account.
- *
- * Never trust `body.user` — the module passes the raw body to `getOptions`.
- * Every callback below re-derives the account from the session.
+ * Enrol a passkey (ADR-0012). Three options here are not the module's
+ * defaults and are load-bearing — see docs/security.md#passkeys.
  */
 export default defineWebAuthnRegisterEventHandler({
   async validateUser(_userBody, event) {
@@ -38,9 +22,8 @@ export default defineWebAuthnRegisterEventHandler({
       rpName: 'Nottingham New Theatre',
       attestationType: 'none',
       authenticatorSelection: {
-        // Discoverable, so sign-in can be usernameless: the credential names
-        // the account, which keeps the authenticate endpoint from having to
-        // answer "does this address have passkeys?" for anyone who asks.
+        // Discoverable, so sign-in can be usernameless: the credential names the
+        // account.
         residentKey: 'required',
         userVerification: 'required',
       },

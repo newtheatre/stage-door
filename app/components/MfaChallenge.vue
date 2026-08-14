@@ -117,9 +117,7 @@ const { authenticate, isSupported: passkeySupported } = useWebAuthn()
 
 const hasTotp = computed(() => props.methods.includes('totp'))
 
-// Recovery mode is the fallback, not the default — unless there is no
-// authenticator app enrolled at all (passkey-only accounts land here when
-// their passkey isn't available on this device).
+// Recovery is the fallback, unless no authenticator app is enrolled at all.
 const recoveryMode = ref(!hasTotp.value)
 
 // A wrong code burns the attempt; the server hands back a fresh one so a

@@ -7,11 +7,8 @@ const bodySchema = z.object({
 })
 
 /**
- * POST /api/auth/email/verify — verify an email address with a token.
- *
- * Single-use. An expired token triggers an automatic resend (ported from
- * Proscenium). If the verified account belongs to the caller's session, the
- * session is re-sealed so `verified` updates immediately.
+ * Verify an email address with a token. Single-use; an expired token triggers
+ * an automatic resend.
  */
 export default defineEventHandler(async (event) => {
   const { token } = await readValidatedBody(event, bodySchema.parse)

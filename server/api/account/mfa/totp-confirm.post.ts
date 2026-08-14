@@ -7,12 +7,8 @@ const bodySchema = z.object({
 })
 
 /**
- * POST /api/account/mfa/totp-confirm — prove the authenticator works, and
- * arm it [AUD].
- *
- * On first confirmation the account also gets recovery codes (returned once
- * — this is the only time they are ever shown) and an epoch bump, so other
- * sessions have to re-authenticate against the new factor.
+ * Prove the authenticator works, and arm it. First confirmation also issues
+ * recovery codes — the only time they are shown — and bumps the epoch.
  */
 export default defineEventHandler(async (event) => {
   const { user, loggedInAt } = await requireAccountUser(event)

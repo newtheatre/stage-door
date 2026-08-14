@@ -123,9 +123,8 @@ const { fetch: refreshSession } = useUserSession()
 const { raw, navigateToTarget, withRedirect } = useRedirectTarget()
 
 definePageMeta({
-  // Deliberately NOT the guest middleware: someone already signed in on
-  // another account who clicks an emailed link should still be able to
-  // consume it, not get bounced by their existing session.
+  // Deliberately NOT the guest middleware: someone signed in on another account
+  // must still be able to consume an emailed link.
   title: 'Email sign-in link',
   description: 'Sign in to your NNT account with an emailed link',
 })

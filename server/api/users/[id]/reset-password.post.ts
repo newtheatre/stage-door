@@ -1,7 +1,6 @@
 /**
- * POST /api/users/:id/reset-password — admin-initiated reset: 24 h token,
- * emailed. Cannot target yourself (use the ordinary forgot-password flow —
- * keeps the audit trail honest).
+ * Admin-initiated reset: 24 h token, emailed. Cannot target yourself, which
+ * keeps the audit trail honest.
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)

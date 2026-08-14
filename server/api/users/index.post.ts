@@ -9,11 +9,8 @@ const bodySchema = z.object({
 })
 
 /**
- * POST /api/users — admin-create a user.
- *
- * Sends a set-password email (24 h token to the reset page) instead of
- * returning a generated password — a deliberate change from rooms's old
- * copy-paste-a-password flow (docs/api-reference.md).
+ * Admin-create a user. Sends a set-password email rather than returning a
+ * generated password.
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)

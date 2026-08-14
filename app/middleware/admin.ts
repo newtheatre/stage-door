@@ -13,10 +13,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return navigateTo('/')
   }
 
-  // The admin API would 403 an admin who must have a second factor but has
-  // none (ADR-0012) — an empty admin page with no explanation. Send them to
-  // the fix instead. UX only: if the check itself fails, let them through
-  // and the server-side gate decides.
+  // Send an admin with no second factor to enrolment rather than to a bare 403
+  // (ADR-0012). UX only; the server-side gate is the real check.
   try {
     const mfa = await useRequestFetch()('/api/account/mfa')
     if (mfa.required && mfa.factors.length === 0) {

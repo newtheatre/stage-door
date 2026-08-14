@@ -2,17 +2,8 @@ import { db, schema } from '@nuxthub/db'
 import { and, eq, gt, inArray, isNull, isNotNull, lt, lte } from 'drizzle-orm'
 
 /**
- * Role expiry warnings + cosmetic cleanup (ADR-0011).
- *
- * Daily. Warns holders of grants entering the expiry window (one email per
- * holder covering all their expiring grants) and digests to the ITM. The
- * invariant is one warning per (grant, expiry value): `expiry_warned_at`
- * gates sending, and roles.put clears it whenever an expiry changes, so a
- * renewal re-arms the warning for the new date.
- *
- * Unlike the retention sweep there is deliberately no dry-run mode: the
- * emails are non-destructive, and the cleanup only deletes rows that
- * read-time enforcement already made inert months earlier.
+ * Role expiry warnings and cosmetic cleanup (ADR-0011). One warning per
+ * (grant, expiry value); `expiry_warned_at` gates sending.
  */
 export default defineTask({
   meta: {

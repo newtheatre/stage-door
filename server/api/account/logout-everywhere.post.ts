@@ -2,9 +2,7 @@ import { db, schema } from '@nuxthub/db'
 import { eq, sql } from 'drizzle-orm'
 
 /**
- * POST /api/account/logout-everywhere — self-service kill switch: bump own
- * session epoch (invalidates every session at next refresh) and clear this
- * one immediately.
+ * Self-service kill switch: bump own session epoch, then clear this session.
  */
 export default defineEventHandler(async (event) => {
   const { user } = await requireAccountUser(event)

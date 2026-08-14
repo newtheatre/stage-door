@@ -8,10 +8,8 @@ const bodySchema = z.object({
 })
 
 /**
- * PUT /api/account/profile — update own name/email. An email change resets
- * verification and sends a fresh link; the response stays generic if the
- * new address is taken (enumeration safety), with the conflict reported to
- * the *existing* address owner by email instead.
+ * Update own name and email. An email change resets verification; a taken
+ * address gets a generic response and mails the existing owner.
  */
 export default defineEventHandler(async (event) => {
   const { user, loggedInAt } = await requireAccountUser(event)

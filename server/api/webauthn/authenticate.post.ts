@@ -2,20 +2,8 @@ import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 
 /**
- * POST /api/webauthn/authenticate — sign in with a passkey (ADR-0012).
- *
- * A passkey is a complete login, not a second step after a password:
- * possession of the authenticator plus the user verification we insist on
- * below (PIN/biometric) is already two factors, and it is phishing-resistant
- * in a way TOTP is not. So this route seals a session on its own, and the
- * MFA challenge screen offers it as an alternative to typing a code.
- *
- * Usernameless by design: no `allowCredentials`, so nothing here answers
- * "does this address have a passkey?" for an unauthenticated caller. The
- * credential in the response identifies the account.
- *
- * See register.post.ts for why storeChallenge/getChallenge and the manual
- * `userVerified` assertion are not optional.
+ * Sign in with a passkey — a complete login, not a second step (ADR-0012).
+ * Usernameless by design. See register.post.ts for the non-default options.
  */
 export default defineWebAuthnAuthenticateEventHandler({
   // The module defaults to 'preferred', and asserting userVerified afterwards
@@ -66,10 +54,8 @@ export default defineWebAuthnAuthenticateEventHandler({
       throw createError({ statusCode: 401, statusMessage: 'Invalid email or password' })
     }
 
-    // Signature counter: authenticators that keep one increment it. A
-    // non-increasing counter from an authenticator that uses them is the
-    // classic clone signal — but most passkeys (synced ones especially)
-    // report a constant 0, so this is recorded, not enforced.
+    // Recorded, not enforced: most synced passkeys report a constant 0, so a
+    // non-increasing counter is not a reliable clone signal.
     await db.update(schema.webauthnCredentials)
       .set({ counter: authenticationInfo.newCounter, lastUsedAt: new Date() })
       .where(eq(schema.webauthnCredentials.id, credential.rowId as string))

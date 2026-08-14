@@ -152,9 +152,8 @@ const fields: AuthFormField[] = [
   },
 ]
 
-// Second-factor state, set when /api/auth/login answers `mfaRequired`. The
-// attemptId is the only handle on the half-finished login — nothing is
-// sealed until it is exchanged for a proven factor.
+// Set when /api/auth/login answers `mfaRequired`. Nothing is sealed until the
+// attemptId is exchanged for a proven factor.
 const challenge = ref<{ attemptId: string, methods: string[] } | null>(null)
 
 const { authenticate, isSupported: passkeySupported } = useWebAuthn()

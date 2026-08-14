@@ -1,7 +1,6 @@
 /**
- * Test globals: the auto-imports Nuxt/Nitro provide in production, backed by
- * light fakes (H3 helpers, session store, email recorder) and the real
- * server utils. Handlers under test are the real files from server/api.
+ * Test globals: the auto-imports Nuxt provides in production, backed by light
+ * fakes. Handlers under test are the real files from server/api.
  */
 
 import { beforeEach, vi } from 'vitest'

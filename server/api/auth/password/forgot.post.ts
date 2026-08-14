@@ -7,11 +7,8 @@ const bodySchema = z.object({
 })
 
 /**
- * POST /api/auth/password/forgot — request a password reset email.
- *
- * Always `{ ok: true }` (enumeration-safe). The email is sent iff the
- * account exists — including shadow accounts: this is the account-claiming
- * path advertised in booking confirmations (docs/api-reference.md).
+ * Request a password reset email. Always `{ ok: true }`; sent iff the account
+ * exists, shadow accounts included.
  */
 export default defineEventHandler(async (event) => {
   const { email } = await readValidatedBody(event, bodySchema.parse)
@@ -19,13 +16,8 @@ export default defineEventHandler(async (event) => {
   await enforceRateLimit('forgot:ip', getClientIP(event))
   await enforceRateLimit('forgot:acct', email)
 
-  // Undeliverable addresses (anonymised/placeholder accounts) get the same
-  // generic response with no send — the mail could never arrive, and Resend
-  // bounces are noise (docs/operations.md#monitoring).
-  //
-  // Workspace addresses likewise: they sign in with Google (ADR-0012), so a
-  // reset link would hand them back the password login the domain rule
-  // exists to remove. Silent no-op keeps this enumeration-safe.
+  // Undeliverable and Workspace addresses no-op silently: the mail could not
+  // arrive, and a reset would undo the domain rule (ADR-0012).
   if (isUndeliverableEmail(email) || isWorkspaceEmail(email)) {
     return { ok: true }
   }

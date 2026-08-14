@@ -8,14 +8,8 @@ const bodySchema = z.object({
 })
 
 /**
- * POST /api/auth/password/reset — set a new password using a reset token.
- *
- * Consumes the token, bumps `session_epoch` so existing sessions everywhere
- * are invalidated at their next refresh, and seals a fresh session for the
- * caller (docs/api-reference.md) — unless the account has a second factor
- * enrolled, in which case the response is the same `mfaRequired` challenge
- * as login (ADR-0013). Setting a password on a shadow account claims it —
- * `guest` flips to false at this seal.
+ * Set a new password with a reset token. Consumes it, bumps the epoch, then
+ * applies the same MFA seam as login. Full contract: docs/api-reference.md
  */
 export default defineEventHandler(async (event) => {
   const { token, password } = await readValidatedBody(event, bodySchema.parse)
@@ -63,9 +57,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // The same MFA seam as login (ADR-0013): mailbox control resets the
-  // password, but an enrolled account's second factor still gates the
-  // session — a reset must not be the bypass.
+  // A reset must not bypass a second factor (ADR-0013).
   const challenge = await sealOrChallenge(event, user)
   if (challenge) return challenge
 

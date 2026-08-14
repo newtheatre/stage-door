@@ -2,9 +2,8 @@ import { db, schema } from '@nuxthub/db'
 import { eq, sql } from 'drizzle-orm'
 
 /**
- * POST /api/users/:id/force-logout — bump the session epoch. Existing
- * sessions die at their next refresh or privileged action (§4.6 of the
- * plan; docs/session-contract.md).
+ * Bump the session epoch. Existing sessions die at their next refresh or
+ * privileged action.
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)

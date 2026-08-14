@@ -2,14 +2,8 @@ import { db, schema } from '@nuxthub/db'
 import { inArray } from 'drizzle-orm'
 
 /**
- * The inactive-account retention sweep (docs/gdpr-retention.md).
- *
- * Runs daily; decisions come from the pure planner. In dry-run mode
- * (RETENTION_CONFIG.dryRun — the default, and mandatory after any config
- * change) it audits and emails what it WOULD do without changing anything.
- * Digest email goes to the Archivist whenever there are (planned) actions,
- * and always on the 1st of the month as a heartbeat — its absence is an
- * alert (operations.md#monitoring).
+ * The inactive-account retention sweep. Dry-run by default; the digest's
+ * absence is the alert. See docs/gdpr-retention.md.
  */
 export default defineTask({
   meta: {

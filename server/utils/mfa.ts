@@ -18,13 +18,8 @@ const RECOVERY_CODE_COUNT = 8
 // ── Policy ──────────────────────────────────────────────────────────────────
 
 /**
- * MFA is required of an account, not of a session — which is what keeps the
- * session contract unchanged (docs/session-contract.md).
- *
- * The rule: holds any `:ADMIN` role (active grants only) AND can log in
- * with a password. A Google-only account is exempt because Workspace
- * enforces 2SV upstream; an account with *both* a password and Google is
- * not, because the password is still an attack path.
+ * MFA is required of an account, not a session, which is what keeps the
+ * session contract unchanged. The rule: docs/security.md#mfa
  */
 export async function isMfaRequired(user: UserRow): Promise<boolean> {
   if (user.password === null) return false
@@ -50,9 +45,7 @@ export async function enrolledFactors(userId: string): Promise<('totp' | 'passke
 
 /**
  * The single seam between "credentials proven" and "session exists"
- * (ADR-0013). Every password-equivalent entry point — password login,
- * password reset, magic link — must route through this, or it is an MFA
- * bypass: an enrolled account gets a pending attempt back, never a session.
+ * (ADR-0013). Bypassing it anywhere is an MFA bypass.
  */
 export async function sealOrChallenge(event: Parameters<typeof sealLoginSession>[0], user: UserRow): Promise<
   { mfaRequired: true, attemptId: string, methods: ('totp' | 'passkey')[] } | null
@@ -115,9 +108,8 @@ export async function storeWebauthnChallenge(
 }
 
 /**
- * Read and consume a WebAuthn challenge. Single-use, and bound to both the
- * kind and (for registration) the account that started it — a challenge is
- * only replay protection if it can't be redirected to another ceremony.
+ * Single-use, and bound to the kind and account that started it — a
+ * challenge is only replay protection if it cannot be redirected.
  */
 export async function getWebauthnChallenge(
   attemptId: string,
@@ -165,10 +157,8 @@ function generateRecoveryCode(): string {
 }
 
 /**
- * Replace a user's recovery codes. Plaintext is returned once and never
- * stored — same treatment as service tokens (CLAUDE.md invariant 9 covers
- * *passwords*; these are high-entropy secrets, so SHA-256 is appropriate
- * and 8 scrypt verifications per attempt would be costly on a Worker).
+ * Plaintext returned once, never stored. SHA-256 rather than scrypt: these
+ * are high-entropy, and 8 verifications per attempt would be costly.
  */
 export async function regenerateRecoveryCodes(userId: string): Promise<string[]> {
   await db.delete(schema.mfaRecoveryCodes).where(eq(schema.mfaRecoveryCodes.userId, userId))

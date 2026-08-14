@@ -1,11 +1,6 @@
 /**
- * Calling consumer-app hooks (docs/api-reference.md#app-hooks).
- *
- * Authentication is the SHA-256 of the app's own service token: the app
- * holds the plaintext (its AUTH_SERVICE_TOKEN worker secret) and can derive
- * the hash; this service only ever stored the hash. No plaintext is stored
- * anywhere, no second secret exists, and the hash cannot be replayed
- * INBOUND against this service (inbound auth needs the preimage).
+ * Calling consumer-app hooks. Auth is the SHA-256 of the app's own service
+ * token, which cannot be replayed inbound against this service.
  */
 
 import { db, schema } from '@nuxthub/db'

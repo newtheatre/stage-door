@@ -12,14 +12,8 @@ const LINK_INVALID = {
 } as const
 
 /**
- * POST /api/auth/magic-link/verify — exchange an emailed link for a session
- * (ADR-0013).
- *
- * Single-use; the row is deleted whatever happens next. Proving mailbox
- * control also verifies the address (same precedent as Google email-match).
- * The MFA seam applies exactly as at login: an enrolled account gets a
- * challenge, never a straight session — a magic link replaces the password
- * step, not the second factor.
+ * Exchange an emailed link for a session (ADR-0013). Single-use.
+ * The MFA seam applies exactly as at login.
  */
 export default defineEventHandler(async (event) => {
   const { token } = await readValidatedBody(event, bodySchema.parse)

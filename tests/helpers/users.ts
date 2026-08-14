@@ -34,9 +34,8 @@ export async function grantRole(
 }
 
 /**
- * Give a user a confirmed TOTP factor. Admin fixtures need one: a password
- * admin with no factor is deliberately refused by `requireAuthAdmin`
- * (ADR-0012).
+ * Admin fixtures need a confirmed factor: `requireAuthAdmin` refuses a
+ * password admin without one (ADR-0012).
  */
 export async function enrolTotp(userId: string, secret = 'JBSWY3DPEHPK3PXP') {
   await db.insert(schema.totpSecrets).values({ userId, secret, confirmedAt: new Date() })

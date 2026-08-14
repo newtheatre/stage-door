@@ -1,17 +1,12 @@
 /**
- * Retention sweep configuration (docs/gdpr-retention.md).
- *
- * Periods live here, not in code paths, because the committee ratifies
- * them — record adopted values here AND in the data-protection policy.
- * All values are PROPOSALS until ratified.
+ * Retention periods, which the committee ratifies — record adopted values
+ * here AND in the data-protection policy. All values are PROPOSALS until then.
  */
 
 export const RETENTION_CONFIG = {
   /**
-   * Dry-run: the sweep computes and reports what it WOULD do (audit log +
-   * digest email) but changes nothing. Must stay true until the Archivist
-   * has reviewed a production dry-run report, and set back to true after
-   * any period change below.
+   * Dry-run: report what the sweep WOULD do, change nothing. Set back to true
+   * after any period change below.
    */
   dryRun: true,
 

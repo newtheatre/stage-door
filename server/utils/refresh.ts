@@ -1,9 +1,6 @@
 /**
- * Session refresh core (docs/api-reference.md#session-maintenance).
- *
- * Re-reads the user and roles from the DB and re-seals the cookie —
- * consumer apps bounce privileged requests here when `refreshedAt` is older
- * than 15 minutes. Rejects disabled/erased users and stale epochs.
+ * Session refresh core: re-reads user and roles from the DB and re-seals.
+ * Rejects disabled or erased users and stale epochs.
  */
 
 import type { H3Event } from 'h3'

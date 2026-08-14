@@ -6,12 +6,8 @@ const bodySchema = z.object({
 })
 
 /**
- * POST /api/users/:id/erase — GDPR erasure (admin) [AUD].
- *
- * IRREVERSIBLE. Anonymises the auth identity and every app's data via
- * hooks (docs/gdpr-retention.md). Verify the requester's identity first —
- * operations.md#user-operations. Returns per-hook status; re-POST to retry
- * failed hooks (idempotent).
+ * GDPR erasure. IRREVERSIBLE — verify the requester first
+ * (docs/operations.md#user-operations). Idempotent; re-POST to retry hooks.
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)

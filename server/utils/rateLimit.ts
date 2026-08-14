@@ -1,10 +1,6 @@
 /**
- * D1-backed fixed-window rate limiting (ADR-0009).
- *
- * One row per key in `rate_limits`; the window resets in place when it
- * lapses. Public auth endpoints call `enforceRateLimit` per IP and, where
- * meaningful, per account. Stale rows are swept by the `rate-limits:sweep`
- * Nitro task (docs/operations.md).
+ * D1-backed fixed-window rate limiting (ADR-0009). Stale rows are swept by
+ * the `rate-limits:sweep` task.
  */
 
 import type { H3Event } from 'h3'
@@ -49,10 +45,8 @@ export function getClientIP(event: H3Event): string {
 }
 
 /**
- * Count a hit against `scope` for `subject` and throw 429 once over the limit.
- *
- * Fixed window: the counter resets when `window_start` is older than the
- * window. The 429 carries no detail beyond Too Many Requests.
+ * Counts a hit and throws 429 once over the limit. The 429 carries no detail
+ * beyond Too Many Requests.
  */
 export async function enforceRateLimit(scope: RateLimitScope, subject: string): Promise<void> {
   const { limit, windowMs } = RATE_LIMITS[scope]

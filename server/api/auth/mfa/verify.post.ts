@@ -8,11 +8,8 @@ const bodySchema = z.object({
 })
 
 /**
- * POST /api/auth/mfa/verify — complete a login with a second factor [RL].
- *
- * Accepts either a TOTP code or a recovery code; both are consumed
- * single-use. Only this endpoint (and the WebAuthn authenticate handler)
- * may turn a pending login into a session.
+ * Complete a login with a second factor. Only this and the WebAuthn
+ * authenticate handler may turn a pending login into a session.
  */
 export default defineEventHandler(async (event) => {
   const { attemptId, code } = await readValidatedBody(event, bodySchema.parse)

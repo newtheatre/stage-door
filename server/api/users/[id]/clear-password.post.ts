@@ -2,13 +2,8 @@ import { db, schema } from '@nuxthub/db'
 import { eq, sql } from 'drizzle-orm'
 
 /**
- * POST /api/users/:id/clear-password — remove an account's password so it
- * can only sign in with Google (admin) [AUD].
- *
- * The domain rule (ADR-0012) blocks password login for Workspace addresses
- * in code; this enforces it in the data too, for accounts migrated onto
- * SSO. Refuses if it would leave no way in — a Workspace account that has
- * never linked Google still needs its password until it does.
+ * Remove an account's password so it can only sign in with Google.
+ * Refuses if it would leave no way in.
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)

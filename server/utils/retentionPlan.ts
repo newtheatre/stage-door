@@ -1,8 +1,6 @@
 /**
- * Retention sweep decision logic (docs/gdpr-retention.md#inactive-account-
- * retention-sweep) — pure and clock-injected so the cohort rules are
- * exhaustively testable. The task in server/tasks/retention/sweep.ts feeds
- * it and executes (or dry-runs) the plan.
+ * Retention sweep decisions. Pure and clock-injected, so the cohort rules
+ * are exhaustively testable. Rules: docs/gdpr-retention.md
  */
 
 import type { RETENTION_CONFIG } from './retentionConfig'
@@ -61,9 +59,8 @@ export function planRetention(
     }
 
     if (user.guest) {
-      // Guests: no account relationship to warn about — anonymise directly
-      // once every activity signal is past the threshold. No known activity
-      // at all falls back to account age.
+      // Guests have no account relationship to warn about, so they are anonymised
+      // directly. No known activity falls back to account age.
       const activity = Math.max(user.lastActivity ?? 0, user.createdAt)
       if (now - activity > config.guestInactivityMs) {
         plan.anonymise.push({ id: user.id, cohort: 'guest' })
@@ -74,13 +71,12 @@ export function planRetention(
       continue
     }
 
-    // Full accounts (password and/or Google): the clock is last login.
-    // Google-linked accounts need no special case — once Workspace deletion
-    // ends their SSO upstream, they simply stop logging in.
+    // For full accounts the clock is last login. Google-linked accounts need no
+    // special case — they simply stop logging in.
     const lastSeen = Math.max(user.lastLogin ?? 0, user.createdAt)
 
     if (now - lastSeen <= config.fullInactivityMs) {
-      // Active. If they'd been warned before this activity, reset the trail.
+      // Active. Reset the warning trail.
       if (user.warning60SentAt !== null || user.warning30SentAt !== null) {
         plan.clearNotices.push(user.id)
       }
@@ -90,9 +86,8 @@ export function planRetention(
       continue
     }
 
-    // A login AFTER a warning resets the trail even while past the
-    // threshold-by-config change edge cases; handled above by the ≤ check —
-    // here the account is genuinely inactive.
+    // A login after a warning resets the trail; that is handled above. Here the
+    // account is genuinely inactive.
     if (user.warning60SentAt === null) {
       plan.sendWarning60.push(user.id)
     }

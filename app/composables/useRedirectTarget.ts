@@ -1,11 +1,6 @@
 /**
- * The validated `?redirect=` target for the current page, and a navigate
- * helper that handles cross-subdomain (external) targets.
- *
- * No `?redirect` at all means the user came here directly (consumer apps
- * always pass one), so they stay on this site — the account home — rather
- * than being ejected to the apex. An *invalid* redirect still falls back to
- * the apex inside validateRedirect (CLAUDE.md invariant 6).
+ * The validated `?redirect=` target, plus a navigate helper for
+ * cross-subdomain targets. No redirect at all means stay on this site.
  */
 export function useRedirectTarget() {
   const route = useRoute()

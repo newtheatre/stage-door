@@ -1,16 +1,6 @@
 /**
  * Build the merged user dataset from the exported source databases.
- *
- * Deterministic: same inputs → same output SQL (ids for new rows are derived
- * from stable source keys, not random). Implements the merge rules of
- * docs/migration.md exactly; deviations discovered against production data
- * are documented there and in README.md.
- *
- * Inputs:  .data/migrate/proscenium.sql, .data/migrate/rooms.sql
- * Outputs: .data/migrate/out/auth-import.sql       (users, user_roles, legacy_ids)
- *          .data/migrate/out/proscenium-fixes.sql  (case-duplicate shadow merge re-point)
- *          .data/migrate/out/rooms-fixes.sql       (bookings/push_subscriptions re-point)
- *          .data/migrate/out/report.json           (counts for the PR description)
+ * Deterministic. Inputs, outputs and rules: docs/migration.md
  */
 
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
@@ -41,10 +31,8 @@ const EXPLICIT_GRANTS: Record<string, string[]> = {
 }
 
 /**
- * Accounts on undeliverable domains (RFC 2606 example.com, .invalid, .test)
- * that carry a password — test artifacts from the legacy import. They can
- * never receive a reset email, so a surviving password is pure liability:
- * neutralised like the seed accounts (password NULL, disabled, no roles).
+ * A password on an undeliverable domain can never be reset, so it is pure
+ * liability: neutralised like the seed accounts.
  */
 function isUndeliverableTestAccount(email: string, password: string | null): boolean {
   if (password === null) return false
@@ -52,13 +40,8 @@ function isUndeliverableTestAccount(email: string, password: string | null): boo
 }
 
 /**
- * Ids of Proscenium users that existed BEFORE the 2026-08-11 legacy
- * ticketing import (extracted from the pre-import build output). Role rows
- * held by users outside this set came from the legacy site's foh/manager/
- * admin roles and map to the dormant `ticketing:*` namespace, not live
- * `proscenium:*` (plan §11; granting live admin to alumni/placeholder
- * accounts would be a security regression). Upgrade individuals via the
- * admin UI where wanted.
+ * Proscenium users predating the legacy import. Roles held outside this set
+ * map to the dormant `ticketing:*` namespace — see docs/migration.md
  */
 const preLegacyIds = new Set<string>(
   JSON.parse(readFileSync(join(DATA, 'pre-legacy-proscenium-ids.json'), 'utf8')) as string[],
@@ -124,15 +107,8 @@ const rooms = loadDump('rooms')
 
 const prosUsersRaw = pros.prepare('SELECT id, email, name, password, email_verified, created_at, last_login FROM users').all() as ProsUser[]
 
-// ── Intra-source case-duplicate fold ──────────────────────────────────────
-// Proscenium's email uniqueness is case-sensitive, so a handful of people
-// guest-booked twice with different capitalisation and lowercasing collides.
-// All such pairs are shadow rows.
-//
-// Fold each group into one canonical row: winner = earliest created, name from
-// the most recently active row, password/verified = any non-null/max across
-// the group. Losers' reservations are re-pointed via proscenium-fixes.sql and
-// the loser rows deleted; every source id still gets a legacy_ids entry.
+// Proscenium's email uniqueness is case-sensitive, so lowercasing collides.
+// Fold rules: docs/migration.md#case-duplicate-fold
 
 const prosLatestRes = new Map<string, number>()
 for (const row of pros.prepare('SELECT user_id, max(created_at) latest FROM reservations GROUP BY user_id').all() as { user_id: string, latest: string }[]) {
@@ -221,9 +197,8 @@ for (const p of prosUsers) {
   const roomsActivity = r ? Math.max(toMs(r.created_at) ?? 0, roomsLastActivity.get(r.id) ?? 0) : 0
 
   const roles = [...new Set([
-    // Role namespace depends on where the holder came from: pre-legacy-import
-    // Proscenium users keep live proscenium:* roles; users the legacy import
-    // created get dormant ticketing:* roles (see preLegacyIds above).
+    // Pre-legacy users keep live proscenium:* roles; users the import created get
+    // dormant ticketing:* ones.
     ...[p.id, ...p.extraLegacyIds].flatMap(id => (prosRolesByUser.get(id) ?? [])
       .map(role => `${preLegacyIds.has(id) ? 'proscenium' : 'ticketing'}:${role}`)),
     ...(r && r.role === 'ADMIN' ? ['rooms:ADMIN'] : []),

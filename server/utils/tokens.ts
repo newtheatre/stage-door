@@ -20,19 +20,15 @@ export function generateVerificationToken(): string {
 }
 
 /**
- * SHA-256 for emailed tokens at rest (ADR-0013). These are high-entropy
- * secrets like service tokens and recovery codes, so the same treatment
- * applies — a database leak must not hand out live login links. (CLAUDE.md
- * invariant 9's scrypt rule is scoped to passwords.)
+ * SHA-256 for emailed tokens at rest (ADR-0013). A database leak must not
+ * hand out live login links.
  */
 export function hashLoginToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
 }
 
 /**
- * Create and persist an email verification token for a user.
- *
- * @returns The generated token string (the hash is what's stored).
+ * Returns the token; the hash is what gets stored.
  */
 export async function createEmailVerificationToken(userId: string): Promise<string> {
   const token = generateVerificationToken()
@@ -48,13 +44,8 @@ export async function createEmailVerificationToken(userId: string): Promise<stri
 }
 
 /**
- * Create and persist a password reset token for a user.
- * Deletes any existing reset tokens for the user first (single outstanding
- * token per user).
- *
- * @param userId  The user to create a reset token for.
- * @param expiry  Token lifetime in ms (defaults to PASSWORD_RESET — 1 hour).
- * @returns The generated token string (the hash is what's stored).
+ * One outstanding reset token per user, so this deletes any existing ones
+ * first. Returns the token; the hash is what gets stored.
  */
 export async function createPasswordResetToken(
   userId: string,
@@ -75,10 +66,8 @@ export async function createPasswordResetToken(
 }
 
 /**
- * Create and persist a magic sign-in link token (ADR-0013). Single
- * outstanding token per user, like password resets.
- *
- * @returns The generated token string (the hash is what's stored).
+ * Magic sign-in link (ADR-0013). One outstanding token per user, like
+ * password resets.
  */
 export async function createMagicLinkToken(userId: string): Promise<string> {
   const token = generateVerificationToken()

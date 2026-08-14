@@ -8,11 +8,8 @@ const bodySchema = z.object({
 })
 
 /**
- * POST /api/users/shadow — service-token only (ADR-0007).
- *
- * Guest checkout: match on lowercased email or create a password-less user.
- * Idempotent by email. A full account's id is returned unchanged
- * (`existing: true, guest: false`) — the booking attaches to their history.
+ * Service-token only (ADR-0007). Match on lowercased email or create a
+ * password-less user. Idempotent.
  */
 export default defineEventHandler(async (event) => {
   const serviceToken = await requireServiceToken(event)

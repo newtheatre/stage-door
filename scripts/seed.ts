@@ -1,9 +1,5 @@
 /**
- * Dev-only seed: creates a dev admin and sample users with credentials
- * generated at runtime and PRINTED ONCE — never committed, never fixed
- * (docs/development.md#seeds; lesson inherited from Proscenium's
- * known-password seed accounts).
- *
+ * Dev-only seed. Credentials are generated at runtime and printed once.
  * Refuses to run in production or against a remote database.
  */
 
@@ -44,9 +40,8 @@ function generatePassword(): string {
   return `Aa1-${randomBytes(9).toString('base64url')}`
 }
 
-// Addresses must NOT use a reserved TLD (.test/.invalid/…): those are what
-// isUndeliverableEmail treats as anonymised placeholders, which would hide
-// every seeded user from /admin and block register/reset locally (#16).
+// Addresses must NOT use a reserved TLD: isUndeliverableEmail treats those as
+// anonymised placeholders and would hide every seeded user.
 const seedUsers = [
   { email: 'admin@dev.newtheatre.org.uk', name: 'Dev Admin', roles: ['auth:ADMIN'], verified: true },
   { email: 'member@dev.newtheatre.org.uk', name: 'Dev Member', roles: ['proscenium:BOX_OFFICE'], verified: true },
