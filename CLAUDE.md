@@ -51,15 +51,32 @@ npx wrangler d1 ...    # production D1 — read docs/operations.md before touchi
 
 ## Comments
 
-A comment carries what the code cannot: a constraint, a trap, a contract that is not obvious from the signature. It does not narrate, and it does not argue.
+Enforced by `bun run check:comments`, which CI runs. There are no exemptions.
 
-- **State the rule, not the story.** The rule is a comment; the incident that taught it is an ADR.
-- **Reasoning goes to `docs/decisions/`.** If the *why* needs a paragraph, it needs an ADR; the comment cites it and stops.
-- **Do not restate the code.** `@param count — Number of rooms selected` says nothing the signature does not, and a "Features:" list in a component header is out of date by the next release.
-- **No unprovenanced figures.** A comment cannot honestly carry a row count, because nothing updates it. Put the number in the ADR, dated.
-- **Say plainly when something is not implemented**, at the thing that is not implemented.
+1. **Two lines of text, maximum.** Delimiters do not count. Most comments should
+   be a few words. Past two lines you are writing a doc, not a comment.
+2. **Route headers are one line: what it does.** The method and path are the
+   filename, and the auth is the guard on the line below.
+3. **No JSDoc block tags.** No `@param`, `@returns`, `@props`, `@emits`,
+   `@route`, `@example`. The signature and the types already say it.
+4. **No narrated history.** Not "used to", "originally", "an earlier version".
+   The rule is a comment; the incident that taught it is an ADR.
+5. **No figures a comment cannot keep true.** Row counts and percentages go in
+   `docs/`, dated, where something updates them.
 
-One to five lines is the usual size. Past about ten, ask whether you are writing an ADR.
+Anything that does not fit has somewhere to go:
+
+| What it is | Where it goes |
+| --- | --- |
+| A reason that needs a paragraph | an ADR in `docs/decisions/` |
+| An enum, a lifecycle, a column list | `docs/` — the data model or API reference |
+| An endpoint's full contract | `docs/` — the API reference |
+| A trap that would cost someone an evening | an ADR, cited from a one-line comment |
+
+The comment then states the constraint and cites where the argument lives:
+```
+// MUST NOT throw — authorize() would run the handler unchecked (ADR-0008).
+```
 
 ## Things Claude Code should proactively flag
 
@@ -67,4 +84,4 @@ One to five lines is the usual size. Past about ten, ask whether you are writing
 - Any new endpoint lacking rate limiting or audit logging where peers have it.
 - Any consumer-app PR (Proscenium/rooms) that reintroduces local credential storage or role editing.
 - Drift between `docs/api-reference.md` and actual routes (cheap to check, expensive to discover late).
-- A comment growing past ten lines — that is an ADR asking to be written.
+- A comment over two lines — see §Comments; `bun run check:comments` catches it.
