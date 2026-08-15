@@ -15,16 +15,13 @@ const querySchema = z.object({
 
 const PAGE_SIZE = 20
 
-// Anonymised/placeholder rows are excluded by default and surface as a
-// count; the predicates live in adminUsers.ts (shared with the holder
-// counts on role definitions).
+// Anonymised rows are excluded by default and surface as a count; the
+// predicates live in adminUsers.ts.
 const anonymisedRow = isAnonymisedRow()
 const realRow = isRealRow()
 
-// Accounts the ADR-0012 rollout wants an operator's eye on:
-//  - a Workspace address that still has a password (should be Google-only,
-//    and is usually a handed-over role account);
-//  - an admin that signs in with a password and has no second factor.
+// Accounts the ADR-0012 rollout wants an operator's eye on — see
+// docs/security.md#rollout-flags.
 const hasWorkspacePassword = and(
   like(schema.users.email, '%@newtheatre.org.uk'),
   isNotNull(schema.users.password),
@@ -37,9 +34,7 @@ const isAdminWithoutMfa = and(
 )
 
 /**
- * GET /api/users?q=&role=&guest=&disabled=&anonymised=&page= — search/list
- * (admin). Anonymised/placeholder accounts are excluded by default and
- * reported via `hiddenAnonymised`; pass `anonymised=true` to list only them.
+ * Search and list users. Anonymised accounts are excluded unless asked for.
  */
 export default defineEventHandler(async (event) => {
   await requireAuthAdmin(event)

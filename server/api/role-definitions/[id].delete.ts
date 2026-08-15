@@ -2,9 +2,8 @@ import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 
 /**
- * DELETE /api/role-definitions/:id — remove a definition (admin) [AUD].
- * Existing grants are untouched: definitions are UX metadata, not the
- * source of granted access (ADR-0011).
+ * Remove a definition. Existing grants are untouched — definitions are UX
+ * metadata, not the source of access (ADR-0011).
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)

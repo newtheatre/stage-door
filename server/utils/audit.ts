@@ -1,11 +1,8 @@
 import { db, schema } from '@nuxthub/db'
 
 /**
- * Append to the audit log (docs/data-model.md#audit_log).
- *
- * Written by admin actions, role changes, force-logouts, disable/enable,
- * erasure, sweep actions, and service-token issuance — not ordinary logins.
- * Failures are logged but never break the action being audited.
+ * Append to the audit log. Failures are logged but never break the action
+ * being audited.
  */
 export async function writeAudit(entry: {
   actorUserId: string | null

@@ -1,11 +1,6 @@
 /**
- * Right to erasure — anonymise, never delete (docs/gdpr-retention.md,
- * ADR-0008, CLAUDE.md invariant 4).
- *
- * Rewrites the auth identity, deletes credentials/tokens/roles, bumps the
- * session epoch, and calls every registered app's anonymise hook. An
- * erasure is only *complete* when every hook succeeded — partial results
- * are returned so the caller can surface and retry. Idempotent end to end.
+ * Right to erasure — anonymise, never delete. Complete only when every app
+ * hook succeeded; partial results are returned so it can be retried.
  */
 
 import { db, schema } from '@nuxthub/db'
@@ -49,8 +44,8 @@ export async function eraseUser(userId: string, actor: { id: string | null, via:
     await clearAllFactors(userId)
   }
 
-  // App hooks are idempotent — always call them, even on re-runs, so a
-  // previously-failed hook gets retried.
+  // App hooks are idempotent, so call them on every run — that is what retries
+  // a hook that failed before.
   const hooks = await callAllAppHooks<{ ok: boolean }>('anonymise', { userId })
   const complete = hooks.every(h => h.ok)
 

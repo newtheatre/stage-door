@@ -2,9 +2,8 @@ import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 
 /**
- * POST /api/users/:id/unlink-google — clear the Google link (admin; the
- * leaver process). Refuses if it would leave the account with no login
- * method at all.
+ * Clear the Google link. Refuses if it would leave the account with no login
+ * method.
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)

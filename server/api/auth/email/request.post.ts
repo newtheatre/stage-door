@@ -2,9 +2,8 @@ import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 
 /**
- * POST /api/auth/email/request — resend the verification email for the
- * logged-in user. Response is identical whether or not a new link was
- * actually sent (already-verified accounts get the same answer).
+ * Resend the verification email. The response is identical whether or not a
+ * link was actually sent.
  */
 export default defineEventHandler(async (event) => {
   const { user: sessionUser } = await requireUserSession(event)

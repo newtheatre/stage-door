@@ -1,10 +1,6 @@
 /**
- * CSRF protection: origin check on state-changing API requests
- * (docs/security.md — sameSite: lax is the first layer, this is the second).
- *
- * Browser requests must carry an Origin within the estate. Server-to-server
- * calls authenticated with a service token send no Origin and are exempt —
- * they don't ride on cookies, so CSRF doesn't apply to them.
+ * CSRF: origin check on state-changing API requests (docs/security.md).
+ * Service-token calls send no Origin and are exempt — they carry no cookie.
  */
 
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
@@ -21,9 +17,8 @@ export default defineEventHandler((event) => {
 
   const origin = getRequestHeader(event, 'origin')
 
-  // Same-origin form posts and fetches always carry Origin in modern
-  // browsers; its absence means a non-browser client, which cookies-based
-  // CSRF can't target. Allow it through — the session check still applies.
+  // No Origin means a non-browser client, which cookie CSRF cannot target.
+  // The session check still applies.
   if (!origin) return
 
   if (ESTATE_ORIGIN.test(origin)) return

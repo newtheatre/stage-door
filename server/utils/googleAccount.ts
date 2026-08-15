@@ -1,11 +1,6 @@
 /**
- * Google identity resolution — ADR-0005 and docs/architecture.md
- * §identity-continuity.
- *
- * A person is their `users.id`; a linked Google identity is a credential
- * keyed by the stable `google_sub`, never by address. Match precedence:
- * `google_sub` → `pending_google_email` (admin-directed link, consumed) →
- * lowercased email (including shadow accounts — claiming) → create.
+ * Google identity resolution. A linked identity is keyed by the stable
+ * `google_sub`, never by address. Precedence: docs/architecture.md
  */
 
 import { db, schema } from '@nuxthub/db'
@@ -32,11 +27,8 @@ export function isWorkspaceProfile(profile: GoogleProfile): boolean {
 type UserRow = typeof schema.users.$inferSelect
 
 /**
- * Find or create the account for a Workspace Google profile.
- *
- * Never writes `users.email` when attaching to an existing account — one
- * account, two sign-in methods, two addresses is a supported steady state.
- * Returns the (possibly updated) user row; caller decides about sessions.
+ * Never writes `users.email` when attaching to an existing account: one
+ * account with two sign-in methods and two addresses is supported.
  */
 export async function resolveGoogleUser(profile: GoogleProfile): Promise<{ user: UserRow, how: 'sub' | 'pending' | 'email' | 'created' }> {
   const googleEmail = profile.email.toLowerCase()
@@ -46,9 +38,8 @@ export async function resolveGoogleUser(profile: GoogleProfile): Promise<{ user:
     .where(eq(schema.users.googleSub, profile.sub)).get()
   if (bySub) return { user: bySub, how: 'sub' }
 
-  // 2. Admin-directed link: attach and consume the pending marker. The user
-  //    proves control by authenticating — an admin can never complete a link
-  //    alone, by design.
+  // Admin-directed link: the user still proves control by authenticating, so
+  // an admin can never complete a link alone.
   const byPending = await db.select().from(schema.users)
     .where(eq(schema.users.pendingGoogleEmail, googleEmail)).get()
   if (byPending) {
@@ -65,9 +56,8 @@ export async function resolveGoogleUser(profile: GoogleProfile): Promise<{ user:
     return { user: user!, how: 'pending' }
   }
 
-  // 3. First sign-in, address matches an account (shadow accounts included —
-  //    this claims them). Google has verified this exact address, so the
-  //    account's email flips to verified.
+  // Google has verified this exact address, so the account's email flips to
+  // verified. Shadow accounts are claimed this way.
   const byEmail = await db.select().from(schema.users)
     .where(eq(schema.users.email, googleEmail)).get()
   if (byEmail) {

@@ -2,9 +2,9 @@
   <UContainer class="flex flex-col gap-4 p-4 flex-1">
     <AdminNav />
 
-    <!-- A failed list fetch must never render as "0 users". (The MFA-gate
-         403 can't normally reach here — the admin middleware redirects
-         unenrolled admins to enrolment first.) -->
+    <!--
+    A failed list fetch must never render as "0 users".
+    -->
     <UAlert
       v-if="listError"
       color="error"
@@ -83,9 +83,9 @@
       :loading="pending"
       @select="(_e: Event, row: TableRow<Row>) => onSelect(row)"
     >
-      <!-- Roles wrap as badges: a comma-joined string was clipped by the
-           table at narrow widths, hiding whether someone held two roles
-           or five. -->
+      <!--
+      Badges wrap; a comma-joined string was clipped at narrow widths.
+      -->
       <template #roles-cell="{ row }">
         <div
           v-if="row.original.roles.length"
@@ -260,18 +260,14 @@ const rows = computed<Row[]>(() => ((data.value?.users ?? []) as ApiUser[]).map(
   roles: u.roles,
 })))
 
-// Email and name are capped so the table fits its container: uncapped, a
-// long address pushed the Roles column off the right edge entirely. Full
-// values remain available via the title attribute and the user page.
+// Capped so the table fits its container. Full values are in the title
+// attribute and on the user page.
 const columns = [
   { accessorKey: 'email', header: 'Email', meta: { class: { td: 'max-w-56 truncate' } } },
   { accessorKey: 'name', header: 'Name', meta: { class: { td: 'max-w-40 truncate' } } },
   { accessorKey: 'status', header: 'Status' },
   { accessorKey: 'roles', header: 'Roles' },
 ]
-
-// Long role lists used to render as one comma-joined string, which the
-// table clipped at narrow widths. Badges wrap instead.
 
 function onSelect(row: TableRow<Row>) {
   navigateTo(`/admin/users/${row.original.id}`)

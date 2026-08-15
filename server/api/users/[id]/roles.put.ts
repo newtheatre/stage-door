@@ -7,23 +7,8 @@ const bodySchema = z.object({
 })
 
 /**
- * PUT /api/users/:id/roles — replace the grant set (admin) [AUD].
- *
- * Body accepts bare scoped strings (back-compat — permanent grants) or
- * `{ role, expiresAt?, note? }` objects (ADR-0011). Applied as a DIFF, not
- * delete-all-reinsert, so unchanged grants keep their provenance
- * (granted_at/granted_by) and warning bookkeeping. Changing a grant's
- * expiry clears `expiry_warned_at` — that's how a renewal re-arms the
- * expiry warning. A past `expiresAt` is allowed (revoke-with-history).
- *
- * NEW grants must reference a role definition (ADR-0014): an undefined
- * role can no longer come into existence. Grants the user already holds
- * are exempt, so definition-less history — the dormant `ticketing:*`
- * namespace, or a definition deleted after granting — stays editable,
- * renewable, and removable.
- *
- * Active-role changes propagate within 15 minutes on privileged surfaces
- * via the staleness refresh; pair with force-logout for instant effect.
+ * Replace the grant set. Applied as a diff, so unchanged grants keep their
+ * provenance. Full rules: docs/api-reference.md and ADR-0011/0014.
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)

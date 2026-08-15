@@ -1,8 +1,6 @@
 /**
- * Guard for `/api/account/*`: like the admin guard, the DB is right here,
- * so self-service calls verify the account still exists, isn't disabled,
- * and the session epoch is current — a stolen-but-stale cookie can't manage
- * the account.
+ * Guard for /api/account/*. The DB is right here, so re-check existence,
+ * disabled state and epoch — a stale cookie must not manage the account.
  */
 
 import type { H3Event } from 'h3'

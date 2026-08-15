@@ -7,13 +7,8 @@ const bodySchema = z.object({
 })
 
 /**
- * POST /api/users/:id/merge — absorb another account into this one
- * (admin) [AUD]. `:id` is the WINNER; the body names the loser.
- *
- * `dryRun: true` returns the full plan (role outcomes, credential gains,
- * per-app counts, warnings) with no writes anywhere and needs no
- * confirmation. A commit requires typing the LOSING account's email —
- * that's the identity being destroyed (ADR-0015).
+ * Absorb another account into this one; `:id` is the WINNER. A commit
+ * requires typing the losing account's email (ADR-0015).
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)

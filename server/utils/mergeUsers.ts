@@ -1,12 +1,6 @@
 /**
- * Account merge (ADR-0015, roadmap R3): the winner absorbs the loser,
- * estate-wide.
- *
- * Order matters and is the safety story. App hooks re-point their rows
- * FIRST; only when every app succeeds does any auth-side state change, so
- * a partial hook failure leaves both identities intact and the whole merge
- * retryable — the same contract as erasure. Every auth-side step is
- * idempotent for the same reason.
+ * Account merge (ADR-0015). App hooks re-point FIRST; no auth-side state
+ * changes until every app succeeds, so a partial failure is retryable.
  */
 
 import { db, schema } from '@nuxthub/db'
@@ -43,9 +37,8 @@ export interface MergeResult {
 const ANONYMISED_SUFFIX = '@anonymised.invalid'
 
 /**
- * The conservative union of two expiries: a concrete date beats permanent
- * (null), and the earlier of two dates wins. Least privilege — a merge
- * must never extend anyone's access.
+ * Conservative union: a concrete date beats permanent, and the earlier date
+ * wins. A merge must never extend anyone's access.
  */
 function earliestExpiry(a: Date | null, b: Date | null): Date | null {
   if (a === null) return b
@@ -174,9 +167,8 @@ export async function mergeUsers(
     return { winnerId: winner.id, loserId: loser.id, complete: false, dryRun: false, plan }
   }
 
-  // Role union, row-by-row (UNIQUE(user_id, role) forbids a blanket
-  // re-point). Written directly rather than through the ADR-0014-checked
-  // endpoint: definition-less history (dormant ticketing:*) must move.
+  // Row-by-row, since UNIQUE(user_id, role) forbids a blanket re-point.
+  // Direct, not via the endpoint: definition-less history must move too.
   const winnerByRole = new Map(winnerGrants.map(g => [g.role, g]))
   for (const grant of loserGrants) {
     const existing = winnerByRole.get(grant.role)
@@ -220,10 +212,8 @@ export async function mergeUsers(
     createdAt: loser.createdAt,
   }
 
-  // Erase the loser — anonymises the identity, deletes roles/tokens/
-  // factors, bumps its epoch, frees email + googleSub uniques, and calls
-  // the anonymise hooks (cheap no-ops: the apps hold nothing of theirs
-  // any more).
+  // Erasing the loser frees its email and googleSub uniques. The anonymise
+  // hooks are cheap no-ops by this point.
   await eraseUser(loser.id, { id: actor.id, via: 'merge' })
 
   // Fill the winner's gaps. Its own credentials always win; the fill only

@@ -2,12 +2,8 @@ import { db, schema } from '@nuxthub/db'
 import { and, eq } from 'drizzle-orm'
 
 /**
- * DELETE /api/account/mfa/:id — remove one of your own factors [AUD].
- * `:id` is a passkey row id, or the literal `totp`.
- *
- * Refuses to remove your last factor while MFA is required of the account:
- * dropping to zero would leave a privileged password account unprotected,
- * and the admin guard would lock you out of admin tools anyway.
+ * Remove one of your own factors. `:id` is a passkey row id or `totp`.
+ * Refuses to remove the last factor while MFA is required of the account.
  */
 export default defineEventHandler(async (event) => {
   const { user } = await requireAccountUser(event)

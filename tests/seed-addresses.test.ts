@@ -4,10 +4,8 @@ import { join } from 'node:path'
 import { isUndeliverableEmail } from '../server/utils/validation'
 
 /**
- * Guards #16: the dev seed once used `@stage-door.test`, and reserved TLDs
- * are exactly what isUndeliverableEmail treats as anonymised placeholders —
- * so every seeded user vanished from /admin and couldn't register or reset.
- * The dev environment must not diverge from production that way.
+ * Guards #16: a reserved TLD in the dev seed makes isUndeliverableEmail treat
+ * every seeded user as an anonymised placeholder.
  */
 describe('dev seed addresses', () => {
   const seedSource = readFileSync(join(import.meta.dirname, '../scripts/seed.ts'), 'utf8')
@@ -23,9 +21,8 @@ describe('dev seed addresses', () => {
 })
 
 /**
- * Same guard, one level out: integrating-an-app.md is the template every new
- * estate app copies, so a reserved-TLD fixture in it reproduces #16 in each of
- * them rather than once here.
+ * The same guard one level out: integrating-an-app.md is the template every
+ * new estate app copies, so a reserved-TLD fixture there reproduces #16 in each.
  */
 describe('integration guide fixture addresses', () => {
   const guide = readFileSync(join(import.meta.dirname, '../docs/integrating-an-app.md'), 'utf8')

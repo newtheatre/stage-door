@@ -8,9 +8,8 @@ const bodySchema = z.object({
 })
 
 /**
- * PUT /api/account/password — change (or, for SSO-only accounts, set) the
- * password. Verifies the current password where one exists; bumps the
- * session epoch so other sessions die, then re-seals this one.
+ * Change, or for SSO-only accounts set, the password. Bumps the session epoch
+ * so other sessions die, then re-seals this one.
  */
 export default defineEventHandler(async (event) => {
   const { user, loggedInAt } = await requireAccountUser(event)

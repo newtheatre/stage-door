@@ -1,9 +1,6 @@
 /**
- * Per-app service tokens for server-to-server calls (docs/data-model.md
- * #service_tokens, CLAUDE.md invariant 10).
- *
- * Plaintext `nnt_svc_…` tokens are shown once at creation; only the SHA-256
- * is stored. Comparison is constant-time per candidate row.
+ * Per-app service tokens. Plaintext is shown once at creation; only the
+ * SHA-256 is stored, compared constant-time per candidate row.
  */
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
@@ -31,9 +28,8 @@ export async function createServiceToken(name: string): Promise<{ id: string, to
 type ServiceTokenRow = typeof schema.serviceTokens.$inferSelect
 
 /**
- * Authenticate a server-to-server request by its `Authorization: Bearer`
- * token. 401 on anything else. Stamps `last_used_at` (monitored per
- * docs/operations.md — a stale stamp on an active app means misconfig).
+ * Authenticate a server-to-server request. Stamps `last_used_at`, which is
+ * monitored — a stale stamp on an active app means misconfiguration.
  */
 export async function requireServiceToken(event: H3Event): Promise<ServiceTokenRow> {
   const authorization = getRequestHeader(event, 'authorization')

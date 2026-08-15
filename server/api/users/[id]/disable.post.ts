@@ -2,10 +2,8 @@ import { db, schema } from '@nuxthub/db'
 import { eq, sql } from 'drizzle-orm'
 
 /**
- * POST /api/users/:id/disable — block login and refresh (reversible;
- * erasure is not — docs/operations.md#user-operations). Also bumps the
- * epoch so live sessions die at next refresh rather than riding out the
- * staleness window on unprivileged pages.
+ * Block login and refresh; reversible, unlike erasure. Bumps the epoch so
+ * live sessions die at their next refresh.
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)

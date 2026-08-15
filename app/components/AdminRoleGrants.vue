@@ -139,9 +139,9 @@
         No roles — this account can log in everywhere but administer nothing.
       </p>
 
-      <!-- Add — definitions only (ADR-0014): a role that isn't defined
-           can't be granted, so there's nothing free-text could do but
-           create typos. -->
+      <!--
+      Definitions only (ADR-0014): an undefined role cannot be granted.
+      -->
       <div class="flex flex-wrap gap-2 items-center">
         <USelectMenu
           v-model="pickedDefinition"
@@ -269,9 +269,8 @@ function statusChip(row: Row): string | null {
 
 // ── Expiry ──────────────────────────────────────────────────────────────────
 
-// Mirrors nextCommitteeYearEnd in server/utils/rolesConfig.ts (31 July,
-// 23:59:59.999 UTC) — same instant, so a committee-year expiry round-trips
-// through the select cleanly.
+// Must match nextCommitteeYearEnd in server/utils/rolesConfig.ts, or a
+// committee-year expiry will not round-trip through the select.
 const committeeYearEnd = computed(() => {
   const now = new Date()
   const candidate = Date.UTC(now.getUTCFullYear(), 6, 31, 23, 59, 59, 999)

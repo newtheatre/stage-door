@@ -3,9 +3,8 @@ import { nanoid } from 'nanoid'
 import { users } from './user'
 
 /**
- * Second-factor credentials (ADR-0012). Both factor types are supported
- * deliberately: passkeys suit personal accounts, TOTP suits accounts whose
- * seed lives in the committee password manager and hands over annually.
+ * Second-factor credentials (ADR-0012). Passkeys suit personal accounts,
+ * TOTP suits accounts whose seed lives in the password manager.
  */
 
 // Passkeys. Shape mirrors the WebAuthnCredential nuxt-auth-utils hands to
@@ -49,24 +48,13 @@ export const mfaRecoveryCodes = sqliteTable('mfa_recovery_codes', {
 ])
 
 /**
- * Short-lived server state, used for two things:
- *
- * 1. WebAuthn challenges — nuxt-auth-utils' storeChallenge/getChallenge pair
- *    is all-or-nothing, and omitting it verifies against an empty challenge
- *    (i.e. no replay protection).
- * 2. Pending logins — the "password accepted, second factor outstanding"
- *    state. It lives here rather than in a cookie because a second sealed
- *    cookie inherits `cookie.domain` via defu and would broadcast a
- *    half-authenticated cookie across the whole estate.
- *
- * KV is disabled on this worker, so useStorage() would be per-isolate and
- * silently lose challenges between requests.
+ * WebAuthn challenges and pending logins. Not a cookie: a second sealed
+ * cookie would broadcast a half-authenticated session estate-wide.
  */
 export const mfaChallenges = sqliteTable('mfa_challenges', {
   id: text('id').primaryKey(), // opaque, high-entropy; handed to the client
-  // Null only for a passkey *authentication* challenge: those are
-  // usernameless (the credential in the response names the account), so
-  // there is no user to attribute the challenge to when it is issued.
+  // Null only for a passkey authentication challenge, which is usernameless
+  // and so has no user to attribute at issue time.
   userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
   kind: text('kind', { enum: ['login', 'webauthn-register', 'webauthn-authenticate'] }).notNull(),
   challenge: text('challenge'), // WebAuthn challenge; null for plain login state

@@ -73,7 +73,7 @@ describe('verifyTotp', () => {
 
     expect((await verifyTotp(secret, code, { at })).valid).toBe(true)
     expect((await verifyTotp(secret, code, { at, lastUsedStep: step })).valid).toBe(false)
-    // …and the tolerance window can't be used to walk backwards either.
+    // The tolerance window cannot be walked backwards either.
     expect((await verifyTotp(secret, await totpCode(secret, step - 1), { at, lastUsedStep: step })).valid).toBe(false)
     // The next step still works.
     expect((await verifyTotp(secret, await totpCode(secret, step + 1), { at, lastUsedStep: step })).valid).toBe(true)

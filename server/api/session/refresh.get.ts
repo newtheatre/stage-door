@@ -1,10 +1,6 @@
 /**
- * GET /api/session/refresh?redirect=<url> — browser-facing refresh.
- *
- * Consumer apps' privileged middleware sends the browser here when the
- * session's roles are stale; on success the re-sealed cookie rides the 302
- * back to the validated target. Rejected sessions bounce to login with the
- * same target preserved.
+ * Browser-facing refresh: the re-sealed cookie rides the 302 back to the
+ * validated target. Rejected sessions bounce to login.
  */
 export default defineEventHandler(async (event) => {
   const target = validateRedirect(getQuery(event).redirect)

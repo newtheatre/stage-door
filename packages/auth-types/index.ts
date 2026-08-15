@@ -1,9 +1,6 @@
 /**
- * The NNT session contract — see docs/session-contract.md (version 1.0).
- *
- * Every consumer app imports this package instead of redeclaring the session
- * shape. Additive changes only; removals/renames need an ADR and a
- * coordinated release of every app.
+ * The NNT session contract, v1.0 — source of truth. Copied into each consumer
+ * app; change it here and re-copy. See docs/session-contract.md.
  */
 
 declare module '#auth-utils' {

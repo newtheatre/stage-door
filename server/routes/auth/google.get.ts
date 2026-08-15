@@ -1,11 +1,6 @@
 /**
- * GET /auth/google — Google OAuth sign-in (browser redirect flow).
- *
- * The `?redirect=` target rides through the OAuth round-trip in `state` and
- * is validated against the allowlist on the way back out. Workspace-only:
- * the server-side `hd` + `email_verified` assertion is the real check
- * (CLAUDE.md invariant 5); non-Workspace accounts land on the friendly
- * rejection page with no session.
+ * Google OAuth sign-in. The server-side `hd` + `email_verified` assertion is
+ * the real check (CLAUDE.md invariant 5); `?redirect=` rides in `state`.
  */
 import type { GoogleProfile } from '../../utils/googleAccount'
 

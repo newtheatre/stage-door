@@ -27,9 +27,8 @@ export const roleNameSchema = z.string()
   .regex(/^[A-Z][A-Z0-9_]*$/, 'Role names are uppercase, e.g. BOX_OFFICE')
 
 /**
- * A role grant (ADR-0011): a bare scoped string (back-compat — a permanent
- * grant) or an object carrying expiry and a note. Normalised to the object
- * shape either way.
+ * A role grant (ADR-0011): a bare scoped string or an object with expiry and
+ * a note. Normalised to the object shape either way.
  */
 export const roleGrantSchema = z.union([
   roleSchema.transform(role => ({ role, expiresAt: null as number | null, note: null as string | null })),
@@ -41,21 +40,16 @@ export const roleGrantSchema = z.union([
 ])
 
 /**
- * NNT Workspace addresses sign in with Google, never with a password
- * (ADR-0012). Exact-domain match only: subdomains like
- * `someone@dev.newtheatre.org.uk` are NOT Workspace accounts — which is
- * what keeps the dev seed usable locally.
+ * Workspace addresses sign in with Google (ADR-0012). Exact-domain match
+ * only, so `@dev.newtheatre.org.uk` stays usable for the local seed.
  */
 export function isWorkspaceEmail(email: string): boolean {
   return email.toLowerCase().endsWith('@newtheatre.org.uk')
 }
 
 /**
- * Addresses that can never receive mail: RFC 2606 reserved TLDs/domains,
- * plus our own anonymisation convention (`@anonymised.invalid`). The legacy
- * import created thousands of placeholder/anonymised accounts on these —
- * they must never be registrable or claimable, because claiming needs no
- * email round-trip (register seals a session immediately).
+ * Addresses that can never receive mail. They must never be registrable or
+ * claimable — claiming needs no email round-trip.
  */
 export function isUndeliverableEmail(email: string): boolean {
   return /\.invalid$|\.test$|\.example$|\.localhost$|@example\.(com|org|net)$/.test(email)

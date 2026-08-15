@@ -1,10 +1,6 @@
 /**
  * Verification gate (docs/migration.md#verification-gate) — asserts, not
- * eyeballs. Runs against the rehearsal DB by default; `--remote` runs the
- * same checks against production `auth` after the real import.
- *
- * Exits non-zero on any failure. Prints the same counts as build.ts so the
- * two can be compared side by side in the PR.
+ * eyeballs. Exits non-zero on any failure. `--remote` checks production.
  */
 
 import { readFileSync, existsSync } from 'node:fs'
@@ -100,9 +96,8 @@ const prosEmails = (pros.prepare('SELECT lower(email) e FROM users').all() as { 
 const roomsEmails = (rooms.prepare('SELECT lower(email) e FROM users').all() as { e: string }[]).map(r => r.e)
 const distinctEmails = new Set([...prosEmails, ...roomsEmails])
 const userCount = one('SELECT count(*) n FROM users').n
-// The live DB may hold accounts created directly on the auth service before
-// the import (e.g. a Google sign-in). They aren't source rows — count them
-// separately and surface them for eyeballing.
+// Accounts created directly on the auth service are not source rows; count
+// them separately and surface them.
 const targetEmails = (queryTarget('SELECT email FROM users') as { email: string }[]).map(r => r.email)
 const extras = targetEmails.filter(e => !distinctEmails.has(e))
 if (extras.length) console.info(`  ℹ ${extras.length} pre-existing non-source account(s): ${extras.join(', ')}`)
@@ -178,9 +173,7 @@ check(`${hashChecked} password hashes byte-identical to source`, hashOk)
 check('all stored hashes are scrypt PHC strings',
   one(`SELECT count(*) n FROM users WHERE password IS NOT NULL AND password NOT LIKE '$scrypt$%'`).n === 0)
 
-// 5. Role counts per namespace. Pre-legacy holders keep proscenium:*;
-// legacy-import holders map to dormant ticketing:*; neutralised accounts
-// lose theirs; +1 explicit proscenium:ADMIN grant to the ITM.
+// Role counts per namespace — see docs/migration.md for the expected split.
 const sourceRoles = pros.prepare(`
   SELECT ur.role, u.id, lower(u.email) email FROM user_roles ur JOIN users u ON u.id = ur.user_id
 `).all() as { role: string, id: string, email: string }[]

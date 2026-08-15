@@ -2,11 +2,8 @@ import { db, schema } from '@nuxthub/db'
 import { and, asc, eq, sql } from 'drizzle-orm'
 
 /**
- * GET /api/role-definitions — list (admin). Each carries `defaultExpiresAt`
- * — the epoch-ms expiry a grant made RIGHT NOW would default to (null =
- * permanent), computed server-side so the committee-year maths stays
- * testable and the UI stays dumb — and `holders`, the count of ACTIVE
- * grants of that role (expired ones don't count, ADR-0011).
+ * List role definitions. `defaultExpiresAt` and `holders` are computed
+ * server-side so the committee-year maths stays testable.
  */
 export default defineEventHandler(async (event) => {
   await requireAuthAdmin(event)
@@ -15,9 +12,8 @@ export default defineEventHandler(async (event) => {
     .orderBy(asc(schema.roleDefinitions.namespace), asc(schema.roleDefinitions.role))
     .all()
 
-  // Active holders per role string, one grouped query for the whole page.
-  // Real accounts only, so the count always matches what clicking through
-  // to the (anonymised-filtered) user list shows.
+  // One grouped query for the page. Real accounts only, so the count matches
+  // the user list.
   const counts = await db.select({
     role: schema.userRoles.role,
     holders: sql<number>`count(*)`,

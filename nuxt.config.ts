@@ -10,11 +10,8 @@ export default defineNuxtConfig({
 
   $production: {
     runtimeConfig: {
-      // The session cookie is scoped to the parent domain so every
-      // *.newtheatre.org.uk app can read it (docs/session-contract.md).
-      // Production only — localhost has no subdomains (docs/development.md).
-      // name/password/maxAge repeat the base values: env overrides must be
-      // complete SessionConfig objects, they don't deep-merge in types.
+      // Production only — localhost has no subdomains. name/password/maxAge repeat
+      // the base values: env overrides must be complete SessionConfig objects.
       session: {
         name: 'nnt-session',
         password: '',
@@ -66,9 +63,8 @@ export default defineNuxtConfig({
       // Nightly rate-limit counter sweep (ADR-0009). Runs off the wrangler
       // cron trigger below in production.
       '0 3 * * *': ['rate-limits:sweep'],
-      // Daily retention sweep (docs/gdpr-retention.md) — dry-run until the
-      // Archivist arms it in retentionConfig — and role-expiry warnings
-      // (ADR-0011).
+      // Retention sweep (dry-run until armed in retentionConfig) and role-expiry
+      // warnings. See docs/gdpr-retention.md and ADR-0011.
       '0 4 * * *': ['retention:sweep', 'roles:expiry-warn'],
     },
     rollupConfig: {
@@ -84,12 +80,8 @@ export default defineNuxtConfig({
             if (id === '@react-email/render') return 'export {}'
           },
         },
-        // @simplewebauthn/server top-level re-exports cross-fetch, which has
-        // no exports map — rollup can resolve it to node-fetch@2 and drag in
-        // node:http. It's only used by MetadataService/isCertRevoked, neither
-        // of which we touch, so point it at the platform fetch. Unlike the
-        // stub above this needs a real named export, since deps.js re-exports
-        // `fetch` by name.
+        // @simplewebauthn/server re-exports cross-fetch, which rollup can resolve to
+        // node-fetch and drag in node:http. Needs a real named export, unlike the stub above.
         {
           name: 'stub-cross-fetch',
           resolveId(id: string) {
@@ -121,15 +113,11 @@ export default defineNuxtConfig({
             database_id: '6b5be553-53e1-4eb2-b027-6fc11f9fe8f4',
           },
         ],
-        // Estate-wide secrets live in the account Secrets Store so a rotation
-        // is one write rather than four worker secrets updated in lockstep
-        // (docs/operations.md#secrets). server/plugins/secrets-store.ts turns
-        // the binding into runtimeConfig.session.password — read its header
-        // before adding another entry here, the binding name matters.
-        //
-        // Cast: `secrets_store_secrets` is valid wrangler config but missing
-        // from the wrangler types Nitro 2.13 bundles. Drop it once Nitro
-        // catches up.
+        // Estate secrets come from the Secrets Store (ADR-0016); the binding name
+        // matters — read server/plugins/0.secrets-store.ts first.
+
+        // Cast: `secrets_store_secrets` is valid wrangler config but missing from
+        // the wrangler types Nitro bundles. Drop it once Nitro catches up.
         ...({
           secrets_store_secrets: [
             {
@@ -158,10 +146,8 @@ export default defineNuxtConfig({
     blob: false,
   },
 
-  // Passkeys (ADR-0012). Off by default in nuxt-auth-utils; enabling it
-  // requires the @simplewebauthn peers (the module process.exit(1)s at build
-  // without them). Note the casing: module option `webAuthn`, runtimeConfig
-  // key `webauthn`.
+  // Passkeys (ADR-0012). Note the casing: module option `webAuthn`,
+  // runtimeConfig key `webauthn`.
   auth: {
     webAuthn: true,
   },

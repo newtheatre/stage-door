@@ -16,8 +16,19 @@ From the ITM (or via [operations.md](operations.md) if that's you):
 ## Step 1 — Install the shared bits
 
 ```bash
-bun add nuxt-auth-utils @newtheatre/auth-types
+bun add nuxt-auth-utils
 ```
+
+Then copy the session contract into your app. `packages/auth-types/index.ts` in this repo is the
+source of truth; it is **not** published to a registry, so each consumer app carries a verbatim copy:
+
+```bash
+cp ../stage-door/packages/auth-types/index.ts shared/utils/nntAuth.ts
+```
+
+Head the copy "DO NOT EDIT HERE — change it in stage-door and re-copy", as Proscenium, rooms and
+rehearsal all do. `shared/utils/` is a Nuxt auto-import directory, so `hasRole` and `hasAnyRole`
+need no import.
 
 `nuxt.config.ts` — the session block must match [session-contract.md](session-contract.md) exactly. The cookie domain is **production-only** (localhost has no subdomains — a domain'd cookie breaks local dev), so split it with `$production`:
 

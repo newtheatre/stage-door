@@ -7,9 +7,8 @@ const bodySchema = z.object({
 })
 
 /**
- * POST /api/audit — record a manual action (docs/operations.md, e.g.
- * "rotated session seal secret"). Actions recorded this way are prefixed
- * `manual.` so they can't impersonate system entries.
+ * Record a manual action. Prefixed `manual.` so it cannot impersonate a
+ * system entry.
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)

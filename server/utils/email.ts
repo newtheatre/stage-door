@@ -1,8 +1,6 @@
 /**
- * Email sending via Resend (docs/architecture.md#components).
- *
- * Dev mode (no `NUXT_RESEND_API_KEY`): emails are logged to the console
- * instead of sent — docs/development.md.
+ * Email via Resend. Without `NUXT_RESEND_API_KEY` messages are logged to the
+ * console rather than sent.
  */
 
 import { getResend } from './resend'
@@ -176,9 +174,8 @@ export async function sendRetentionDigestEmail(to: string, summary: Record<strin
 }
 
 /**
- * Sent when someone tries to register with an email that already has a full
- * account — instead of a duplicate-account error, which would let anyone
- * enumerate registered addresses (docs/api-reference.md#post-apiauthregister).
+ * Sent instead of a duplicate-account error, which would let anyone
+ * enumerate registered addresses.
  */
 export async function sendAccountExistsEmail(email: string): Promise<void> {
   const { public: { baseURL } } = useRuntimeConfig()

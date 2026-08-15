@@ -1,9 +1,6 @@
 /**
- * Session sealing — the single place the session payload is constructed.
- *
- * This service is the only writer of the `nnt-session` cookie (CLAUDE.md
- * invariant 1); the payload shape is the published contract in
- * docs/session-contract.md and packages/auth-types.
+ * Session sealing — the only place the payload is constructed, and this
+ * service is its only writer. Shape: docs/session-contract.md
  */
 
 import type { H3Event } from 'h3'
@@ -13,19 +10,16 @@ import { and, eq, gt, isNull, or } from 'drizzle-orm'
 type UserRow = typeof schema.users.$inferSelect
 
 /**
- * A grant is active when unexpired (ADR-0011). Reused by every place roles
- * gate behaviour — sessions, the retention sweep's role-holder exemption,
- * the admin list's role filter.
+ * A grant is active when unexpired (ADR-0011). Reused everywhere roles gate
+ * behaviour.
  */
 export function activeRoleCondition(now: Date = new Date()) {
   return or(isNull(schema.userRoles.expiresAt), gt(schema.userRoles.expiresAt, now))
 }
 
 /**
- * Load a user's ACTIVE scoped roles as flat strings — the session shape.
- * Expiry enforcement lives here: every seal path (login, SSO, verify,
- * refresh, account re-seals) and the admin guard funnel through this, so an
- * expired grant vanishes within the 15-minute staleness window.
+ * Active roles as flat strings. Every seal path funnels through here, which
+ * is what makes an expired grant vanish within the staleness window.
  */
 export async function loadRoles(userId: string): Promise<string[]> {
   const rows = await db.select().from(schema.userRoles)
@@ -63,10 +57,8 @@ export async function loadRoleGrants(userId: string): Promise<RoleGrant[]> {
 }
 
 /**
- * Seal a session for a user per the contract.
- *
- * @param opts.fresh  true for an original login (sets `loggedInAt` to now);
- *                    false for a refresh (preserves the given `loggedInAt`).
+ * Seal a session per the contract. `fresh` distinguishes an original login
+ * from a refresh, which preserves the given `loggedInAt`.
  */
 export async function sealUserSession(
   event: H3Event,
@@ -76,9 +68,8 @@ export async function sealUserSession(
 ): Promise<void> {
   const now = Date.now()
 
-  // replaceUserSession, not setUserSession: set merges into the existing
-  // session with defu, which CONCATENATES arrays — a re-seal would duplicate
-  // roles. The seal is authoritative; always replace wholesale.
+  // replaceUserSession, not setUserSession: set merges with defu, which
+  // concatenates arrays, so a re-seal would duplicate roles.
   await replaceUserSession(event, {
     user: {
       id: user.id,

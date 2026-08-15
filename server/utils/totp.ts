@@ -1,10 +1,6 @@
 /**
- * TOTP (RFC 6238) over Web Crypto — no dependency, no Node shims, runs
- * natively on Workers (ADR-0012).
- *
- * Hand-rolling this is defensible because the algorithm is small and fully
- * specified, and the RFC ships test vectors we assert against in
- * tests/totp.test.ts. A library would add a dependency for ~60 lines.
+ * TOTP (RFC 6238) over Web Crypto — no dependency, no Node shims. The RFC's
+ * test vectors are asserted in tests/totp.test.ts.
  */
 
 const STEP_SECONDS = 30
@@ -59,9 +55,8 @@ export function totpStep(at: number = Date.now()): number {
 }
 
 /**
- * Generate the code for one step. `algorithm` is a parameter only so the
- * RFC 6238 test vectors (which cover SHA-1/256/512) can be asserted;
- * authenticator apps in practice all use SHA-1.
+ * `algorithm` is a parameter only so the RFC test vectors can be asserted;
+ * authenticator apps all use SHA-1.
  */
 export async function totpCode(
   secret: string,
@@ -103,11 +98,8 @@ export interface TotpVerifyResult {
 }
 
 /**
- * Verify a submitted code with ±1 step of clock tolerance.
- *
- * `lastUsedStep` blocks replay: a code stays valid for its whole 30-second
- * window (and our tolerance widens that), so without this an intercepted
- * code could be used twice.
+ * ±1 step of clock tolerance. `lastUsedStep` blocks replay: without it an
+ * intercepted code could be used twice within its window.
  */
 export async function verifyTotp(
   secret: string,

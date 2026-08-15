@@ -9,28 +9,16 @@ const bodySchema = z.object({
 })
 
 /**
- * POST /api/auth/register — create an account with email and password.
- *
- * Three paths, one response shape (docs/api-reference.md):
- * - New email → create user, send verification email, seal session.
- * - Shadow account (password NULL, no Google) → *claim* it in place: set
- *   password and name, keep the id so booking history carries over.
- * - Full account → enumeration-safe: same `{ ok: true }`, but a
- *   "you already have an account" email is sent instead of creating anything,
- *   and no session is sealed.
+ * Create an account, or claim a shadow one in place. All three paths return
+ * the same body — docs/api-reference.md
  */
 export default defineEventHandler(async (event) => {
   const { email, name, password } = await readValidatedBody(event, bodySchema.parse)
 
   await enforceRateLimit('register:ip', getClientIP(event))
 
-  // Reserved-TLD / anonymised addresses can never verify and must never be
-  // claimable — the legacy import created thousands of placeholder rows on
-  // them (some owning reservations with other customers' data). Same
-  // enumeration-safe response as every other path.
-  // Workspace addresses get their account from signing in with Google
-  // (ADR-0012) — registering one with a password would create exactly the
-  // password login the domain rule removes.
+  // Reserved-TLD addresses can never verify and must never be claimable;
+  // Workspace addresses get their account from Google (ADR-0012).
   if (isUndeliverableEmail(email) || isWorkspaceEmail(email)) {
     return { ok: true }
   }

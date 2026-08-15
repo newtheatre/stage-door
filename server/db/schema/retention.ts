@@ -2,10 +2,8 @@ import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqli
 import { nanoid } from 'nanoid'
 import { users } from './user'
 
-// Warning-email bookkeeping for the inactive-account sweep
-// (docs/gdpr-retention.md#inactive-account-retention-sweep). One row per
-// warning stage actually sent; rows for a user are cleared when they log in
-// again (the login resets their clock) and cascade away on erasure.
+// One row per warning stage actually sent. Cleared when the user logs in
+// again, and cascaded away on erasure.
 export const retentionNotices = sqliteTable('retention_notices', {
   id: text('id').primaryKey().$defaultFn(() => nanoid()),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),

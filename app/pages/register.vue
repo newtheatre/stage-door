@@ -127,9 +127,8 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       body: event.data,
     })
     await refreshSession()
-    // Response is deliberately identical whether an account was created or
-    // one already existed (enumeration safety) — both paths land on the
-    // check-your-email page, which adapts to session state.
+    // The response is identical whether or not an account was created
+    // (enumeration safety), so both paths land here.
     await navigateTo(raw.value ? `/check-email?redirect=${encodeURIComponent(raw.value)}` : '/check-email')
   }
   catch (error) {

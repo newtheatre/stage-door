@@ -1,6 +1,5 @@
-// Pages for logged-out visitors (login, register): a logged-in user is
-// bounced straight to their validated redirect target — or the account home
-// when none was asked for (same rule as useRedirectTarget).
+// Pages for logged-out visitors. A logged-in user goes to their validated
+// redirect target, or the account home.
 export default defineNuxtRouteMiddleware((to) => {
   const { loggedIn } = useUserSession()
 

@@ -13,11 +13,8 @@ const INVALID_CREDENTIALS = {
 } as const
 
 /**
- * POST /api/auth/login — authenticate with email and password.
- *
- * Unknown user, wrong password, password-less (guest/SSO-only) account, and
- * disabled account all produce this same 401 — indistinguishable by design
- * (docs/api-reference.md).
+ * Authenticate with email and password. Unknown user, wrong password,
+ * password-less account and disabled account all give the same 401.
  */
 export default defineEventHandler(async (event) => {
   const { email, password } = await readValidatedBody(event, bodySchema.parse)
@@ -25,12 +22,8 @@ export default defineEventHandler(async (event) => {
   await enforceRateLimit('login:ip', getClientIP(event))
   await enforceRateLimit('login:acct', email)
 
-  // NNT Workspace addresses always sign in with Google (ADR-0012), which
-  // brings Google's enforced 2SV with it. This is the one deliberate
-  // exception to enumeration-safe login errors: the domain policy is a
-  // public fact about the *address*, not a fact about whether an account
-  // exists — and a generic "invalid email or password" here would strand
-  // committee members with no idea why their password stopped working.
+  // The one deliberate exception to enumeration-safe errors: the domain policy
+  // is a public fact about the address, not about whether an account exists.
   if (isWorkspaceEmail(email)) {
     throw createError({
       statusCode: 403,
@@ -47,10 +40,8 @@ export default defineEventHandler(async (event) => {
     throw createError(INVALID_CREDENTIALS)
   }
 
-  // Second factor (ADR-0012). Enrolled factors gate the session: the
-  // password is accepted but nothing is sealed until the factor is proven.
-  // A required-but-unenrolled admin still gets a session — locking the ITM
-  // out is worse than the gap; requireAuthAdmin holds the line instead.
+  // Enrolled factors gate the session. A required-but-unenrolled admin still
+  // gets one — requireAuthAdmin holds the line instead (ADR-0012).
   const challenge = await sealOrChallenge(event, user)
   if (challenge) return challenge
 

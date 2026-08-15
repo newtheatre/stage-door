@@ -71,9 +71,8 @@ describe('POST /api/auth/register', () => {
   })
 
   it('never claims accounts on undeliverable domains — the legacy-import hole', async () => {
-    // The legacy import created placeholder/anonymised rows on reserved
-    // TLDs; some own reservations containing other customers' data.
-    // Registering with one must be a silent no-op.
+    // Placeholder rows on reserved TLDs can own reservations containing other
+    // customers' data, so registering with one must be a silent no-op.
     const placeholder = await createUser({ email: 'door-sales@legacy.invalid', name: 'Door Sales' })
     const anonymised = await createUser({ email: 'deleted-123@anonymised.invalid', name: 'Deleted user' })
 

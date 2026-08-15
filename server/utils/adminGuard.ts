@@ -1,12 +1,6 @@
 /**
- * Guard for `/api/users/*`, `/api/audit`, `/api/service-tokens` and the
- * admin UI's API surface: session + `auth:ADMIN`.
- *
- * Unlike consumer apps (which trust the sealed cookie within the staleness
- * window), the auth service has the database right here — so admin calls
- * re-check the DB every time: account still exists, not disabled, session
- * epoch current, and the role read live. Revocation is instant on this
- * surface.
+ * Guard for the admin API surface: session plus `auth:ADMIN`, re-checked
+ * against the DB every time. Revocation is instant here.
  */
 
 import type { H3Event } from 'h3'
@@ -31,9 +25,8 @@ export async function requireAuthAdmin(event: H3Event): Promise<{ user: UserRow,
     throw createError({ statusCode: 403, statusMessage: 'Admin access required' })
   }
 
-  // MFA gate (ADR-0012). A privileged password account that hasn't enrolled
-  // keeps its session — being locked out of your own account is worse — but
-  // does no admin work until it does.
+  // A privileged password account that has not enrolled keeps its session but
+  // does no admin work until it does (ADR-0012).
   if (await isMfaRequired(user) && (await enrolledFactors(user.id)).length === 0) {
     throw createError({
       statusCode: 403,

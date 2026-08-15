@@ -10,12 +10,8 @@ const bodySchema = z.object({
 })
 
 /**
- * POST /api/auth/magic-link/request — email a sign-in link (ADR-0013).
- *
- * Always `{ ok: true }` (enumeration-safe), sent iff the account exists and
- * isn't disabled — shadow accounts included: mailbox control is the same
- * trust the reset-claim path already extends, and this is the passwordless
- * path for ticket bookers the roadmap wanted.
+ * Email a sign-in link (ADR-0013). Always `{ ok: true }`; sent iff the account
+ * exists and is not disabled, shadow accounts included.
  */
 export default defineEventHandler(async (event) => {
   const { email, redirect } = await readValidatedBody(event, bodySchema.parse)

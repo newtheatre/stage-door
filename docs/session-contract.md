@@ -30,7 +30,10 @@ Local development uses a different config (no domain) — see [development.md](d
 
 ## The payload
 
-Published as `@newtheatre/auth-types` (types + helpers). Do not redeclare these in app code.
+Defined once in `packages/auth-types` (types + helpers). It is **not** published to a registry —
+each consumer app carries a verbatim copy at `shared/utils/nntAuth.ts`, headed "DO NOT EDIT HERE".
+Change the source, then re-copy to Proscenium, rooms and rehearsal in the same PR. Do not redeclare
+the shape inline anywhere.
 
 ```ts
 declare module '#auth-utils' {

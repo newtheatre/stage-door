@@ -8,10 +8,8 @@ const bodySchema = z.object({
 })
 
 /**
- * PUT /api/users/:id/pending-google — admin-directed link (identity
- * continuity path (b)): the next Google sign-in with this Workspace address
- * attaches to this account. The user still proves control by
- * authenticating — an admin can never complete a link alone.
+ * Admin-directed link: the next Google sign-in with this address attaches to
+ * this account. An admin can never complete a link alone.
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)

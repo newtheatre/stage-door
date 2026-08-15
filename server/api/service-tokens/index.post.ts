@@ -5,9 +5,7 @@ const bodySchema = z.object({
 })
 
 /**
- * POST /api/service-tokens — issue a token for an app (docs/operations.md
- * #service-tokens). The plaintext is returned once; store it straight in
- * the password manager and the app's worker secret.
+ * Issue a token for an app. The plaintext is returned once.
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)

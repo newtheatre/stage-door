@@ -1,7 +1,6 @@
 /**
- * Test stand-in for the `@nuxthub/db` virtual module: the same Drizzle
- * schema, backed by in-memory better-sqlite3, with the real generated
- * migration applied so tests exercise the production DDL.
+ * Stand-in for the `@nuxthub/db` virtual module: the same schema on in-memory
+ * sqlite, with the real migration applied.
  */
 
 import { readFileSync, readdirSync } from 'node:fs'

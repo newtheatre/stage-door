@@ -2,11 +2,8 @@ import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 
 /**
- * POST /api/account/mfa/totp — begin TOTP enrolment.
- *
- * Returns the secret and its `otpauth://` URI. Nothing gates a login until
- * `confirmedAt` is set by the confirm endpoint, so an abandoned enrolment
- * can't lock anyone out. Re-enrolling replaces an unconfirmed secret.
+ * Begin TOTP enrolment. Nothing gates a login until `confirmedAt` is set, so
+ * an abandoned enrolment cannot lock anyone out.
  */
 export default defineEventHandler(async (event) => {
   const { user } = await requireAccountUser(event)
