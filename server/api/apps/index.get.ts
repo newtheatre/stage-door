@@ -7,6 +7,9 @@ import { asc } from 'drizzle-orm'
 export default defineEventHandler(async (event) => {
   await requireAuthAdmin(event)
 
+  // Metadata, not a decision. Private: it carries names and holder counts.
+  setHeader(event, 'Cache-Control', 'private, max-age=30')
+
   const rows = await db.select().from(schema.apps).orderBy(asc(schema.apps.name)).all()
   const manifests = await db.select().from(schema.appManifests).all()
   const manifestByApp = new Map(manifests.map(m => [m.appId, m]))

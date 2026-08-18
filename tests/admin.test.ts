@@ -7,6 +7,7 @@ import forceLogoutHandler from '../server/api/users/[id]/force-logout.post'
 import pendingGoogleHandler from '../server/api/users/[id]/pending-google.put'
 import unlinkGoogleHandler from '../server/api/users/[id]/unlink-google.post'
 import createUserHandler from '../server/api/users/index.post'
+import listUsersHandler from '../server/api/users/index.get'
 import { makeEvent, sentEmails } from './setup'
 import type { FakeEvent } from './setup'
 import { createUser, grantRole, enrolTotp, defineRole } from './helpers/users'
@@ -17,6 +18,7 @@ const forceLogout = forceLogoutHandler as unknown as (event: unknown) => Promise
 const putPendingGoogle = pendingGoogleHandler as unknown as (event: unknown) => Promise<unknown>
 const unlinkGoogle = unlinkGoogleHandler as unknown as (event: unknown) => Promise<unknown>
 const adminCreate = createUserHandler as unknown as (event: unknown) => Promise<{ user: { id: string } }>
+const listUsers = listUsersHandler as unknown as (event: unknown) => Promise<unknown>
 
 let adminCounter = 0
 
@@ -183,5 +185,40 @@ describe('admin user operations', () => {
     await unlinkGoogle(ok.event)
     const updated = await db.select().from(schema.users).where(eq(schema.users.id, withPassword.id)).get()
     expect(updated!.googleSub).toBeNull()
+  })
+})
+
+describe('the users list standing counts', () => {
+  it('counts anonymised rows, workspace passwords and admins without MFA in one pass', async () => {
+    // An admin with MFA: privileged, but not needing attention.
+    const { event } = await adminEvent({ query: {} })
+
+    // Workspace address holding a password (ADR-0012 rollout flag).
+    const workspace = await createUser({ email: 'staff@newtheatre.org.uk', plainPassword: 'Passw0rd' })
+    await defineRole('rooms', 'ADMIN')
+    await grantRole(workspace.id, 'rooms:ADMIN')
+
+    // A password admin with no second factor. Deliverable domain: the
+    // example.com family reads as an anonymised placeholder here.
+    const bare = await createUser({ email: 'bare@example-user.co.uk', plainPassword: 'Passw0rd' })
+    await grantRole(bare.id, 'rooms:ADMIN')
+
+    // An expired admin grant must not count: the predicate is active-only.
+    const lapsed = await createUser({ email: 'lapsed@example-user.co.uk', plainPassword: 'Passw0rd' })
+    await grantRole(lapsed.id, 'rooms:ADMIN', { expiresAt: new Date(Date.now() - 86_400_000) })
+
+    // One anonymised placeholder, so the hidden count is not trivially zero.
+    await createUser({ email: 'erased-abc@example.invalid' })
+
+    const result = await listUsers(event) as {
+      hiddenAnonymised: number
+      needsAttention: { workspacePassword: number, adminNoMfa: number }
+    }
+
+    // The signed-in admin's address is in that family too, so it counts.
+    expect(result.hiddenAnonymised).toBe(2)
+    expect(result.needsAttention.workspacePassword).toBe(1)
+    // workspace + bare, but not lapsed (expired) and not the enrolled admin.
+    expect(result.needsAttention.adminNoMfa).toBe(2)
   })
 })

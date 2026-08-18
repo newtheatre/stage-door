@@ -23,6 +23,7 @@ Why the service is the way it is. One decision per file, numbered, never edited 
 | [0017](0017-app-registry.md) | The estate's apps live in a database registry, not in code | Accepted |
 | [0018](0018-manifest-declared-roles.md) | Apps declare their own roles; this service polls for them | Accepted |
 | [0019](0019-training-conditional-grants.md) | Training-conditional grants, from a cached snapshot | Accepted |
+| [0020](0020-what-this-service-caches.md) | What this service caches, and what it must never cache | Accepted |
 
 ## Template
 

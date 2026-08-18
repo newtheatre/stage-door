@@ -8,6 +8,9 @@ import { and, asc, eq, sql } from 'drizzle-orm'
 export default defineEventHandler(async (event) => {
   await requireAuthAdmin(event)
 
+  // Metadata, not a decision. Private: it carries names and holder counts.
+  setHeader(event, 'Cache-Control', 'private, max-age=60')
+
   const permissions = await db.select().from(schema.appPermissions)
     .orderBy(asc(schema.appPermissions.namespace), asc(schema.appPermissions.key)).all()
 
