@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { eraseUser } from '../server/utils/erase'
 import { exportUser } from '../server/utils/exportUser'
 import { fetchMock } from './setup'
-import { createUser, grantRole, enrolTotp } from './helpers/users'
+import { createUser, grantRole, enrolTotp, registerApp } from './helpers/users'
 import { regenerateRecoveryCodes } from '../server/utils/mfa'
 
 function hooksSucceed() {
@@ -13,7 +13,9 @@ function hooksSucceed() {
 
 describe('eraseUser — anonymise, never delete (ADR-0008)', () => {
   it('rewrites identity, strips credentials/roles/tokens, bumps epoch, calls every hook', async () => {
-    // A service token per app so hook bearers resolve.
+    // A registry row plus a service token per app so hook bearers resolve.
+    await registerApp('proscenium', { baseUrl: 'https://newtheatre.org.uk' })
+    await registerApp('rooms')
     await db.insert(schema.serviceTokens).values([
       { name: 'proscenium', tokenHash: 'hash-p' },
       { name: 'rooms', tokenHash: 'hash-r' },
@@ -63,6 +65,8 @@ describe('eraseUser — anonymise, never delete (ADR-0008)', () => {
   })
 
   it('reports incomplete when a hook fails, and a re-run retries idempotently', async () => {
+    await registerApp('proscenium', { baseUrl: 'https://newtheatre.org.uk' })
+    await registerApp('rooms')
     await db.insert(schema.serviceTokens).values([
       { name: 'proscenium', tokenHash: 'hash-p' },
       { name: 'rooms', tokenHash: 'hash-r' },
@@ -93,6 +97,8 @@ describe('eraseUser — anonymise, never delete (ADR-0008)', () => {
 
 describe('exportUser — the subject-access bundle', () => {
   it('bundles the auth record, roles, legacy ids, audit trail, and app data', async () => {
+    await registerApp('proscenium', { baseUrl: 'https://newtheatre.org.uk' })
+    await registerApp('rooms')
     await db.insert(schema.serviceTokens).values([
       { name: 'proscenium', tokenHash: 'hash-p' },
       { name: 'rooms', tokenHash: 'hash-r' },
@@ -124,6 +130,8 @@ describe('exportUser — the subject-access bundle', () => {
   })
 
   it('surfaces a hook failure without sinking the export', async () => {
+    await registerApp('proscenium', { baseUrl: 'https://newtheatre.org.uk' })
+    await registerApp('rooms')
     await db.insert(schema.serviceTokens).values([
       { name: 'proscenium', tokenHash: 'hash-p' },
       { name: 'rooms', tokenHash: 'hash-r' },
