@@ -92,3 +92,13 @@ describe('POST /api/users/shadow — guest checkout (ADR-0007)', () => {
       .rejects.toMatchObject({ statusCode: 401 })
   })
 })
+
+describe('a malformed token is rejected, not an error', () => {
+  it('rejects a token whose hash length differs rather than throwing', async () => {
+    await createServiceToken('proscenium')
+
+    // timingSafeEqual throws on a length mismatch; without a guard this 500s.
+    const event = makeEvent({ headers: { authorization: 'Bearer nnt_svc_short' } })
+    await expect(requireServiceToken(event)).rejects.toMatchObject({ statusCode: 401 })
+  })
+})

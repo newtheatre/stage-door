@@ -5,8 +5,8 @@
     <div class="flex flex-wrap items-center gap-2">
       <p class="text-sm text-muted flex-1 min-w-64">
         Definitions drive the role picker on user pages, with the default
-        expiry pre-filled. They're UX metadata: deleting one never touches
-        existing grants, and free-text grants work without one.
+        expiry pre-filled. A role must be defined before it can be granted
+        (ADR-0014); deleting a definition never touches existing grants.
       </p>
       <UButton
         icon="i-lucide-shield-plus"

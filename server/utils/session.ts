@@ -4,8 +4,9 @@
  */
 
 import type { H3Event } from 'h3'
+import type { SQL } from 'drizzle-orm'
 import { db, schema } from '@nuxthub/db'
-import { and, eq, gt, isNull, or } from 'drizzle-orm'
+import { and, eq, gt, isNull, or, sql } from 'drizzle-orm'
 
 type UserRow = typeof schema.users.$inferSelect
 
@@ -15,6 +16,14 @@ type UserRow = typeof schema.users.$inferSelect
  */
 export function activeRoleCondition(now: Date = new Date()) {
   return or(isNull(schema.userRoles.expiresAt), gt(schema.userRoles.expiresAt, now))
+}
+
+/**
+ * Correlated `exists` over one user's active grants, for filtering the users
+ * table. `roleMatch` narrows it; build it fresh per request, never at module scope.
+ */
+export function activeGrantExists(roleMatch: SQL, now: Date = new Date()): SQL {
+  return sql`exists (select 1 from ${schema.userRoles} where ${schema.userRoles.userId} = ${schema.users.id} and ${roleMatch} and (${schema.userRoles.expiresAt} is null or ${schema.userRoles.expiresAt} > ${now.getTime()}))`
 }
 
 /**

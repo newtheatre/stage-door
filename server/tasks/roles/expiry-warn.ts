@@ -54,10 +54,13 @@ export default defineTask({
       }
     }
 
-    if (expiring.length) {
+    // At handover every committee-year grant lapses at once, so this cannot
+    // bind one parameter per row.
+    for (let i = 0; i < expiring.length; i += 90) { // D1: 100 bound params max
+      const batch = expiring.slice(i, i + 90).map(r => r.id)
       await db.update(schema.userRoles)
         .set({ expiryWarnedAt: new Date(now) })
-        .where(inArray(schema.userRoles.id, expiring.map(r => r.id)))
+        .where(inArray(schema.userRoles.id, batch))
     }
 
     if (digest.length) {

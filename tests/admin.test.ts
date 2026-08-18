@@ -123,6 +123,7 @@ describe('admin user operations', () => {
   })
 
   it('admin-create sends a set-password email, never returns a password', async () => {
+    await defineRole('rooms', 'ADMIN')
     const { event } = await adminEvent({
       body: { email: 'newbie@example.com', name: 'New Person', roles: ['rooms:ADMIN'] },
     })
@@ -137,6 +138,19 @@ describe('admin user operations', () => {
     // Admin-created: 24h token, not the 1h self-service one.
     const hours = (reset[0]!.expiresAt.getTime() - Date.now()) / 3_600_000
     expect(hours).toBeGreaterThan(23)
+  })
+
+  it('admin-create refuses an undefined role, like the grant editor does (ADR-0014)', async () => {
+    const { event } = await adminEvent({
+      body: { email: 'nope@example.com', name: 'No Person', roles: ['prosenium:BOX_OFFICE'] },
+    })
+
+    await expect(adminCreate(event)).rejects.toMatchObject({ statusCode: 400 })
+
+    // Refused before the row was written, so no half-created user is left.
+    const users = await db.select().from(schema.users)
+      .where(eq(schema.users.email, 'nope@example.com')).all()
+    expect(users).toHaveLength(0)
   })
 
   it('pending-google validates domain and uniqueness', async () => {

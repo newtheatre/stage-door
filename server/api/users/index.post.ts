@@ -21,6 +21,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 409, statusMessage: 'A user with this email already exists' })
   }
 
+  // A new user holds nothing, so every requested grant must be defined.
+  await assertGrantsDefined(roles, new Set())
+
   const [user] = await db.insert(schema.users).values({
     email,
     name,

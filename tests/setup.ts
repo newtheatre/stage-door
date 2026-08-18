@@ -9,7 +9,8 @@ import { passwordSchema, emailSchema, roleSchema, roleGrantSchema, namespaceSche
 import { TOKEN_EXPIRY, generateVerificationToken, hashLoginToken, createEmailVerificationToken, createPasswordResetToken, createMagicLinkToken } from '../server/utils/tokens'
 import { enforceRateLimit, getClientIP, sweepRateLimits, RATE_LIMITS } from '../server/utils/rateLimit'
 import { verifyPasswordGuarded } from '../server/utils/passwordCheck'
-import { loadRoles, loadRoleGrants, activeRoleCondition, sealUserSession, sealLoginSession } from '../server/utils/session'
+import { loadRoles, loadRoleGrants, activeRoleCondition, activeGrantExists, sealUserSession, sealLoginSession } from '../server/utils/session'
+import { assertGrantsDefined } from '../server/utils/roleDefinitions'
 import { ROLES_CONFIG, nextCommitteeYearEnd } from '../server/utils/rolesConfig'
 import { writeAudit } from '../server/utils/audit'
 import { validateRedirect } from '../shared/utils/validateRedirect'
@@ -157,6 +158,8 @@ Object.assign(g, {
   loadRoles,
   loadRoleGrants,
   activeRoleCondition,
+  activeGrantExists,
+  assertGrantsDefined,
   ROLES_CONFIG,
   nextCommitteeYearEnd,
   sealUserSession,
