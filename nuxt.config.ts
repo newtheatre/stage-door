@@ -65,7 +65,7 @@ export default defineNuxtConfig({
       '0 3 * * *': ['rate-limits:sweep'],
       // Retention sweep (dry-run until armed in retentionConfig) and role-expiry
       // warnings. See docs/gdpr-retention.md and ADR-0011.
-      '0 4 * * *': ['retention:sweep', 'roles:expiry-warn'],
+      '0 4 * * *': ['retention:sweep', 'roles:expiry-warn', 'apps:sync-manifests'],
     },
     rollupConfig: {
       plugins: [

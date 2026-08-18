@@ -33,6 +33,9 @@ export const RATE_LIMITS = {
   'magic:acct': { limit: 3, windowMs: 60 * 60_000 },
   'mfa:ip': { limit: 30, windowMs: 15 * 60_000 },
   'mfa:acct': { limit: 8, windowMs: 15 * 60_000 },
+  // An app pinging after deploy. Generous enough for a retried release, tight
+  // enough that a deploy loop cannot hammer the poller (ADR-0018).
+  'manifest-ping:app': { limit: 12, windowMs: 60 * 60_000 },
 } as const satisfies Record<string, RateLimitRule>
 
 export type RateLimitScope = keyof typeof RATE_LIMITS

@@ -30,11 +30,42 @@
       </template>
     </UAlert>
 
+    <UAlert
+      v-if="failingSync.length"
+      color="error"
+      icon="i-lucide-triangle-alert"
+      title="Manifest sync is failing"
+    >
+      <template #description>
+        {{ failingSync.join(', ') }}. The last good manifest is still in force,
+        so no role has been withdrawn. Fix the app or its base URL, then sync.
+      </template>
+    </UAlert>
+
     <UTable
       :data="rows"
       :columns="columns"
       :loading="pending"
     >
+      <template #manifest-cell="{ row }">
+        <div class="flex items-center gap-2">
+          <UBadge
+            :color="manifestColour(row.original)"
+            variant="subtle"
+          >
+            {{ manifestLabel(row.original) }}
+          </UBadge>
+          <UButton
+            v-if="row.original.manifestEnabled"
+            variant="ghost"
+            size="xs"
+            icon="i-lucide-refresh-cw"
+            :loading="syncing === row.original.id"
+            aria-label="Sync now"
+            @click="syncNow(row.original)"
+          />
+        </div>
+      </template>
       <template #hooks-cell="{ row }">
         <UBadge
           :color="row.original.hooksEnabled ? 'success' : 'neutral'"
@@ -110,6 +141,11 @@
             label="Send GDPR hooks"
             description="Export, anonymise, last-activity and merge"
           />
+          <UCheckbox
+            v-model="form.manifestEnabled"
+            label="Read its role manifest"
+            description="Roles and permissions come from the app. Sync once by hand first and read the result."
+          />
         </div>
       </template>
       <template #footer>
@@ -143,6 +179,7 @@ const { data, pending, refresh } = await useFetch('/api/apps')
 
 const rows = computed(() => data.value?.apps ?? [])
 const missingToken = computed(() => rows.value.filter(a => !a.hasToken).map(a => a.name))
+const failingSync = computed(() => rows.value.filter(a => a.manifest?.lastError).map(a => a.name))
 
 const columns = [
   { accessorKey: 'displayName', header: 'App' },
@@ -150,17 +187,53 @@ const columns = [
   { accessorKey: 'namespace', header: 'Namespace' },
   { accessorKey: 'baseUrl', header: 'Base URL' },
   { id: 'hooks', header: 'Hooks' },
+  { id: 'manifest', header: 'Manifest' },
   { id: 'actions', header: '' },
 ]
+
+type AppRow = (typeof rows.value)[number]
+
+function manifestLabel(app: AppRow) {
+  if (!app.manifestEnabled) return 'Off'
+  if (app.manifest?.lastError) return 'Failing'
+  if (!app.manifest?.appliedAt) return 'Never synced'
+  return `v${app.manifest.version}`
+}
+
+function manifestColour(app: AppRow) {
+  if (!app.manifestEnabled) return 'neutral'
+  if (app.manifest?.lastError) return 'error'
+  if (!app.manifest?.appliedAt) return 'warning'
+  return 'success'
+}
+
+const syncing = ref<string | null>(null)
+
+async function syncNow(app: AppRow) {
+  syncing.value = app.id
+  try {
+    const result = await $fetch(`/api/apps/${app.id}/sync`, { method: 'POST' })
+    await refresh()
+    toast.add(result.ok
+      ? { title: result.unchanged ? `${app.displayName} is up to date` : `${app.displayName} synced`, color: 'success' }
+      : { title: `${app.displayName}: ${result.error}`, color: 'error' })
+  }
+  catch (error) {
+    toast.add({ title: getErrorMessage(error, 'Could not sync'), color: 'error' })
+  }
+  finally {
+    syncing.value = null
+  }
+}
 
 const formOpen = ref(false)
 const saving = ref(false)
 const editing = ref<string | null>(null)
-const form = reactive({ name: '', namespace: '', displayName: '', baseUrl: '', hooksEnabled: false })
+const form = reactive({ name: '', namespace: '', displayName: '', baseUrl: '', hooksEnabled: false, manifestEnabled: false })
 
 function startAdd() {
   editing.value = null
-  Object.assign(form, { name: '', namespace: '', displayName: '', baseUrl: '', hooksEnabled: false })
+  Object.assign(form, { name: '', namespace: '', displayName: '', baseUrl: '', hooksEnabled: false, manifestEnabled: false })
   formOpen.value = true
 }
 
@@ -172,6 +245,7 @@ function startEdit(app: (typeof rows.value)[number]) {
     displayName: app.displayName,
     baseUrl: app.baseUrl,
     hooksEnabled: app.hooksEnabled,
+    manifestEnabled: app.manifestEnabled,
   })
   formOpen.value = true
 }
@@ -182,7 +256,12 @@ async function save() {
     if (editing.value) {
       await $fetch(`/api/apps/${editing.value}`, {
         method: 'PUT',
-        body: { displayName: form.displayName, baseUrl: form.baseUrl, hooksEnabled: form.hooksEnabled },
+        body: {
+          displayName: form.displayName,
+          baseUrl: form.baseUrl,
+          hooksEnabled: form.hooksEnabled,
+          manifestEnabled: form.manifestEnabled,
+        },
       })
     }
     else {

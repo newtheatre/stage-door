@@ -3,6 +3,7 @@
  */
 
 import { db, schema } from '@nuxthub/db'
+import { isNull } from 'drizzle-orm'
 
 /**
  * New grants must reference a definition (ADR-0014). Roles the holder already
@@ -12,8 +13,11 @@ export async function assertGrantsDefined(roles: { role: string }[], alreadyHeld
   const fresh = roles.filter(g => !alreadyHeld.has(g.role))
   if (!fresh.length) return
 
-  const definitions = await db.select().from(schema.roleDefinitions).all()
-  const defined = new Set(definitions.map(d => `${d.namespace}:${d.role}`))
+  // Withdrawn definitions are excluded: the app has stopped reading the role,
+  // so a new grant would do nothing (ADR-0018). Existing holders are exempt.
+  const definitions = await db.select().from(schema.roleDefinitions)
+    .where(isNull(schema.roleDefinitions.withdrawnAt)).all()
+  const defined = new Set(definitions.map(d => d.roleKey))
 
   for (const grant of fresh) {
     if (!defined.has(grant.role)) {

@@ -1,0 +1,2 @@
+ALTER TABLE `role_definitions` ADD `role_key` text GENERATED ALWAYS AS ("namespace" || ':' || "role") VIRTUAL;--> statement-breakpoint
+CREATE INDEX `role_definitions_role_key_idx` ON `role_definitions` (`role_key`);

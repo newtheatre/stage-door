@@ -37,7 +37,17 @@ No central registry of apps or roles — a namespace exists the moment a role in
 
 ### `role_definitions`
 
-Optional UX metadata driving the admin grant dropdown ([ADR-0011](decisions/0011-role-definitions-and-expiry.md)): `namespace` + `role` (unique pair), `description`, `default_expiry_kind` (`none` | `committee-year` | `days`) + `default_expiry_days`. A grant never requires a definition; deleting one never touches grants. The committee year end (31 July) lives in `server/utils/rolesConfig.ts`.
+What a role is: `namespace` + `role` (unique pair), `description`, `default_expiry_kind` (`none` | `committee-year` | `days`) + `default_expiry_days`. A **new** grant requires a definition ([ADR-0014](decisions/0014-grants-require-definitions.md)); roles a person already holds are exempt, and deleting a definition still never touches grants ([ADR-0011](decisions/0011-role-definitions-and-expiry.md)). The committee year end (31 July) lives in `server/utils/rolesConfig.ts`.
+
+Most rows now come from their app's manifest ([ADR-0018](decisions/0018-manifest-declared-roles.md)) rather than being typed in:
+
+| Column | Notes |
+|---|---|
+| `app_id` · `source` · `manifest_version` · `synced_at` | `source` is `manifest` or `manual`. A `manual` row with a null `app_id` is hand-made, which is how `auth:ADMIN` and the dormant `ticketing:*` namespace exist with no app behind them. |
+| `withdrawn_at` | Set when the owning manifest stops declaring the role. **Grants are untouched and the row is never deleted.** It leaves the grant picker and shows struck through with its holder count. Re-declaring clears it. |
+| `requires_eligibility_key` · `eligibility_mode` | A training prerequisite (`advisory` or `enforcing`), named by the app and enforced at this service's discretion ([ADR-0019](decisions/0019-training-conditional-grants.md)). |
+| `default_expiry_pinned` · `eligibility_mode_pinned` | An admin edit pins the field, after which a manifest cannot move it. An app must not be able to lock people out of itself with a deploy. |
+| `role_key` | **Generated, virtual**: `namespace \|\| ':' \|\| role`. The joined form `user_roles.role` stores, so a grant can be matched to its definition inside SQL rather than by concatenating in JavaScript. Indexed. |
 
 ### `email_verifications` / `password_resets` / `magic_links`
 
@@ -62,7 +72,26 @@ The estate's app registry. A row is what makes an app real to this service: hook
 | `hooks_enabled` | Defaults to **off**. `callAllAppHooks` fans out over enabled rows only, so a half-registered app cannot silently swallow an erasure. |
 | `created_at` | |
 
+| `manifest_enabled` | Defaults to **off**. The first sync of an app is done by an admin watching the result, because adoption rewrites a hand-made definition's description and expiry (ADR-0018). |
+| `last_synced_at` | Last successful manifest reconcile. Stale means an app's ping stopped working. |
+
 Managed at `/admin/apps`. `name` and `namespace` are immutable after creation; grants and tokens join on them.
+
+### `app_manifests` (ADR-0018)
+
+One row per app: the last manifest it served. **A failed fetch or a rejected document writes only `last_attempt_at` and `last_error`** — `document` is never overwritten by a failure, which is what makes "an unreachable app withdraws nothing" true.
+
+| Column | Notes |
+|---|---|
+| `app_id` (PK) · `document` · `document_hash` | `document_hash` is the SHA-256 of the raw body. Equal means reconciliation is skipped entirely. |
+| `version` · `etag` | `version` is free text from the manifest, echoed in the admin UI, never parsed or ordered. `etag` drives `If-None-Match`. |
+| `fetched_at` · `applied_at` · `last_attempt_at` · `last_error` | `applied_at` is the last reconcile; `last_attempt_at` moves on every try, success or not. Non-null `last_error` means the stored document is stale but still in force. |
+
+### `app_permissions` and `role_definition_permissions` (ADR-0018)
+
+The permission vocabulary an app declares, and which role definition carries which. Permission keys are lowercase and dotted (`money.refund`) where roles are uppercase (`BOX_OFFICE`), so no string can be read as both.
+
+`app_permissions` is unique on `(namespace, key)`. A permission the manifest stops declaring is set `active = false`, **never deleted**: role links and audit detail reference the row. The index on `role_definition_permissions.permission_id` is what answers "who can approve refunds?" in one join.
 
 ### `service_tokens`
 

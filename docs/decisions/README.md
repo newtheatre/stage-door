@@ -14,13 +14,14 @@ Why the service is the way it is. One decision per file, numbered, never edited 
 | [0008](0008-anonymise-not-delete.md) | Erasure = anonymisation, not deletion | Accepted |
 | [0009](0009-d1-backed-rate-limiting.md) | Rate limiting via D1-backed fixed-window counters | Accepted |
 | [0010](0010-legacy-roles-dormant-namespace.md) | Legacy-import roles land in a dormant `ticketing:*` namespace | Accepted |
-| [0011](0011-role-definitions-and-expiry.md) | Role definitions and grant expiry (roles v2) | Accepted — partially superseded by [0014](0014-grants-require-definitions.md) (registry now mandatory for new grants) |
+| [0011](0011-role-definitions-and-expiry.md) | Role definitions and grant expiry (roles v2) | Accepted — partially superseded by [0014](0014-grants-require-definitions.md) (registry now mandatory for new grants) and [0018](0018-manifest-declared-roles.md) (definitions come from the app, not by hand) |
 | [0012](0012-sso-only-workspace-and-mfa.md) | Workspace addresses are SSO-only; MFA (passkeys + TOTP) for the residual privileged accounts | Accepted |
 | [0013](0013-magic-links-and-the-mfa-seam.md) | Magic-link sign-in; one MFA seam for every password-equivalent entry point; emailed tokens hashed at rest | Accepted |
 | [0014](0014-grants-require-definitions.md) | New grants must reference a role definition; free-text granting removed | Accepted |
 | [0015](0015-account-merge.md) | Account merge: winner absorbs loser, app hooks first, loser erased | Accepted |
 | [0016](0016-estate-secrets-in-secrets-store.md) | Estate-wide secrets live in the Cloudflare Secrets Store, bound per worker | Accepted |
 | [0017](0017-app-registry.md) | The estate's apps live in a database registry, not in code | Accepted |
+| [0018](0018-manifest-declared-roles.md) | Apps declare their own roles; this service polls for them | Accepted |
 
 ## Template
 

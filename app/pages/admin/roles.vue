@@ -7,6 +7,9 @@
         Definitions drive the role picker on user pages, with the default
         expiry pre-filled. A role must be defined before it can be granted
         (ADR-0014); deleting a definition never touches existing grants.
+        Most come from their app's manifest (ADR-0018). A withdrawn one is a
+        role its app has stopped reading: it cannot be granted again, and its
+        existing holders are untouched until someone revokes them.
       </p>
       <UButton
         icon="i-lucide-shield-plus"
@@ -22,12 +25,29 @@
       :loading="pending"
     >
       <template #role-cell="{ row }">
-        <UBadge
-          color="primary"
-          variant="subtle"
-        >
-          {{ row.original.role }}
-        </UBadge>
+        <div class="flex items-center gap-2">
+          <UBadge
+            :color="row.original.definition.withdrawnAt ? 'neutral' : 'primary'"
+            variant="subtle"
+            :class="row.original.definition.withdrawnAt && 'line-through'"
+          >
+            {{ row.original.role }}
+          </UBadge>
+          <UBadge
+            v-if="row.original.definition.withdrawnAt"
+            color="warning"
+            variant="subtle"
+            size="sm"
+          >
+            withdrawn
+          </UBadge>
+          <UIcon
+            v-else-if="row.original.definition.source === 'manifest'"
+            name="i-lucide-boxes"
+            class="text-muted"
+            :aria-label="`Declared by its app, manifest ${row.original.definition.manifestVersion}`"
+          />
+        </div>
       </template>
 
       <template #expiry-cell="{ row }">
@@ -218,6 +238,9 @@ interface Definition {
   defaultExpiryDays: number | null
   defaultExpiresAt: number | null
   holders: number
+  source: 'manifest' | 'manual'
+  withdrawnAt: number | null
+  manifestVersion: string | null
 }
 
 const { data, pending, refresh } = await useFetch<{ definitions: Definition[] }>('/api/role-definitions')

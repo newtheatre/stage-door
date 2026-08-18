@@ -22,6 +22,19 @@ export const roleSchema = z.string()
 export const namespaceSchema = z.string()
   .regex(/^[a-z][a-z0-9-]*$/, 'Namespaces are lowercase, e.g. proscenium')
 
+/**
+ * A permission an app declares, e.g. `money.refund`. Lowercase with at least
+ * one dot, so no string can satisfy this and `roleSchema` both.
+ */
+export const permissionKeySchema = z.string()
+  .regex(/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$/, 'Permissions are dotted lowercase, e.g. money.refund')
+  .max(80)
+
+/** An eligibility rule key as rehearsal names it, e.g. `duty-manager`. */
+export const eligibilityKeySchema = z.string()
+  .regex(/^[a-z][a-z0-9-]*$/, 'Eligibility keys are lowercase, e.g. duty-manager')
+  .max(64)
+
 /** An app's registered name, and the slug its service token joins on. */
 export const appNameSchema = z.string()
   .regex(/^[a-z][a-z0-9-]*$/, 'App names are lowercase, e.g. rehearsal')

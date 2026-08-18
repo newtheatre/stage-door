@@ -328,13 +328,17 @@ interface Definition {
   role: string
   description: string
   defaultExpiresAt: number | null
+  withdrawnAt: number | null
 }
 
 const { data: definitionsData } = await useFetch<{ definitions: Definition[] }>('/api/role-definitions')
 
 const pickedDefinition = ref<{ label: string, value: string, description: string } | undefined>()
 
+// A withdrawn role is one its app has stopped reading, so granting it now
+// would do nothing (ADR-0018).
 const definitionItems = computed(() => (definitionsData.value?.definitions ?? [])
+  .filter(d => d.withdrawnAt === null)
   .filter(d => !rows.value.some(r => r.role === `${d.namespace}:${d.role}` && r.status !== 'removed'))
   .map(d => ({
     label: `${d.namespace}:${d.role}`,
