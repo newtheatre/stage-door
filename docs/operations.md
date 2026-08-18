@@ -112,6 +112,7 @@ Historical note: the `proscenium` and `rooms` tokens issued at cutover (2026-08-
 | Adopt an app's roles | Admin → Apps → edit → Read its role manifest | Then press Sync now and read the result before leaving it on. Adoption rewrites a hand-made definition's description and expiry from the manifest (ADR-0018). |
 | A manifest sync is failing | Admin → Apps | The row is red and names the error. **No role has been withdrawn**: the last good manifest stays in force. Fix the app or its base URL, then Sync now. |
 | A role shows as withdrawn | Admin → Role definitions | Its app has stopped reading it. It cannot be granted again; existing holders keep it until you revoke them deliberately. |
+| Who can do X? | Admin → Permissions | Every declared permission with the roles that carry it and their holder counts. Beats reading an app's source. |
 | Force logout one user | User → Force logout | Bumps session epoch; their sessions die at next refresh/privileged action. |
 | Disable an account | User → Disable | Blocks login and refresh. Use for compromise or misuse; it is reversible, erasure is not. |
 | Erasure (GDPR) | User → Data & GDPR → Erase… | Anonymises auth + all app data via hooks. **Irreversible** (typed email confirmation required). Confirm identity of the requester first; note the request date (one-month statutory clock). If a hook fails the erasure reports incomplete — fix the app and re-run (idempotent). |

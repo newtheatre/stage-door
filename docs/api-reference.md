@@ -121,6 +121,12 @@ Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/apps` (each with `hasToke
 
 `POST /api/apps/sync` — **service token**. An app asking to be re-read after a deploy. The token names the app, so it can only ever ask for itself. Rate-limited at 12 an hour per app. Returns the same shape.
 
+## Permissions (ADR-0018)
+
+`GET /api/permissions` — session + `auth:ADMIN`. The estate's declared permission vocabulary, each with the role definitions that carry it and how many people actively hold one. This is the "who can approve refunds?" query, served from one join on `role_definition_permissions.permission_id`.
+
+A permission an app stops declaring reports `active: false` rather than disappearing: role links and audit detail reference the row. Permissions are never in the session; apps resolve them locally from their own manifest (see [session-contract.md](session-contract.md)).
+
 ## Manifest ingestion (ADR-0018)
 
 Each app serves `GET /api/_hooks/auth/manifest`, authenticated by the SHA-256 of its own service token. The document:

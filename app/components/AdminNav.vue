@@ -15,6 +15,7 @@ const items = [
   { label: 'Users', to: '/admin', icon: 'i-lucide-users', ariaLabel: 'Users' },
   { label: 'Role definitions', to: '/admin/roles', icon: 'i-lucide-shield-check', ariaLabel: 'Role definitions' },
   { label: 'Audit log', to: '/admin/audit', icon: 'i-lucide-scroll-text', ariaLabel: 'Audit log' },
+  { label: 'Permissions', to: '/admin/permissions', icon: 'i-lucide-key-round', ariaLabel: 'Permissions' },
   { label: 'Apps', to: '/admin/apps', icon: 'i-lucide-boxes', ariaLabel: 'Apps' },
   { label: 'Service tokens', to: '/admin/service-tokens', icon: 'i-lucide-key-square', ariaLabel: 'Service tokens' },
 ]
