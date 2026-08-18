@@ -52,6 +52,8 @@ export function resetDb(): void {
     DELETE FROM role_definition_permissions;
     DELETE FROM app_permissions;
     DELETE FROM app_manifests;
+    DELETE FROM eligibility_snapshots;
+    DELETE FROM eligibility_syncs;
     DELETE FROM apps;
     DELETE FROM audit_log;
     DELETE FROM rate_limits;

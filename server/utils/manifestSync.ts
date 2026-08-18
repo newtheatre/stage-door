@@ -135,9 +135,11 @@ export async function reconcileManifest(app: AppRow, manifest: Manifest): Promis
       defaultExpiryKind: expiry.kind,
       defaultExpiryDays: expiry.kind === 'days' ? expiry.days : null,
     }
+    // An app may suggest enforcing, but never for its own ADMIN (ADR-0019).
+    const suggested = role.requiresEligibility?.suggestedMode ?? 'advisory'
     const eligibilityFields = {
       requiresEligibilityKey: role.requiresEligibility?.key ?? null,
-      eligibilityMode: role.requiresEligibility?.suggestedMode ?? 'advisory' as const,
+      eligibilityMode: (role.role === 'ADMIN' && suggested === 'enforcing' ? 'advisory' : suggested) as 'advisory' | 'enforcing',
     }
 
     if (!current) {

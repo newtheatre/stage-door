@@ -87,6 +87,17 @@ One row per app: the last manifest it served. **A failed fetch or a rejected doc
 | `version` · `etag` | `version` is free text from the manifest, echoed in the admin UI, never parsed or ordered. `etag` drives `If-None-Match`. |
 | `fetched_at` · `applied_at` · `last_attempt_at` · `last_error` | `applied_at` is the last reconcile; `last_attempt_at` moves on every try, success or not. Non-null `last_error` means the stored document is stale but still in force. |
 
+### `eligibility_snapshots` and `eligibility_syncs` (ADR-0019)
+
+Who currently satisfies each of rehearsal's eligibility rules. **Presence means eligible**: only the qualifying set is stored, so the `loadRoles` predicate is a bare `not exists`.
+
+| Table | Notes |
+|---|---|
+| `eligibility_snapshots(rule_key, user_id, captured_at)` | PK on `(rule_key, user_id)`. Replaced wholesale per rule. The insert is chunked at 30 rows (3 bound parameters each = 90; D1 caps at 100). |
+| `eligibility_syncs(rule_key, last_attempt_at, last_success_at, user_count, last_error)` | Separate so it survives the snapshot being replaced. **A null `last_success_at` means never answered, which is what stops enforcement engaging on an unconfirmed rule.** A failed sync stamps `last_attempt_at` and `last_error` and leaves `last_success_at` alone, so the old answer stays in force. |
+
+Populated by the `eligibility:snapshot` task on the 04:00 cron, and never on a request path. `user_roles.eligibility_override_until` lifts an enforcing prerequisite for one grant, capped at 90 days and audited.
+
 ### `app_permissions` and `role_definition_permissions` (ADR-0018)
 
 The permission vocabulary an app declares, and which role definition carries which. Permission keys are lowercase and dotted (`money.refund`) where roles are uppercase (`BOX_OFFICE`), so no string can be read as both.

@@ -121,6 +121,16 @@ Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/apps` (each with `hasToke
 
 `POST /api/apps/sync` — **service token**. An app asking to be re-read after a deploy. The token names the app, so it can only ever ask for itself. Rate-limited at 12 an hour per app. Returns the same shape.
 
+## Training-conditional grants (ADR-0019)
+
+A role definition may name one of rehearsal's eligibility rule keys and pick `advisory` or `enforcing` (`PUT /api/role-definitions/:id`). An **enforcing** prerequisite makes a grant inert when the holder is not in the snapshot: the grant row is untouched and recovers by itself when they re-qualify. **Enforcing is refused on any `ADMIN` role** — an outage would lock out the people who fix it.
+
+`POST /api/users/:id/eligibility-override { role, until, note? }` — session + `auth:ADMIN` **[AUD]**. Lifts an enforcing prerequisite for one grant, for at most 90 days; `until: null` clears it. For a wrong snapshot, or training earned during an outage.
+
+`GET /api/users/:id` and `GET /api/users` report `inert` and `overrideUntil` on each grant, so a held-but-doing-nothing role is visible rather than silently absent.
+
+The snapshot is refreshed by the `eligibility:snapshot` task. **This service never calls rehearsal on a request path**, and a failed sync leaves the previous answer in force. Full failure-direction table: [ADR-0019](decisions/0019-training-conditional-grants.md).
+
 ## Permissions (ADR-0018)
 
 `GET /api/permissions` — session + `auth:ADMIN`. The estate's declared permission vocabulary, each with the role definitions that carry it and how many people actively hold one. This is the "who can approve refunds?" query, served from one join on `role_definition_permissions.permission_id`.

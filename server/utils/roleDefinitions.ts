@@ -28,3 +28,17 @@ export async function assertGrantsDefined(roles: { role: string }[], alreadyHeld
     }
   }
 }
+
+/**
+ * A bad snapshot must never be able to remove every `auth:ADMIN` or
+ * `training:ADMIN`: that removes the ability to fix the rule (ADR-0019).
+ */
+export function assertEligibilityModeAllowed(namespace: string, role: string, mode: string): void {
+  if (mode !== 'enforcing') return
+  if (role !== 'ADMIN') return
+
+  throw createError({
+    statusCode: 400,
+    statusMessage: `${namespace}:ADMIN cannot have an enforcing training prerequisite — an outage would lock out the people who fix it`,
+  })
+}

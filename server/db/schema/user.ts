@@ -55,8 +55,12 @@ export const userRoles = sqliteTable('user_roles', {
   // Warning bookkeeping: one warning per (grant, expiry value) — cleared by
   // roles.put whenever expires_at changes, so renewals re-arm the warning.
   expiryWarnedAt: integer('expiry_warned_at', { mode: 'timestamp_ms' }),
+  // Admin escape hatch when an enforcing prerequisite is unmet or its snapshot
+  // is wrong. Audited, and it lapses on its own (ADR-0019).
+  eligibilityOverrideUntil: integer('eligibility_override_until', { mode: 'timestamp_ms' }),
 }, table => [
   index('user_roles_user_id_idx').on(table.userId),
+  index('user_roles_role_idx').on(table.role),
   uniqueIndex('user_roles_user_id_role_unique').on(table.userId, table.role),
 ])
 

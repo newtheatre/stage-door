@@ -6,7 +6,7 @@
 import type { H3Event } from 'h3'
 import type { SQL } from 'drizzle-orm'
 import { db, schema } from '@nuxthub/db'
-import { and, eq, gt, isNull, or, sql } from 'drizzle-orm'
+import { and, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm'
 
 type UserRow = typeof schema.users.$inferSelect
 
@@ -27,14 +27,66 @@ export function activeGrantExists(roleMatch: SQL, now: Date = new Date()): SQL {
 }
 
 /**
+ * An enforcing training prerequisite makes a grant inert (ADR-0019). Never a
+ * live call to rehearsal: the snapshot is the authority.
+ */
+export function eligibilitySatisfiedCondition(now: Date = new Date()): SQL {
+  const nowMs = now.getTime()
+  return sql`not exists (
+    select 1 from ${schema.roleDefinitions} rd
+    where rd.role_key = ${schema.userRoles.role}
+      and rd.eligibility_mode = 'enforcing'
+      and rd.requires_eligibility_key is not null
+      and (${schema.userRoles.eligibilityOverrideUntil} is null
+           or ${schema.userRoles.eligibilityOverrideUntil} <= ${nowMs})
+      and exists (
+        select 1 from ${schema.eligibilitySyncs} es
+        where es.rule_key = rd.requires_eligibility_key
+          and es.last_success_at is not null)
+      and not exists (
+        select 1 from ${schema.eligibilitySnapshots} snap
+        where snap.rule_key = rd.requires_eligibility_key
+          and snap.user_id = ${schema.userRoles.userId})
+  )`
+}
+
+/**
+ * Active AND not held inert by training. The seal path only: holder counts and
+ * the admin role filter deliberately still count someone blocked on training.
+ */
+export function effectiveRoleCondition(now: Date = new Date()) {
+  return and(activeRoleCondition(now), eligibilitySatisfiedCondition(now))
+}
+
+/**
  * Active roles as flat strings. Every seal path funnels through here, which
- * is what makes an expired grant vanish within the staleness window.
+ * is what makes an expired or unqualified grant vanish within the window.
  */
 export async function loadRoles(userId: string): Promise<string[]> {
-  const rows = await db.select().from(schema.userRoles)
-    .where(and(eq(schema.userRoles.userId, userId), activeRoleCondition()))
+  const now = new Date()
+  const rows = await db.select({ role: schema.userRoles.role }).from(schema.userRoles)
+    .where(and(eq(schema.userRoles.userId, userId), effectiveRoleCondition(now)))
     .all()
   return rows.map(r => r.role)
+}
+
+/**
+ * Effective roles for a bounded set of users, for list views. Callers must
+ * keep the set page-sized: this binds one parameter per id plus two.
+ */
+export async function loadEffectiveRolesFor(userIds: string[], now: Date = new Date()): Promise<Map<string, Set<string>>> {
+  const byUser = new Map<string, Set<string>>()
+  if (!userIds.length) return byUser
+
+  const rows = await db.select({ userId: schema.userRoles.userId, role: schema.userRoles.role })
+    .from(schema.userRoles)
+    .where(and(inArray(schema.userRoles.userId, userIds), effectiveRoleCondition(now)))
+    .all()
+
+  for (const row of rows) {
+    byUser.set(row.userId, (byUser.get(row.userId) ?? new Set()).add(row.role))
+  }
+  return byUser
 }
 
 export interface RoleGrant {
@@ -44,6 +96,9 @@ export interface RoleGrant {
   grantedBy: string | null
   note: string | null
   expired: boolean
+  /** Held, unexpired, but blocked by an enforcing training prerequisite. */
+  inert: boolean
+  overrideUntil: number | null
 }
 
 /**
@@ -55,14 +110,24 @@ export async function loadRoleGrants(userId: string): Promise<RoleGrant[]> {
   const rows = await db.select().from(schema.userRoles)
     .where(eq(schema.userRoles.userId, userId))
     .all()
-  return rows.map(r => ({
-    role: r.role,
-    expiresAt: r.expiresAt?.getTime() ?? null,
-    grantedAt: r.grantedAt?.getTime() ?? null,
-    grantedBy: r.grantedBy,
-    note: r.note,
-    expired: r.expiresAt !== null && r.expiresAt.getTime() <= now,
-  }))
+
+  // What the session would actually carry, so the admin can see why a held
+  // role is doing nothing.
+  const effective = new Set(await loadRoles(userId))
+
+  return rows.map((r) => {
+    const expired = r.expiresAt !== null && r.expiresAt.getTime() <= now
+    return {
+      role: r.role,
+      expiresAt: r.expiresAt?.getTime() ?? null,
+      grantedAt: r.grantedAt?.getTime() ?? null,
+      grantedBy: r.grantedBy,
+      note: r.note,
+      expired,
+      inert: !expired && !effective.has(r.role),
+      overrideUntil: r.eligibilityOverrideUntil?.getTime() ?? null,
+    }
+  })
 }
 
 /**

@@ -9,6 +9,7 @@ const bodySchema = z.object({
     z.object({ kind: z.literal('committee-year') }),
     z.object({ kind: z.literal('days'), days: z.number().int().min(1).max(3650) }),
   ]),
+  eligibilityMode: z.enum(['advisory', 'enforcing']).optional(),
 })
 
 /**
@@ -18,26 +19,35 @@ const bodySchema = z.object({
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)
   const id = getRouterParam(event, 'id')!
-  const { description, defaultExpiry } = await readValidatedBody(event, bodySchema.parse)
+  const { description, defaultExpiry, eligibilityMode } = await readValidatedBody(event, bodySchema.parse)
+
+  const before = await db.select().from(schema.roleDefinitions)
+    .where(eq(schema.roleDefinitions.id, id)).get()
+  if (!before) {
+    throw createError({ statusCode: 404, statusMessage: 'Role definition not found' })
+  }
+
+  if (eligibilityMode) {
+    assertEligibilityModeAllowed(before.namespace, before.role, eligibilityMode)
+  }
 
   const [definition] = await db.update(schema.roleDefinitions)
     .set({
       description,
       defaultExpiryKind: defaultExpiry.kind,
       defaultExpiryDays: defaultExpiry.kind === 'days' ? defaultExpiry.days : null,
+      // An admin edit pins the field so a later manifest cannot move it.
+      defaultExpiryPinned: true,
+      ...(eligibilityMode ? { eligibilityMode, eligibilityModePinned: true } : {}),
     })
     .where(eq(schema.roleDefinitions.id, id))
     .returning()
-
-  if (!definition) {
-    throw createError({ statusCode: 404, statusMessage: 'Role definition not found' })
-  }
 
   await writeAudit({
     actorUserId: admin.id,
     action: 'role-definition.updated',
     target: id,
-    detail: { namespace: definition.namespace, role: definition.role, defaultExpiry },
+    detail: { namespace: definition!.namespace, role: definition!.role, defaultExpiry, eligibilityMode },
   })
 
   return { definition }
