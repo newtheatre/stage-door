@@ -49,11 +49,27 @@ All three: `user_id` (FK cascade), a unique token column, `expires_at`. Tokens a
 |---|---|
 | `user_id` FK cascade · `source` (`'proscenium'` \| `'rooms'` \| `'merge'`) · `legacy_id` text | Unique on `(source, legacy_id)`. Written for **every** migrated user, even where ids were preserved. `'merge'` rows are markers, not imports: `legacy_id` holds the erased account's `users.id`, so a merged-away identity is always traceable to its winner (ADR-0015). Read-only after migration; keep forever (it is tiny and it answers "who was rooms user X?"). |
 
+### `apps` (ADR-0017)
+
+The estate's app registry. A row is what makes an app real to this service: hooks reach it, and adding one needs no deploy here.
+
+| Column | Notes |
+|---|---|
+| `id` | nanoid |
+| `name` | Unique. The app's short name, e.g. `rehearsal`. Joins `service_tokens.name`, which is how `hookBearer` finds the token. |
+| `namespace` | Unique. The app's **role** namespace, e.g. `training`. Deliberately separate from `name`: `rehearsal` serves `training`. |
+| `display_name` · `base_url` | `base_url` has no trailing slash; https, or `http://localhost:PORT` for local development. Hooks post to `<base_url>/api/_hooks/auth/<hook>`. |
+| `hooks_enabled` | Defaults to **off**. `callAllAppHooks` fans out over enabled rows only, so a half-registered app cannot silently swallow an erasure. |
+| `created_at` | |
+
+Managed at `/admin/apps`. `name` and `namespace` are immutable after creation; grants and tokens join on them.
+
 ### `service_tokens`
 
 | Column | Notes |
 |---|---|
 | `id` · `name` (e.g. `proscenium`) · `token_hash` (SHA-256 of the bearer token) · `created_at` · `last_used_at` | Plaintext token shown once at creation (`nnt_svc_` prefix + 32 random bytes, base64url). Compare in constant time. Issue/rotate via [operations.md](operations.md#service-tokens). |
+| `app_id` | Nullable link to `apps.id`, for queryability. **The `name` join remains the authority** for `hookBearer`, so a missed backfill cannot break hooks. No `ON DELETE` clause: SQLite cannot add one to an existing table, so `DELETE /api/apps/:id` clears the link first. |
 
 ### `audit_log`
 

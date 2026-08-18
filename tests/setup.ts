@@ -5,7 +5,7 @@
 
 import { beforeEach, vi } from 'vitest'
 import { resetDb } from './mocks/nuxthub-db'
-import { passwordSchema, emailSchema, roleSchema, roleGrantSchema, namespaceSchema, roleNameSchema, isUndeliverableEmail, isWorkspaceEmail } from '../server/utils/validation'
+import { passwordSchema, emailSchema, roleSchema, roleGrantSchema, namespaceSchema, roleNameSchema, appNameSchema, baseUrlSchema, isUndeliverableEmail, isWorkspaceEmail } from '../server/utils/validation'
 import { TOKEN_EXPIRY, generateVerificationToken, hashLoginToken, createEmailVerificationToken, createPasswordResetToken, createMagicLinkToken } from '../server/utils/tokens'
 import { enforceRateLimit, getClientIP, sweepRateLimits, RATE_LIMITS } from '../server/utils/rateLimit'
 import { verifyPasswordGuarded } from '../server/utils/passwordCheck'
@@ -20,7 +20,7 @@ import { requireAuthAdmin } from '../server/utils/adminGuard'
 import { requireAccountUser } from '../server/utils/accountGuard'
 import { loadUserOr404, adminUserView, isAnonymisedRow, isRealRow } from '../server/utils/adminUsers'
 import { isWorkspaceProfile, resolveGoogleUser, WORKSPACE_DOMAIN } from '../server/utils/googleAccount'
-import { callAppHook, callAllAppHooks, HOOK_APPS } from '../server/utils/appHooks'
+import { callAppHook, callAllAppHooks, loadHookApps } from '../server/utils/appHooks'
 import { eraseUser } from '../server/utils/erase'
 import { mergeUsers } from '../server/utils/mergeUsers'
 import { exportUser } from '../server/utils/exportUser'
@@ -142,6 +142,8 @@ Object.assign(g, {
   roleGrantSchema,
   namespaceSchema,
   roleNameSchema,
+  appNameSchema,
+  baseUrlSchema,
   isUndeliverableEmail,
   isWorkspaceEmail,
   TOKEN_EXPIRY,
@@ -182,7 +184,7 @@ Object.assign(g, {
   WORKSPACE_DOMAIN,
   callAppHook,
   callAllAppHooks,
-  HOOK_APPS,
+  loadHookApps,
   eraseUser,
   mergeUsers,
   exportUser,

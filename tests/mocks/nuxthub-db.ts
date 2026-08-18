@@ -14,6 +14,7 @@ import * as auditSchema from '../../server/db/schema/audit'
 import * as rateLimitSchema from '../../server/db/schema/rateLimit'
 import * as retentionSchema from '../../server/db/schema/retention'
 import * as mfaSchema from '../../server/db/schema/mfa'
+import * as appsSchema from '../../server/db/schema/apps'
 
 export const schema = {
   ...userSchema,
@@ -23,6 +24,7 @@ export const schema = {
   ...rateLimitSchema,
   ...retentionSchema,
   ...mfaSchema,
+  ...appsSchema,
 }
 
 const sqlite = new Database(':memory:')
@@ -47,6 +49,7 @@ export function resetDb(): void {
     DELETE FROM password_resets;
     DELETE FROM legacy_ids;
     DELETE FROM service_tokens;
+    DELETE FROM apps;
     DELETE FROM audit_log;
     DELETE FROM rate_limits;
     DELETE FROM retention_notices;

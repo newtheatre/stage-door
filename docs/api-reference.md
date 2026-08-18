@@ -111,6 +111,12 @@ Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/service-tokens` (names + 
 
 Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/role-definitions` (each with computed `defaultExpiresAt` — what a grant made now would default to — and `holders`, the count of active grants on real accounts, matching what `GET /api/users?role=` lists), `POST { namespace, role, description, defaultExpiry: {kind:'none'|'committee-year'} | {kind:'days',days} }` (409 on duplicate), `PUT /api/role-definitions/:id` (description/default; identity immutable), `DELETE` (grants untouched). The daily `roles:expiry-warn` task emails holders 14 days before a grant lapses and digests to the ITM.
 
+## App registry (ADR-0017)
+
+Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/apps` (each with `hasToken`, false where no `service_tokens` row shares the name — such an app cannot be called at all), `POST /api/apps { name, namespace, displayName, baseUrl, hooksEnabled }` (409 on a duplicate name or namespace; links an already-issued token of the same name), `PUT /api/apps/:id { displayName, baseUrl, hooksEnabled }` (name and namespace immutable), `DELETE /api/apps/:id` (clears `service_tokens.app_id`, then removes the row; the token itself survives).
+
+`baseUrl` must be https or `http://localhost:PORT`, with no trailing slash. Registering an app needs no deploy of this service.
+
 ## Service endpoints
 
 ### `POST /api/users/shadow` — service [AUD]
@@ -130,7 +136,7 @@ Each integrated app exposes these, authenticated by the **SHA-256 of its own ser
 | `POST <app>/api/_hooks/auth/last-activity` | `{ userIds: [] }` → `{ [userId]: epochMs \| null }` — feeds the retention sweep |
 | `POST <app>/api/_hooks/auth/merge` | `{ fromUserId, toUserId, dryRun? }` → `{ ok: true, notMirrored, counts }` — re-point every user-referencing row onto the winner, delete the losing mirror row; `dryRun` returns counts only. Must be idempotent (ADR-0015) |
 
-Hook base URLs are registered in `server/utils/appHooks.ts` ([integrating-an-app.md](integrating-an-app.md)).
+Hook base URLs come from the [`apps` registry](#app-registry-adr-0017), not from code. An app receives hooks once it has a registry row with `hooks_enabled` and a service token of the same name.
 
 ## Redirect validation (applies to every `?redirect=`)
 

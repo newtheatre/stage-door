@@ -7,7 +7,7 @@ Why the service is the way it is. One decision per file, numbered, never edited 
 | [0001](0001-extend-nuxt-auth-utils.md) | Build on nuxt-auth-utils rather than Better Auth / OpenAuth | Accepted |
 | [0002](0002-standalone-service.md) | Standalone service at auth.newtheatre.org.uk | Accepted |
 | [0003](0003-shared-sealed-cookie-sessions.md) | SSO via shared sealed cookie on `.newtheatre.org.uk` | Accepted |
-| [0004](0004-scoped-role-strings.md) | Roles as scoped strings, authorisation stays in apps | Accepted — partially superseded by [0011](0011-role-definitions-and-expiry.md) (definitions + expiry) and [0014](0014-grants-require-definitions.md) (free-text granting removed; strings survive) |
+| [0004](0004-scoped-role-strings.md) | Roles as scoped strings, authorisation stays in apps | Accepted — partially superseded by [0011](0011-role-definitions-and-expiry.md) (definitions + expiry), [0014](0014-grants-require-definitions.md) (free-text granting removed; strings survive) and [0017](0017-app-registry.md) (the no-app-registry stance) |
 | [0005](0005-workspace-only-google-sso.md) | Google SSO restricted to the Workspace domain | Accepted |
 | [0006](0006-merge-migration-keeping-hashes.md) | One-off user merge keeping scrypt hashes | Accepted |
 | [0007](0007-shadow-accounts-central.md) | Guest/shadow accounts live in the central identity store | Accepted |
@@ -20,6 +20,7 @@ Why the service is the way it is. One decision per file, numbered, never edited 
 | [0014](0014-grants-require-definitions.md) | New grants must reference a role definition; free-text granting removed | Accepted |
 | [0015](0015-account-merge.md) | Account merge: winner absorbs loser, app hooks first, loser erased | Accepted |
 | [0016](0016-estate-secrets-in-secrets-store.md) | Estate-wide secrets live in the Cloudflare Secrets Store, bound per worker | Accepted |
+| [0017](0017-app-registry.md) | The estate's apps live in a database registry, not in code | Accepted |
 
 ## Template
 

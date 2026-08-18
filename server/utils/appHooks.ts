@@ -6,19 +6,26 @@
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 
-/** Registered apps and their hook base URLs. Update when an app integrates. */
-export const HOOK_APPS = [
-  { name: 'proscenium', baseURL: 'https://newtheatre.org.uk' },
-  { name: 'rooms', baseURL: 'https://rooms.newtheatre.org.uk' },
-] as const
+/** An app name as registered, e.g. 'rehearsal'. Not its role namespace. */
+export type HookApp = string
 
-export type HookApp = (typeof HOOK_APPS)[number]['name']
+export type AppHook = 'export' | 'anonymise' | 'last-activity' | 'merge'
 
 export interface HookResult<T> {
   app: HookApp
   ok: boolean
   data?: T
   error?: string
+}
+
+/**
+ * Apps that receive hooks. Read per call rather than memoised: the registry is
+ * edited in the admin UI and must take effect without a deploy (ADR-0017).
+ */
+export async function loadHookApps() {
+  return db.select().from(schema.apps)
+    .where(eq(schema.apps.hooksEnabled, true))
+    .all()
 }
 
 async function hookBearer(app: HookApp): Promise<string> {
@@ -31,11 +38,15 @@ async function hookBearer(app: HookApp): Promise<string> {
 }
 
 /** Call one hook on one app. Never throws — failures come back in the result. */
-export async function callAppHook<T>(app: HookApp, hook: 'export' | 'anonymise' | 'last-activity' | 'merge', body: Record<string, unknown>): Promise<HookResult<T>> {
-  const { baseURL } = HOOK_APPS.find(a => a.name === app)!
+export async function callAppHook<T>(app: HookApp, hook: AppHook, body: Record<string, unknown>): Promise<HookResult<T>> {
   try {
+    const row = await db.select({ baseUrl: schema.apps.baseUrl, hooksEnabled: schema.apps.hooksEnabled })
+      .from(schema.apps).where(eq(schema.apps.name, app)).get()
+    if (!row) throw new Error(`App '${app}' is not registered`)
+    if (!row.hooksEnabled) throw new Error(`Hooks are disabled for app '${app}'`)
+
     const bearer = await hookBearer(app)
-    const data = await $fetch<T>(`${baseURL}/api/_hooks/auth/${hook}`, {
+    const data = await $fetch<T>(`${row.baseUrl}/api/_hooks/auth/${hook}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${bearer}` },
       body,
@@ -51,7 +62,8 @@ export async function callAppHook<T>(app: HookApp, hook: 'export' | 'anonymise' 
   }
 }
 
-/** Call the same hook on every registered app. */
-export async function callAllAppHooks<T>(hook: 'export' | 'anonymise' | 'last-activity' | 'merge', body: Record<string, unknown>): Promise<HookResult<T>[]> {
-  return Promise.all(HOOK_APPS.map(({ name }) => callAppHook<T>(name, hook, body)))
+/** Call the same hook on every app with hooks enabled. */
+export async function callAllAppHooks<T>(hook: AppHook, body: Record<string, unknown>): Promise<HookResult<T>[]> {
+  const registered = await loadHookApps()
+  return Promise.all(registered.map(({ name }) => callAppHook<T>(name, hook, body)))
 }
