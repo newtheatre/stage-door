@@ -29,11 +29,12 @@ export const ROLES_CONFIG = {
   cleanupAfterDays: 90,
 } as const
 
-/** The next committee year end strictly after `now`. */
+/**
+ * The next committee year end strictly after `now`, as the last instant of
+ * that London day. 31 July is inside BST, so Date.UTC would land on 1 August.
+ */
 export function nextCommitteeYearEnd(now: Date = new Date()): Date {
   const { month, day } = ROLES_CONFIG.committeeYearEnd
-  const candidate = new Date(Date.UTC(now.getUTCFullYear(), month - 1, day, 23, 59, 59, 999))
-  return candidate > now
-    ? candidate
-    : new Date(Date.UTC(now.getUTCFullYear() + 1, month - 1, day, 23, 59, 59, 999))
+  const candidate = endOfLondonDay(now.getUTCFullYear(), month, day)
+  return candidate > now ? candidate : endOfLondonDay(now.getUTCFullYear() + 1, month, day)
 }

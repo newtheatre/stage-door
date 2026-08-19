@@ -134,7 +134,7 @@ interface ApiEntry {
 }
 
 const rows = computed(() => ((data.value?.entries ?? []) as unknown as ApiEntry[]).map(e => ({
-  when: new Date(e.createdAt).toLocaleString('en-GB'),
+  when: formatDateTime(e.createdAt),
   action: e.action,
   actor: e.actorUserId ?? 'system',
   target: e.target,

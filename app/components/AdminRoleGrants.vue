@@ -27,7 +27,7 @@
             variant="outline"
             size="sm"
           >
-            expired {{ shortDate(row.expiresAt!) }}
+            expired {{ formatDate(row.expiresAt!) }}
           </UBadge>
           <UBadge
             v-if="statusChip(row)"
@@ -128,7 +128,7 @@
           v-if="row.grantedAt"
           class="text-xs text-muted"
         >
-          Granted {{ shortDate(row.grantedAt) }}{{ row.expired && row.status !== 'removed' ? ' — pick a new expiry to renew it' : '' }}
+          Granted {{ formatDate(row.grantedAt) }}{{ row.expired && row.status !== 'removed' ? ' — pick a new expiry to renew it' : '' }}
         </p>
       </div>
 
@@ -273,15 +273,13 @@ function statusChip(row: Row): string | null {
 // committee-year expiry will not round-trip through the select.
 const committeeYearEnd = computed(() => {
   const now = new Date()
-  const candidate = Date.UTC(now.getUTCFullYear(), 6, 31, 23, 59, 59, 999)
-  return candidate > now.getTime()
-    ? candidate
-    : Date.UTC(now.getUTCFullYear() + 1, 6, 31, 23, 59, 59, 999)
+  const candidate = endOfLondonDay(now.getUTCFullYear(), 7, 31).getTime()
+  return candidate > now.getTime() ? candidate : endOfLondonDay(now.getUTCFullYear() + 1, 7, 31).getTime()
 })
 
 const expiryChoices = computed(() => [
   { label: 'Never (permanent)', value: 'permanent' },
-  { label: `End of committee year (31 Jul ${new Date(committeeYearEnd.value).getUTCFullYear()})`, value: 'committee-year' },
+  { label: `End of committee year (${formatDate(committeeYearEnd.value)})`, value: 'committee-year' },
   { label: 'A date I pick…', value: 'custom' },
 ])
 
@@ -314,10 +312,6 @@ function toCalendarDate(expiresAt: number | null): CalendarDate | undefined {
 function setCustomDate(index: number, value: unknown) {
   if (!(value instanceof CalendarDate)) return
   rows.value[index]!.expiresAt = Date.UTC(value.year, value.month - 1, value.day, 23, 59, 59, 999)
-}
-
-function shortDate(ms: number): string {
-  return new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 // ── Add / remove ────────────────────────────────────────────────────────────

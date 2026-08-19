@@ -30,6 +30,7 @@ import { mergeUsers } from '../server/utils/mergeUsers'
 import { exportUser } from '../server/utils/exportUser'
 import { planRetention } from '../server/utils/retentionPlan'
 import { RETENTION_CONFIG } from '../server/utils/retentionConfig'
+import { endOfLondonDay, formatDate, formatDateLong, formatDateTime } from '../shared/utils/formatDate'
 import { base32Encode, base32Decode, generateTotpSecret, totpStep, totpCode, verifyTotp, totpUri } from '../server/utils/totp'
 import { MFA_ATTEMPT_TTL_MS, WEBAUTHN_CHALLENGE_TTL_MS, isMfaRequired, enrolledFactors, sealOrChallenge, createMfaAttempt, consumeMfaAttempt, storeWebauthnChallenge, getWebauthnChallenge, sweepMfaChallenges, regenerateRecoveryCodes, useRecoveryCode, remainingRecoveryCodes, clearAllFactors, listPasskeys } from '../server/utils/mfa'
 
@@ -228,6 +229,10 @@ Object.assign(g, {
   exportUser,
   planRetention,
   RETENTION_CONFIG,
+  endOfLondonDay,
+  formatDate,
+  formatDateLong,
+  formatDateTime,
   base32Encode,
   base32Decode,
   generateTotpSecret,
