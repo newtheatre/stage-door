@@ -15,6 +15,7 @@ export interface HookResult<T> {
   app: HookApp
   ok: boolean
   data?: T
+  /** Upstream detail. Log it, audit it, never put it in a response. */
   error?: string
 }
 
