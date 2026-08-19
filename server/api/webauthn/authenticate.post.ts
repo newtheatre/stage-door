@@ -25,6 +25,10 @@ export default defineWebAuthnAuthenticateEventHandler({
       throw createError({ statusCode: 401, statusMessage: 'That passkey is not registered' })
     }
 
+    // Here, not in onSuccess: this is the first point the flow knows the
+    // account, and the only one where a failed assertion can be counted.
+    await enforceRateLimit('passkey:acct', row.userId)
+
     return {
       id: row.credentialId,
       publicKey: row.publicKey,
@@ -46,8 +50,6 @@ export default defineWebAuthnAuthenticateEventHandler({
     }
 
     const userId = credential.userId as string
-
-    await enforceRateLimit('mfa:acct', userId)
 
     const user = await db.select().from(schema.users).where(eq(schema.users.id, userId)).get()
     if (!user || user.disabled) {
