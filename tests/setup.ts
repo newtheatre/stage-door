@@ -5,7 +5,7 @@
 
 import { beforeEach, vi } from 'vitest'
 import { resetDb } from './mocks/nuxthub-db'
-import { passwordSchema, emailSchema, roleSchema, roleGrantSchema, namespaceSchema, roleNameSchema, appNameSchema, baseUrlSchema, isUndeliverableEmail, isWorkspaceEmail } from '../server/utils/validation'
+import { passwordSchema, emailSchema, roleSchema, roleGrantSchema, namespaceSchema, roleNameSchema, permissionKeySchema, eligibilityKeySchema, appNameSchema, baseUrlSchema, isUndeliverableEmail, isWorkspaceEmail } from '../server/utils/validation'
 import { TOKEN_EXPIRY, generateVerificationToken, hashLoginToken, createEmailVerificationToken, createPasswordResetToken, createMagicLinkToken } from '../server/utils/tokens'
 import { enforceRateLimit, getClientIP, sweepRateLimits, RATE_LIMITS } from '../server/utils/rateLimit'
 import { verifyPasswordGuarded } from '../server/utils/passwordCheck'
@@ -21,6 +21,8 @@ import { requireAccountUser } from '../server/utils/accountGuard'
 import { loadUserOr404, adminUserView, isAnonymisedRow, isRealRow } from '../server/utils/adminUsers'
 import { isWorkspaceProfile, resolveGoogleUser, WORKSPACE_DOMAIN } from '../server/utils/googleAccount'
 import { callAppHook, callAllAppHooks, loadHookApps } from '../server/utils/appHooks'
+import { manifestSchema, manifestHash, MANIFEST_MAX_BYTES } from '../server/utils/manifest'
+import { syncApp, syncAllApps, reconcileManifest } from '../server/utils/manifestSync'
 import { eraseUser } from '../server/utils/erase'
 import { mergeUsers } from '../server/utils/mergeUsers'
 import { exportUser } from '../server/utils/exportUser'
@@ -72,7 +74,9 @@ g.setHeader = () => {}
 
 /** Programmable stand-in for the global $fetch (app-hook calls in tests). */
 export const fetchMock = vi.fn()
-g.$fetch = fetchMock
+/** $fetch.raw, which the manifest fetcher uses for its status and ETag. */
+export const rawFetchMock = vi.fn()
+g.$fetch = Object.assign(fetchMock, { raw: rawFetchMock })
 
 // ── Session store fake (nuxt-auth-utils) ────────────────────────────────────
 
@@ -142,6 +146,8 @@ Object.assign(g, {
   roleGrantSchema,
   namespaceSchema,
   roleNameSchema,
+  permissionKeySchema,
+  eligibilityKeySchema,
   appNameSchema,
   baseUrlSchema,
   isUndeliverableEmail,
@@ -185,6 +191,12 @@ Object.assign(g, {
   callAppHook,
   callAllAppHooks,
   loadHookApps,
+  manifestSchema,
+  manifestHash,
+  MANIFEST_MAX_BYTES,
+  syncApp,
+  syncAllApps,
+  reconcileManifest,
   eraseUser,
   mergeUsers,
   exportUser,
@@ -238,5 +250,6 @@ beforeEach(() => {
   resetDb()
   sentEmails.length = 0
   fetchMock.mockReset()
+  rawFetchMock.mockReset()
   vi.useRealTimers()
 })

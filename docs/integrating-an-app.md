@@ -199,9 +199,59 @@ export default defineNuxtRouteMiddleware((to) => {
 
 Server-side, reject stale role-holding sessions with a 401 carrying `data: { stale: true }` so callers can distinguish "log in" from "refresh" (see rooms's `requireAdmin` / Proscenium's `getVerifiedSessionUser`). Sessions with no roles in your namespace need no staleness check — never put the auth service on your public request path.
 
-## Step 6 — Role namespace
+## Step 6 — Your manifest
 
-Pick a short lowercase namespace (usually the repo name) and define your roles as `namespace:ROLE`. Tell the ITM; they grant them in the auth admin UI. There is no code registration step — but do add **role definitions** at `auth.newtheatre.org.uk/admin/roles` (description + default expiry; most app roles want `end of committee year`) so granting is dropdown-driven rather than typed (ADR-0011).
+Pick a short lowercase namespace (usually the repo name) and declare your roles in
+`shared/utils/appManifest.ts`, then serve it at `GET /api/_hooks/auth/manifest` behind the same
+`requireHookAuth` your GDPR hooks use. The auth service polls it and turns it into role definitions,
+so **shipping a role is what makes it grantable** — nobody types it in, and nothing can drift
+(ADR-0018).
+
+```ts
+export const APP_MANIFEST = {
+  contract: 1,
+  namespace: 'photos',
+  version: '1',
+  permissions: [
+    { key: 'photo.upload', description: 'Upload to a gallery' },
+  ],
+  roles: [
+    {
+      role: 'UPLOADER',
+      description: 'Adds photographs after a show.',
+      defaultExpiry: { kind: 'committee-year' },   // none | committee-year | days
+      permissions: ['photo.upload'],
+      requiresEligibility: null,
+    },
+  ],
+  eligibilityRules: [],
+} as const
+```
+
+```ts
+// server/api/_hooks/auth/manifest.get.ts
+export default defineEventHandler((event) => {
+  requireHookAuth(event)
+  return APP_MANIFEST
+})
+```
+
+Make that const the input to your own checks too. Then the manifest cannot describe something the
+app does not enforce, because they are the same object.
+
+Rules worth knowing before you write one:
+
+- **Permissions are lowercase and dotted** (`photo.upload`); roles are uppercase (`UPLOADER`). No
+  string can be read as both.
+- **A role may only grant permissions the same manifest declares.** That is the ADR-0014 typo check,
+  one level down.
+- **Your namespace must match your registry row**, and `auth` is refused from any manifest.
+- **Removing a role from your manifest withdraws its definition; it never removes anyone's grant.**
+  Holders keep it until an admin revokes them.
+- **Default expiry is a suggestion.** An admin can pin it, after which your manifest cannot move it.
+
+After a deploy, `POST https://auth.newtheatre.org.uk/api/apps/sync` with your service token to be
+re-read immediately. Otherwise the daily backstop gets there, or the ITM presses Sync now.
 
 ### Which namespaces exist
 

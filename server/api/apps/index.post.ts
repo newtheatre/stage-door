@@ -8,6 +8,7 @@ const bodySchema = z.object({
   displayName: z.string().min(1).max(80),
   baseUrl: baseUrlSchema,
   hooksEnabled: z.boolean().default(false),
+  manifestEnabled: z.boolean().default(false),
 })
 
 /**

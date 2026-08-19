@@ -1,5 +1,5 @@
 import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
-import { relations } from 'drizzle-orm'
+import { relations, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 
 // Canonical identity store — docs/data-model.md. Ids are stable forever
@@ -60,8 +60,8 @@ export const userRoles = sqliteTable('user_roles', {
   uniqueIndex('user_roles_user_id_role_unique').on(table.userId, table.role),
 ])
 
-// UX metadata for the admin dropdown (ADR-0011). A grant never requires a
-// definition, and deleting one never touches grants.
+// What a role is (ADR-0011/0014/0018). A new grant requires a definition;
+// deleting one still never touches existing grants.
 export const roleDefinitions = sqliteTable('role_definitions', {
   id: text('id').primaryKey().$defaultFn(() => nanoid()),
   namespace: text('namespace').notNull(), // 'proscenium'
@@ -70,8 +70,33 @@ export const roleDefinitions = sqliteTable('role_definitions', {
   defaultExpiryKind: text('default_expiry_kind', { enum: ['none', 'committee-year', 'days'] }).notNull().default('none'),
   defaultExpiryDays: integer('default_expiry_days'), // only when kind = 'days'
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+
+  // Manifest provenance (ADR-0018). 'manual' with a null app_id is a
+  // definition made by hand, which is how auth:ADMIN and ticketing:* survive.
+  appId: text('app_id'),
+  source: text('source', { enum: ['manifest', 'manual'] }).notNull().default('manual'),
+  manifestVersion: text('manifest_version'),
+  // Set when the owning manifest stops declaring the role. Grants are untouched.
+  withdrawnAt: integer('withdrawn_at', { mode: 'timestamp_ms' }),
+  syncedAt: integer('synced_at', { mode: 'timestamp_ms' }),
+
+  // A training prerequisite, named by the app but enforced at this service's
+  // discretion (ADR-0019). Inert until Phase 5 sets a key.
+  requiresEligibilityKey: text('requires_eligibility_key'),
+  eligibilityMode: text('eligibility_mode', { enum: ['advisory', 'enforcing'] }).notNull().default('advisory'),
+
+  // An admin edit pins the field, after which a manifest cannot move it: an
+  // app must not be able to lock people out of itself with a deploy.
+  defaultExpiryPinned: integer('default_expiry_pinned', { mode: 'boolean' }).notNull().default(false),
+  eligibilityModePinned: integer('eligibility_mode_pinned', { mode: 'boolean' }).notNull().default(false),
+
+  // The joined form user_roles.role stores, so a grant can be matched to its
+  // definition inside SQL rather than by concatenating in JavaScript.
+  roleKey: text('role_key').generatedAlwaysAs(sql`${sql.identifier('namespace')} || ':' || ${sql.identifier('role')}`, { mode: 'virtual' }),
 }, table => [
   uniqueIndex('role_definitions_namespace_role_unique').on(table.namespace, table.role),
+  index('role_definitions_role_key_idx').on(table.roleKey),
+  index('role_definitions_app_id_idx').on(table.appId),
 ])
 
 export const userRolesRelations = relations(userRoles, ({ one }) => ({

@@ -33,6 +33,9 @@ export default defineEventHandler(async (event) => {
       description: d.description,
       defaultExpiryKind: d.defaultExpiryKind,
       defaultExpiryDays: d.defaultExpiryDays,
+      source: d.source,
+      withdrawnAt: d.withdrawnAt?.getTime() ?? null,
+      manifestVersion: d.manifestVersion,
       defaultExpiresAt:
         d.defaultExpiryKind === 'committee-year'
           ? nextCommitteeYearEnd(now).getTime()

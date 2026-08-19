@@ -49,6 +49,9 @@ export function resetDb(): void {
     DELETE FROM password_resets;
     DELETE FROM legacy_ids;
     DELETE FROM service_tokens;
+    DELETE FROM role_definition_permissions;
+    DELETE FROM app_permissions;
+    DELETE FROM app_manifests;
     DELETE FROM apps;
     DELETE FROM audit_log;
     DELETE FROM rate_limits;

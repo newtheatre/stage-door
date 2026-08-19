@@ -131,7 +131,7 @@ describe('hooks fan out from the registry, not a hardcoded list', () => {
 
     await updateApp(await adminEvent({
       params: { id: app.id },
-      body: { displayName: 'Rooms', baseUrl: 'https://rooms.newtheatre.org.uk', hooksEnabled: true },
+      body: { displayName: 'Rooms', baseUrl: 'https://rooms.newtheatre.org.uk', hooksEnabled: true, manifestEnabled: false },
     }))
     await callAllAppHooks('anonymise', { userId: 'u1' })
 

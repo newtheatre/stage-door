@@ -117,6 +117,33 @@ Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/apps` (each with `hasToke
 
 `baseUrl` must be https or `http://localhost:PORT`, with no trailing slash. Registering an app needs no deploy of this service.
 
+`POST /api/apps/:id/sync` — session + `auth:ADMIN` **[AUD]**. The "Sync now" button: fetch and reconcile one app's manifest, returning `{ app, ok, unchanged?, error?, counts? }`.
+
+`POST /api/apps/sync` — **service token**. An app asking to be re-read after a deploy. The token names the app, so it can only ever ask for itself. Rate-limited at 12 an hour per app. Returns the same shape.
+
+## Manifest ingestion (ADR-0018)
+
+Each app serves `GET /api/_hooks/auth/manifest`, authenticated by the SHA-256 of its own service token. The document:
+
+```jsonc
+{
+  "contract": 1,
+  "namespace": "rooms",          // must equal the registry row; 'auth' is always refused
+  "version": "1",                // free text, echoed in the admin UI, never parsed
+  "permissions": [{ "key": "booking.read.any", "description": "See any booking" }],
+  "roles": [{
+    "role": "ADMIN",
+    "description": "Room-booking admin",
+    "defaultExpiry": { "kind": "committee-year" },   // none | committee-year | days
+    "permissions": ["booking.read.any"],             // must all be declared above
+    "requiresEligibility": null                      // or { key, suggestedMode }
+  }],
+  "eligibilityRules": []         // rehearsal only: the questions it can answer
+}
+```
+
+Reconciliation is described in full in [ADR-0018](decisions/0018-manifest-declared-roles.md). The rule to know: **a manifest that does not fetch and parse changes nothing at all.** The stored document stays in force, the error surfaces in `/admin/apps`, and no role is withdrawn.
+
 ## Service endpoints
 
 ### `POST /api/users/shadow` — service [AUD]
