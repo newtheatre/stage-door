@@ -29,7 +29,7 @@ Weekly `wrangler d1 export` of the `auth` DB to the `nnt-db-backups` R2 bucket (
 | Secret | Where set | Where recorded |
 |---|---|---|
 | `NUXT_SESSION_PASSWORD` | **Secrets Store** (see below), bound into all four workers | Password manager → "NNT session seal" |
-| `NUXT_RESEND_API_KEY` | Auth worker | Password manager |
+| `NUXT_RESEND_API_KEY` | Auth worker | Password manager. If it is unset or blank in production, `sendEmail` throws a 500 rather than logging the message: bodies carry live reset and magic-link tokens, so the console fallback is development-only. Symptom of a bad deploy is register/forgot 500ing, not silent non-delivery |
 | `NUXT_OAUTH_GOOGLE_CLIENT_ID/SECRET` | Auth worker | Password manager (Google Cloud project: NNT Workspace) |
 | Service tokens (one per app) | Consumer app workers (`NUXT_AUTH_SERVICE_TOKEN`) | Password manager, one entry per app |
 | `NUXT_TRAINING_API_TOKEN` | Auth worker | Password manager. An `nnt_trn_…` token minted in rehearsal's admin, read only by the `eligibility:snapshot` task (ADR-0019). Single-worker, so a plain worker secret rather than the Secrets Store. |

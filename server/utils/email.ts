@@ -1,6 +1,6 @@
 /**
- * Email via Resend. Without `NUXT_RESEND_API_KEY` messages are logged to the
- * console rather than sent.
+ * Email via Resend. In development only, a missing `NUXT_RESEND_API_KEY`
+ * logs the message instead; in production it is a hard failure.
  */
 
 import { getResend } from './resend'
@@ -11,10 +11,16 @@ interface SendEmailOptions {
   html: string
 }
 
-/** Send an email via Resend, or log it to the console when no key is set. */
+/** Send an email via Resend, or log it to the console in dev with no key set. */
 export async function sendEmail({ to, subject, html }: SendEmailOptions): Promise<void> {
   const resend = getResend()
   if (!resend) {
+    // The body carries live reset and magic-link tokens, so logging it in
+    // production would put working credentials in the log stream.
+    if (!import.meta.dev) {
+      console.error('[Email] NUXT_RESEND_API_KEY is not set — refusing to send')
+      throw createError({ statusCode: 500, statusMessage: 'Email is not configured' })
+    }
     console.info(`[Email:dev] To: ${to}\n[Email:dev] Subject: ${subject}\n[Email:dev] ${html}`)
     return
   }
