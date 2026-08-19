@@ -17,6 +17,12 @@ export const ROLES_CONFIG = {
   digestEmail: 'archive@newtheatre.org.uk',
 
   /**
+   * Namespaces with no app behind them on purpose, so their definition-less
+   * grants are history rather than mistakes (ADR-0010, ADR-0021).
+   */
+  dormantNamespaces: ['ticketing'] as string[],
+
+  /**
    * Cosmetic cleanup only (0 disables) — read-time enforcement already makes
    * an expired grant inert. 90 days keeps one-click renewal available.
    */

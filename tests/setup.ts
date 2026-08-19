@@ -12,6 +12,7 @@ import { verifyPasswordGuarded } from '../server/utils/passwordCheck'
 import { loadRoles, loadRoleGrants, loadEffectiveRolesFor, activeRoleCondition, activeGrantExists, effectiveRoleCondition, eligibilitySatisfiedCondition, sealUserSession, sealLoginSession } from '../server/utils/session'
 import { assertGrantsDefined, assertEligibilityModeAllowed } from '../server/utils/roleDefinitions'
 import { ROLES_CONFIG, nextCommitteeYearEnd } from '../server/utils/rolesConfig'
+import { findSuspectGrants, explain } from '../server/utils/grantAudit'
 import { writeAudit } from '../server/utils/audit'
 import { validateRedirect } from '../shared/utils/validateRedirect'
 import { refreshSession } from '../server/utils/refresh'
@@ -72,6 +73,7 @@ g.sendRedirect = (event: FakeEvent, url: string, status = 302) => {
 g.getRouterParam = (event: FakeEvent, name: string) => event.params?.[name]
 g.getValidatedQuery = async (event: FakeEvent, parse: (query: unknown) => unknown) => parse(event.query ?? {})
 g.setHeader = () => {}
+g.setResponseStatus = () => {}
 
 /** Programmable stand-in for useRuntimeConfig (worker secrets in tests). */
 export const runtimeConfig: Record<string, unknown> = {}
@@ -135,6 +137,9 @@ g.sendRoleExpiryWarningEmail = async (to: string, grants: { role: string }[]) =>
 g.sendRoleExpiryDigestEmail = async (to: string) => {
   sentEmails.push({ kind: 'role-expiry-digest', to })
 }
+g.sendSuspectGrantsEmail = async (to: string, suspects: { role: string }[]) => {
+  sentEmails.push({ kind: 'suspect-grants', to, token: suspects.map(s => s.role).join(',') })
+}
 g.sendRetentionWarningEmail = async (to: string) => {
   sentEmails.push({ kind: 'retention-warning', to })
 }
@@ -179,6 +184,8 @@ Object.assign(g, {
   assertEligibilityModeAllowed,
   ROLES_CONFIG,
   nextCommitteeYearEnd,
+  findSuspectGrants,
+  explain,
   sealUserSession,
   sealLoginSession,
   writeAudit,

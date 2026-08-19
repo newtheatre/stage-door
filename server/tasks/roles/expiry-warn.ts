@@ -78,9 +78,25 @@ export default defineTask({
       cleaned = removed.length
     }
 
-    const summary = { warnedGrants: expiring.length, warnedHolders: byHolder.size, emailed: digest.length, cleaned }
+    // Grants that reference nothing an app reads. Reported here rather than in
+    // their own task: it is the same daily look at the role table (ADR-0021).
+    const suspects = await findSuspectGrants(new Date(now))
+    if (suspects.length) {
+      await sendSuspectGrantsEmail(
+        config.digestEmail,
+        suspects.map(s => ({ role: s.role, holders: s.holders, explanation: explain(s.problem) })),
+      )
+    }
 
-    if (expiring.length || cleaned) {
+    const summary = {
+      warnedGrants: expiring.length,
+      warnedHolders: byHolder.size,
+      emailed: digest.length,
+      cleaned,
+      suspectGrants: suspects.length,
+    }
+
+    if (expiring.length || cleaned || suspects.length) {
       await writeAudit({
         actorUserId: null,
         action: 'roles.expiry-warned',

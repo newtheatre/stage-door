@@ -139,6 +139,28 @@ export async function sendRoleExpiryDigestEmail(
   })
 }
 
+/** Daily digest: grants that reference nothing an app reads (ADR-0021). */
+export async function sendSuspectGrantsEmail(
+  to: string,
+  suspects: { role: string, holders: number, explanation: string }[],
+): Promise<void> {
+  const rows = suspects
+    .map(s => `<li><code>${s.role}</code> — ${s.holders} holder${s.holders === 1 ? '' : 's'}. ${s.explanation}</li>`)
+    .join('')
+
+  await sendEmail({
+    to,
+    subject: 'NNT roles: grants that do nothing',
+    html: emailLayout(`
+      <p>These role grants are held by real accounts but match nothing any app
+      reads, so they confer no access and never will:</p>
+      <ul>${rows}</ul>
+      <p>Either revoke them, or define the role if it was meant to work.
+      Dormant namespaces are excluded, so nothing here is deliberate history.</p>
+    `),
+  })
+}
+
 /** Retention sweep: "log in to keep your account" warning (docs/gdpr-retention.md). */
 export async function sendRetentionWarningEmail(email: string, daysLeft: number): Promise<void> {
   const { public: { baseURL } } = useRuntimeConfig()

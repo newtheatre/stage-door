@@ -1,0 +1,43 @@
+# Applies pending D1 migrations to production on push to main.
+#
+# Workers Builds only builds and deploys — nothing in that path runs a
+# migration, which is how live code once reached tables that did not exist
+# (docs/decisions/0021). This job is the thing that makes
+# "merging to main applies migrations" true.
+#
+# It runs first and takes seconds, where a Workers build takes minutes, so
+# additive migrations land before the code that needs them. Uses the same
+# CLOUDFLARE_API_TOKEN repo secret as backup.yml (needs D1:Edit).
+name: Migrate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/db/migrations/**'
+      - 'scripts/migrate-remote.mjs'
+      - '.github/workflows/migrate.yml'
+  workflow_dispatch:
+
+# Never let two migration runs overlap.
+concurrency:
+  group: migrate-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: 3d250a94794003bd921b7f0379de7f00
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show what is pending
+        run: node scripts/migrate-remote.mjs --dry-run
+
+      - name: Apply
+        run: node scripts/migrate-remote.mjs
+
+      - name: Confirm nothing is left pending
+        run: node scripts/migrate-remote.mjs --dry-run
