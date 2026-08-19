@@ -7,7 +7,7 @@ import { createUser } from './helpers/users'
 
 const shadow = shadowHandler as unknown as (event: unknown) => Promise<{ id: string, existing: boolean, guest: boolean }>
 
-describe('service tokens — CLAUDE.md invariant 10', () => {
+describe('service tokens: CLAUDE.md invariant 10', () => {
   it('stores only the SHA-256, never the plaintext', async () => {
     const { token } = await createServiceToken('proscenium')
 
@@ -41,7 +41,7 @@ describe('service tokens — CLAUDE.md invariant 10', () => {
   })
 })
 
-describe('POST /api/users/shadow — guest checkout (ADR-0007)', () => {
+describe('POST /api/users/shadow: guest checkout (ADR-0007)', () => {
   let tokenCounter = 0
 
   async function call(body: Record<string, unknown>) {
@@ -77,7 +77,7 @@ describe('POST /api/users/shadow — guest checkout (ADR-0007)', () => {
     expect(all).toHaveLength(1)
   })
 
-  it('returns a full account unchanged — booking attaches to their history', async () => {
+  it('returns a full account unchanged: booking attaches to their history', async () => {
     const full = await createUser({ email: 'member@example.com', plainPassword: 'Passw0rd', name: 'Member' })
 
     const result = await call({ email: 'member@example.com', name: 'Walk-up Name' })

@@ -1,7 +1,7 @@
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 
-/** POST /api/apps/sync — an app asking to be re-read after a deploy. */
+/** POST /api/apps/sync: an app asking to be re-read after a deploy. */
 export default defineEventHandler(async (event) => {
   const token = await requireServiceToken(event)
   await enforceRateLimit('manifest-ping:app', token.name)

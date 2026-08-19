@@ -36,14 +36,14 @@ describe('POST /api/auth/magic-link/request', () => {
     expect(result).toEqual({ ok: true })
     expect(sentEmails).toEqual([{ kind: 'magic-link', to: 'booker@example-user.co.uk', token: expect.any(String) }])
 
-    // Stored hashed — never the plaintext that was emailed.
+    // Stored hashed: never the plaintext that was emailed.
     const row = await db.select().from(schema.magicLinks)
       .where(eq(schema.magicLinks.userId, user.id)).get()
     expect(row?.tokenHash).toBe(hashLoginToken(sentEmails[0]!.token!))
     expect(row?.tokenHash).not.toBe(sentEmails[0]!.token)
   })
 
-  it('answers the identical ok for unknown, undeliverable, and disabled accounts — sending nothing', async () => {
+  it('answers the identical ok for unknown, undeliverable, and disabled accounts: sending nothing', async () => {
     await createUser({ email: 'disabled@example-user.co.uk', disabled: true })
 
     for (const email of ['nobody@example-user.co.uk', 'ghost@anonymised.invalid', 'disabled@example-user.co.uk']) {
@@ -130,7 +130,7 @@ describe('POST /api/auth/magic-link/verify', () => {
     expect(sealedSession(event)).toBeUndefined()
   })
 
-  it('challenges an MFA-enrolled account instead of sealing — the link is not the second factor', async () => {
+  it('challenges an MFA-enrolled account instead of sealing: the link is not the second factor', async () => {
     const user = await createUser({ email: 'enrolled@example-user.co.uk', plainPassword: 'Passw0rd' })
     await grantRole(user.id, 'auth:ADMIN')
     await enrolTotp(user.id, SECRET)

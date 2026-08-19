@@ -1,5 +1,5 @@
 /**
- * Session sealing — the only place the payload is constructed, and this
+ * Session sealing: the only place the payload is constructed, and this
  * service is its only writer. Shape: docs/session-contract.md
  */
 
@@ -102,7 +102,7 @@ export interface RoleGrant {
 }
 
 /**
- * Full grant rows INCLUDING expired ones — admin surfaces and the
+ * Full grant rows INCLUDING expired ones: admin surfaces and the
  * subject-access export (expired grants and their notes are personal data).
  */
 export async function loadRoleGrants(userId: string): Promise<RoleGrant[]> {

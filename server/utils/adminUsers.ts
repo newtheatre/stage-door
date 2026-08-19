@@ -76,7 +76,7 @@ export async function assertNotLastAuthAdmin(userId: string, what: string): Prom
   if (others.length === 0) {
     throw createError({
       statusCode: 400,
-      statusMessage: `${what} would leave nobody with auth:ADMIN — grant it to someone else first`,
+      statusMessage: `${what} would leave nobody with auth:ADMIN: grant it to someone else first`,
     })
   }
 }
@@ -95,7 +95,7 @@ export async function holdsAuthAdmin(userId: string): Promise<boolean> {
 }
 
 /**
- * The admin-facing profile shape — never the password hash. `roles` is
+ * The admin-facing profile shape: never the password hash. `roles` is
  * active-only; `grants` carries the full per-grant detail (ADR-0011).
  */
 export function adminUserView(user: UserRow, grants: RoleGrant[] = []) {

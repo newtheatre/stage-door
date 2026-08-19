@@ -1,6 +1,6 @@
 /**
  * Guard for /api/account/*. The DB is right here, so re-check existence,
- * disabled state and epoch — a stale cookie must not manage the account.
+ * disabled state and epoch: a stale cookie must not manage the account.
  */
 
 import type { H3Event } from 'h3'

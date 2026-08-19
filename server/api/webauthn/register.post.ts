@@ -11,7 +11,7 @@ const labelSchema = z.object({
 
 /**
  * Enrol a passkey (ADR-0012). Three options here are not the module's
- * defaults and are load-bearing — see docs/security.md#passkeys.
+ * defaults and are load-bearing: see docs/security.md#passkeys.
  */
 export default defineWebAuthnRegisterEventHandler({
   async validateUser(_userBody, event) {

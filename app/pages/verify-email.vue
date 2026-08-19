@@ -23,7 +23,7 @@
           class="size-10 mx-auto text-success"
         />
         <p class="font-medium">
-          Email verified — you're all set.
+          Email verified: you're all set.
         </p>
         <UButton
           :to="target"
@@ -52,7 +52,7 @@
           :loading="resending"
           @click="resend"
         >
-          {{ resent ? 'Sent — check your inbox' : 'Send a new verification link' }}
+          {{ resent ? 'Sent: check your inbox' : 'Send a new verification link' }}
         </UButton>
         <UButton
           v-else

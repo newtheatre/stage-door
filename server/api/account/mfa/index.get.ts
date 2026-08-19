@@ -1,4 +1,4 @@
-/** GET /api/account/mfa — the caller's own factor status. */
+/** GET /api/account/mfa: the caller's own factor status. */
 export default defineEventHandler(async (event) => {
   const { user } = await requireAccountUser(event)
 

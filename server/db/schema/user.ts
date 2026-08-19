@@ -2,7 +2,7 @@ import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqli
 import { relations, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 
-// Canonical identity store — docs/data-model.md. Ids are stable forever
+// Canonical identity store: docs/data-model.md. Ids are stable forever
 // (CLAUDE.md invariant 3): apps FK against them.
 export const users = sqliteTable('users', {
   id: text('id').primaryKey().$defaultFn(() => nanoid()),
@@ -11,7 +11,7 @@ export const users = sqliteTable('users', {
   password: text('password'), // scrypt PHC string; NULL = shadow account or SSO-only
   verified: integer('email_verified', { mode: 'boolean' }).notNull().default(false),
 
-  // Google's stable subject id — the linkage key, not email (ADR-0005). May
+  // Google's stable subject id: the linkage key, not email (ADR-0005). May
   // carry a different address from `email`; that's a supported steady state.
   googleSub: text('google_sub').unique(),
   // Admin-set: the next Google sign-in with this Workspace address attaches to
@@ -38,7 +38,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   magicLinks: many(magicLinks),
 }))
 
-// Scoped role strings, expiry enforced at READ time — an expired grant
+// Scoped role strings, expiry enforced at READ time: an expired grant
 // vanishes within the staleness window with no cron. ADR-0004, ADR-0011.
 export const userRoles = sqliteTable('user_roles', {
   id: text('id').primaryKey().$defaultFn(() => nanoid()),
@@ -52,7 +52,7 @@ export const userRoles = sqliteTable('user_roles', {
   grantedBy: text('granted_by'),
   grantedAt: integer('granted_at', { mode: 'timestamp_ms' }).$defaultFn(() => new Date()),
   note: text('note'),
-  // Warning bookkeeping: one warning per (grant, expiry value) — cleared by
+  // Warning bookkeeping: one warning per (grant, expiry value): cleared by
   // roles.put whenever expires_at changes, so renewals re-arm the warning.
   expiryWarnedAt: integer('expiry_warned_at', { mode: 'timestamp_ms' }),
   // Admin escape hatch when an enforcing prerequisite is unmet or its snapshot
@@ -147,7 +147,7 @@ export const passwordResetsRelations = relations(passwordResets, ({ one }) => ({
   }),
 }))
 
-// Magic sign-in links (ADR-0013). Hashed at rest — a link grants an instant
+// Magic sign-in links (ADR-0013). Hashed at rest: a link grants an instant
 // session, so it gets the service-token treatment.
 export const magicLinks = sqliteTable('magic_links', {
   id: text('id').primaryKey().$defaultFn(() => nanoid()),

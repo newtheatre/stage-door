@@ -16,7 +16,7 @@ function profile(overrides: Partial<GoogleProfile> = {}): GoogleProfile {
   }
 }
 
-describe('isWorkspaceProfile — CLAUDE.md invariant 5', () => {
+describe('isWorkspaceProfile: CLAUDE.md invariant 5', () => {
   it('accepts a verified Workspace profile', () => {
     expect(isWorkspaceProfile(profile())).toBe(true)
   })
@@ -34,7 +34,7 @@ describe('isWorkspaceProfile — CLAUDE.md invariant 5', () => {
   })
 })
 
-describe('resolveGoogleUser — a disabled account is never written to', () => {
+describe('resolveGoogleUser: a disabled account is never written to', () => {
   it('does not consume an admin-directed pending link', async () => {
     const user = await createUser({ email: 'president@newtheatre.org.uk', name: 'President' })
     await db.update(schema.users)
@@ -61,7 +61,7 @@ describe('resolveGoogleUser — a disabled account is never written to', () => {
   })
 })
 
-describe('resolveGoogleUser — match precedence', () => {
+describe('resolveGoogleUser: match precedence', () => {
   it('creates a new verified, password-less user when nothing matches', async () => {
     const { user, how } = await resolveGoogleUser(profile())
 
@@ -79,7 +79,7 @@ describe('resolveGoogleUser — match precedence', () => {
       googleSub: 'google-sub-1',
     })
 
-    // Same sub, different (re-pointed) email — must still resolve to the row.
+    // Same sub, different (re-pointed) email: must still resolve to the row.
     const { user, how } = await resolveGoogleUser(profile({ email: 'renamed@newtheatre.org.uk' }))
 
     expect(how).toBe('sub')
@@ -119,7 +119,7 @@ describe('resolveGoogleUser — match precedence', () => {
     expect(user.id).toBe(directed.id)
   })
 
-  it('email match links and verifies — including claiming a shadow account', async () => {
+  it('email match links and verifies: including claiming a shadow account', async () => {
     const shadow = await createUser({ email: 'person@newtheatre.org.uk' }) // password NULL
 
     const { user, how } = await resolveGoogleUser(profile())

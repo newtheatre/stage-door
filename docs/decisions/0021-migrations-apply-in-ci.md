@@ -82,6 +82,6 @@ database needs no new tooling.
 
 Bad: the token gains a genuinely privileged use, so its scope matters more than
 it did when it only wrote backups. And the ordering between migration and
-deploy is timing, not sequencing — an unusually slow Actions queue with an
+deploy is timing, not sequencing: an unusually slow Actions queue with an
 unusually fast build could still land code first. The health check is the
 backstop, and moving deployment into CI is the real fix if this ever bites.

@@ -70,7 +70,7 @@ describe('admin guard', () => {
     await expect(putRoles(event)).rejects.toMatchObject({ statusCode: 403 })
   })
 
-  it('rejects an admin session with a stale epoch — force-logout bites instantly here', async () => {
+  it('rejects an admin session with a stale epoch: force-logout bites instantly here', async () => {
     const { event, adminId } = await adminEvent()
     await db.update(schema.users).set({ sessionEpoch: 5 }).where(eq(schema.users.id, adminId))
 

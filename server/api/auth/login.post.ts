@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Enrolled factors gate the session. A required-but-unenrolled admin still
-  // gets one — requireAuthAdmin holds the line instead (ADR-0012).
+  // gets one: requireAuthAdmin holds the line instead (ADR-0012).
   const challenge = await sealOrChallenge(event, user)
   if (challenge) return challenge
 

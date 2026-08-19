@@ -2,7 +2,7 @@ import { db, schema } from '@nuxthub/db'
 import { eq, sql } from 'drizzle-orm'
 
 /**
- * Clear every second factor — the "lost their phone" path. Verify identity
+ * Clear every second factor: the "lost their phone" path. Verify identity
  * out of band first; this removes the protection until they re-enrol.
  */
 export default defineEventHandler(async (event) => {

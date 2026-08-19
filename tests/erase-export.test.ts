@@ -11,7 +11,7 @@ function hooksSucceed() {
   fetchMock.mockResolvedValue({ ok: true })
 }
 
-describe('eraseUser — anonymise, never delete (ADR-0008)', () => {
+describe('eraseUser: anonymise, never delete (ADR-0008)', () => {
   it('rewrites identity, strips credentials/roles/tokens, bumps epoch, calls every hook', async () => {
     // A registry row plus a service token per app so hook bearers resolve.
     await registerApp('proscenium', { baseUrl: 'https://newtheatre.org.uk' })
@@ -95,7 +95,7 @@ describe('eraseUser — anonymise, never delete (ADR-0008)', () => {
   })
 })
 
-describe('exportUser — the subject-access bundle', () => {
+describe('exportUser: the subject-access bundle', () => {
   it('bundles the auth record, roles, legacy ids, audit trail, and app data', async () => {
     await registerApp('proscenium', { baseUrl: 'https://newtheatre.org.uk' })
     await registerApp('rooms')
@@ -118,7 +118,7 @@ describe('exportUser — the subject-access bundle', () => {
       email: 'subject@example-user.co.uk',
       legacyIds: [{ source: 'rooms', legacyId: 'old-uuid' }],
     })
-    // Roles export as full grants (expired included) — ADR-0011.
+    // Roles export as full grants (expired included): ADR-0011.
     expect(bundle.account.roles).toHaveLength(1)
     expect(bundle.account.roles[0]).toMatchObject({ role: 'rooms:ADMIN', expiresAt: null, expired: false })
     expect(bundle.account).not.toHaveProperty('password')

@@ -12,8 +12,8 @@ The Google button accepts only `newtheatre.org.uk` accounts: the OAuth request s
 
 ## Alternatives considered
 
-- **Any Google account, linked by verified email** — friendlier for the public; lost because it adds account-linking edge cases (unverified emails, changed emails, one person with several Google identities) to build and test, for users who already have a working email+password path. Can be revisited without schema change — `google_sub` doesn't care which domain it came from.
+- **Any Google account, linked by verified email**, friendlier for the public; lost because it adds account-linking edge cases (unverified emails, changed emails, one person with several Google identities) to build and test, for users who already have a working email+password path. Can be revisited without schema change, `google_sub` doesn't care which domain it came from.
 
 ## Consequences
 
-Good: clean mapping to the account model (Workspace = SSO, public = password); Workspace's 2SV becomes the effective MFA for the accounts that matter most; removing someone from Workspace (leaver process) removes their SSO automatically. Bad: members who prefer personal Gmail must use a password; the friendly rejection page must exist and point somewhere useful. The `hd` server-side check is a security invariant (CLAUDE.md #5) — the authorization parameter alone is spoofable.
+Good: clean mapping to the account model (Workspace = SSO, public = password); Workspace's 2SV becomes the effective MFA for the accounts that matter most; removing someone from Workspace (leaver process) removes their SSO automatically. Bad: members who prefer personal Gmail must use a password; the friendly rejection page must exist and point somewhere useful. The `hd` server-side check is a security invariant (CLAUDE.md #5): the authorization parameter alone is spoofable.

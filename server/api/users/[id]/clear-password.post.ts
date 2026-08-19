@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   if (user.googleSub === null) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Link a Google account first — clearing the password now would lock this account out',
+      statusMessage: 'Link a Google account first: clearing the password now would lock this account out',
     })
   }
 

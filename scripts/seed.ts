@@ -25,13 +25,13 @@ if (process.env.NUXT_HUB_CLOUDFLARE_DATABASE_ID || process.env.NUXT_HUB_CLOUDFLA
 
 const dbPath = join(import.meta.dirname, '../.data/db/sqlite.db')
 if (!existsSync(dbPath)) {
-  console.error(`No local database at ${dbPath} — run \`bun run db:migrate\` (or \`bun run dev\` once) first.`)
+  console.error(`No local database at ${dbPath}: run \`bun run db:migrate\` (or \`bun run dev\` once) first.`)
   process.exit(1)
 }
 
 const db = drizzle(createClient({ url: `file:${dbPath}` }))
 
-// Same scrypt defaults as nuxt-auth-utils' hashPassword — hashes verify
+// Same scrypt defaults as nuxt-auth-utils' hashPassword: hashes verify
 // identically at login.
 const hash = new Hash(new Scrypt({}))
 
@@ -73,7 +73,7 @@ for (const seedUser of seedUsers) {
   }
 
   const rolesNote = seedUser.roles.length ? `  [${seedUser.roles.join(', ')}]` : ''
-  console.info(`  ${seedUser.email}  ${password ?? '(no password — shadow account)'}${rolesNote}`)
+  console.info(`  ${seedUser.email}  ${password ?? '(no password: shadow account)'}${rolesNote}`)
 }
 
 // Role definitions so the admin grant dropdown isn't empty in dev.

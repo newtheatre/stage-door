@@ -1,6 +1,6 @@
 /**
  * CSRF: origin check on state-changing API requests (docs/security.md).
- * Service-token calls send no Origin and are exempt — they carry no cookie.
+ * Service-token calls send no Origin and are exempt: they carry no cookie.
  */
 
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])

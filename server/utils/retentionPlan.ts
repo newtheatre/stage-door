@@ -7,10 +7,10 @@ import type { RETENTION_CONFIG } from './retentionConfig'
 
 export interface RetentionCandidate {
   id: string
-  /** password IS NULL AND google_sub IS NULL — shadow/guest account. */
+  /** password IS NULL AND google_sub IS NULL: shadow/guest account. */
   guest: boolean
   hasRoles: boolean
-  /** Already anonymised / undeliverable placeholder — records, not people. */
+  /** Already anonymised / undeliverable placeholder: records, not people. */
   anonymised: boolean
   /** Epoch ms of last login, null = never. */
   lastLogin: number | null
@@ -26,7 +26,7 @@ export interface RetentionPlan {
   anonymise: { id: string, cohort: 'guest' | 'full' }[]
   sendWarning60: string[]
   sendWarning30: string[]
-  /** Users who became active again after a warning — reset their notices. */
+  /** Users who became active again after a warning: reset their notices. */
   clearNotices: string[]
   skipped: { roleHolders: number, anonymised: number, active: number, capped: number }
 }
@@ -72,7 +72,7 @@ export function planRetention(
     }
 
     // For full accounts the clock is last login. Google-linked accounts need no
-    // special case — they simply stop logging in.
+    // special case: they simply stop logging in.
     const lastSeen = Math.max(user.lastLogin ?? 0, user.createdAt)
 
     if (now - lastSeen <= config.fullInactivityMs) {

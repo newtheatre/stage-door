@@ -1,5 +1,5 @@
 /**
- * Redirect validation — CLAUDE.md invariant 6. Anything off the estate
+ * Redirect validation: CLAUDE.md invariant 6. Anything off the estate
  * allowlist falls back to the apex, and is never reflected back.
  */
 

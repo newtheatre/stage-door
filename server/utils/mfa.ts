@@ -29,7 +29,7 @@ export async function isMfaRequired(user: UserRow, roles?: string[]): Promise<bo
   return held.some(role => role.endsWith(':ADMIN'))
 }
 
-/** Confirmed factors only — a half-finished enrolment must not gate a login. */
+/** Confirmed factors only: a half-finished enrolment must not gate a login. */
 export async function enrolledFactors(userId: string): Promise<('totp' | 'passkey')[]> {
   // One round trip: this runs on every admin request, before the handler.
   const row = await db.select({
@@ -109,7 +109,7 @@ export async function storeWebauthnChallenge(
 }
 
 /**
- * Single-use, and bound to the kind and account that started it — a
+ * Single-use, and bound to the kind and account that started it: a
  * challenge is only replay protection if it cannot be redirected.
  */
 export async function getWebauthnChallenge(
@@ -126,7 +126,7 @@ export async function getWebauthnChallenge(
     || row.kind !== kind
     || (userId !== null && row.userId !== userId)
     || row.expiresAt.getTime() < Date.now()) {
-    throw createError({ statusCode: 400, statusMessage: 'That took too long — please start again' })
+    throw createError({ statusCode: 400, statusMessage: 'That took too long: please start again' })
   }
 
   return row.challenge
@@ -143,7 +143,7 @@ export async function sweepMfaChallenges(): Promise<number> {
 // ── Recovery codes ──────────────────────────────────────────────────────────
 
 function hashRecoveryCode(code: string): string {
-  // Case, dashes, and whitespace are all forgiven — these get read off a
+  // Case, dashes, and whitespace are all forgiven: these get read off a
   // screen or pasted from the downloaded .txt, stray characters included.
   return createHash('sha256').update(code.toLowerCase().replace(/[-\s]/g, '')).digest('hex')
 }
@@ -200,7 +200,7 @@ export async function remainingRecoveryCodes(userId: string): Promise<number> {
   return rows.length
 }
 
-/** Remove every factor — admin reset, and part of erasure. */
+/** Remove every factor: admin reset, and part of erasure. */
 export async function clearAllFactors(userId: string): Promise<void> {
   await db.delete(schema.webauthnCredentials).where(eq(schema.webauthnCredentials.userId, userId))
   await db.delete(schema.totpSecrets).where(eq(schema.totpSecrets.userId, userId))
@@ -208,7 +208,7 @@ export async function clearAllFactors(userId: string): Promise<void> {
   await db.delete(schema.mfaChallenges).where(eq(schema.mfaChallenges.userId, userId))
 }
 
-/** Passkeys for the account UI — never exposes the public key. */
+/** Passkeys for the account UI: never exposes the public key. */
 export async function listPasskeys(userId: string) {
   const rows = await db.select().from(schema.webauthnCredentials)
     .where(eq(schema.webauthnCredentials.userId, userId)).all()

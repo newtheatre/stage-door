@@ -22,9 +22,9 @@ describe('fixed-window rate limiter (ADR-0009)', () => {
       await enforceRateLimit('forgot:acct', 'a@example.com')
     }
 
-    // Same scope, different subject — unaffected.
+    // Same scope, different subject: unaffected.
     await expect(enforceRateLimit('forgot:acct', 'b@example.com')).resolves.toBeUndefined()
-    // Different scope, same subject — unaffected.
+    // Different scope, same subject: unaffected.
     await expect(enforceRateLimit('login:acct', 'a@example.com')).resolves.toBeUndefined()
   })
 

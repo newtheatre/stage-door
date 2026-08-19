@@ -57,7 +57,7 @@ async function loadUsers(winnerId: string, loserId: string, actorId: string | nu
 
   for (const [user, side] of [[winner, 'winning'], [loser, 'losing']] as const) {
     if (user.email.endsWith(ANONYMISED_SUFFIX)) {
-      throw createError({ statusCode: 400, statusMessage: `The ${side} account is anonymised — nothing to merge` })
+      throw createError({ statusCode: 400, statusMessage: `The ${side} account is anonymised: nothing to merge` })
     }
   }
 
@@ -97,13 +97,13 @@ function buildPlan(
 
   const warnings: string[] = []
   if (loserFactors.length > 0) {
-    warnings.push('The losing account has two-step sign-in set up — second factors are never moved and will be deleted.')
+    warnings.push('The losing account has two-step sign-in set up: second factors are never moved and will be deleted.')
   }
   if (loser.password !== null && winner.password !== null) {
-    warnings.push('The losing account\'s password is discarded — the winning account keeps its own.')
+    warnings.push('The losing account\'s password is discarded: the winning account keeps its own.')
   }
   if (loser.googleSub !== null && winner.googleSub !== null) {
-    warnings.push('The losing account\'s Google link is discarded — the winning account keeps its own.')
+    warnings.push('The losing account\'s Google link is discarded: the winning account keeps its own.')
   }
 
   return {
@@ -129,7 +129,7 @@ export async function mergeUsers(
 ): Promise<MergeResult> {
   const { winner, loser } = await loadUsers(winnerId, loserId, actor.id)
 
-  // Everything the loser holds, captured before anything mutates — erasure
+  // Everything the loser holds, captured before anything mutates: erasure
   // deletes the grants and nulls the credentials further down.
   const loserGrants = await db.select().from(schema.userRoles)
     .where(eq(schema.userRoles.userId, loser.id)).all()
@@ -139,7 +139,7 @@ export async function mergeUsers(
     .from(schema.legacyIds).where(eq(schema.legacyIds.userId, loser.id)).all()
   const loserFactors = await enrolledFactors(loser.id)
 
-  // App hooks first — the only step that can partially fail. Dry runs ask
+  // App hooks first: the only step that can partially fail. Dry runs ask
   // the apps for counts without writing.
   const apps = await callAllAppHooks<{ ok: boolean, notMirrored?: boolean, counts?: Record<string, number> }>(
     'merge',
@@ -238,7 +238,7 @@ export async function mergeUsers(
     actorUserId: actor.id,
     action: 'user.merged',
     target: winner.id,
-    // The anonymous id only — the loser's email must not outlive the
+    // The anonymous id only: the loser's email must not outlive the
     // erasure in the audit log (same rule as user.erased).
     detail: {
       loserId: loser.id,

@@ -5,7 +5,7 @@
 ## Context
 
 `NUXT_SESSION_PASSWORD` is one value shared by four workers (auth, proscenium,
-room-bookings, rehearsal) — that is what makes the shared sealed cookie of
+room-bookings, rehearsal): that is what makes the shared sealed cookie of
 [ADR-0003](0003-shared-sealed-cookie-sessions.md) work at all. Held as a plain
 worker secret it was stored four times, which meant a rotation was four
 `wrangler secret put` calls plus four redeploys, with every user on the estate
@@ -39,7 +39,7 @@ the store; only the binding drops the prefix.
 
 ## Alternatives considered
 
-**Leave them as four worker secrets.** Works, and is one fewer moving part — but
+**Leave them as four worker secrets.** Works, and is one fewer moving part, but
 keeps the rotation footgun and the silent-drift failure mode described above.
 Rejected once the estate reached four consumers; at two it would have been a
 reasonable call.
@@ -51,7 +51,7 @@ synchronously from inside its own module and memoises it. We would have had to
 fork or patch it.
 
 **Name the binding `NUXT_SESSION_PASSWORD` so it flows through Nitro's env
-mapping unaided.** This was the first thing tried in spirit and it is a trap —
+mapping unaided.** This was the first thing tried in spirit and it is a trap.
 see the Decision above. Recorded here because it looks correct and is not.
 
 ## Consequences
@@ -65,12 +65,12 @@ see the Decision above. Recorded here because it looks correct and is not.
   Memoised per isolate, so the cost is not per request.
 - Local dev is unchanged: no binding exists, the plugin no-ops, and the password
   comes from `.env` as `docs/development.md` describes. This also means the
-  binding is only exercised in production — a mistake in it cannot be caught
+  binding is only exercised in production: a mistake in it cannot be caught
   locally, only by deploying.
 - Scheduled tasks do not run the `request` hook. None of ours seal sessions
   today; one that needs a store-backed secret must read the binding itself.
 - Anyone with Cloudflare dashboard access can now see the *existence* of estate
-  secrets in one list. Values are still write-only — the store cannot read a
+  secrets in one list. Values are still write-only: the store cannot read a
   secret back out, which also means **the password manager remains the only
   place a value can be recovered from**. Losing the password-manager entry now
   means rotating, not looking it up.

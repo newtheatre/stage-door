@@ -11,4 +11,4 @@ npx wrangler d1 export proscenium --remote --output .data/migrate/proscenium.sql
 echo "Exporting rooms…"
 npx wrangler d1 export rooms --remote --output .data/migrate/rooms.sql
 
-echo "Done. Exports in .data/migrate/ (gitignored — contains personal data)."
+echo "Done. Exports in .data/migrate/ (gitignored: contains personal data)."

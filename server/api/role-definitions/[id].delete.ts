@@ -2,7 +2,7 @@ import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 
 /**
- * Remove a definition. Existing grants are untouched — definitions are UX
+ * Remove a definition. Existing grants are untouched: definitions are UX
  * metadata, not the source of access (ADR-0011).
  */
 export default defineEventHandler(async (event) => {

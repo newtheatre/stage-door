@@ -2,7 +2,7 @@ import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 
 /**
- * Sign in with a passkey — a complete login, not a second step (ADR-0012).
+ * Sign in with a passkey: a complete login, not a second step (ADR-0012).
  * Usernameless by design. See register.post.ts for the non-default options.
  */
 export default defineWebAuthnAuthenticateEventHandler({

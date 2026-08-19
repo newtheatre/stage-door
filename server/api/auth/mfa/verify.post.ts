@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
 
   const user = await consumeMfaAttempt(attemptId)
   if (!user) {
-    throw createError({ statusCode: 400, statusMessage: 'That sign-in attempt expired — please log in again' })
+    throw createError({ statusCode: 400, statusMessage: 'That sign-in attempt expired: please log in again' })
   }
 
   await enforceRateLimit('mfa:acct', user.id)
@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
 
   if (!accepted) {
     // Re-issue the attempt so a typo doesn't force the whole password step
-    // again — the rate limits above are what bound guessing.
+    // again: the rate limits above are what bound guessing.
     throw createError({
       statusCode: 401,
       statusMessage: 'That code was not correct',

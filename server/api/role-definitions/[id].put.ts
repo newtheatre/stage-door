@@ -13,8 +13,8 @@ const bodySchema = z.object({
 })
 
 /**
- * PUT /api/role-definitions/:id — update description/default (admin) [AUD].
- * The namespace:role identity is immutable — delete and recreate to rename.
+ * PUT /api/role-definitions/:id: update description/default (admin) [AUD].
+ * The namespace:role identity is immutable: delete and recreate to rename.
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)

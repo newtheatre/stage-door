@@ -20,7 +20,7 @@ describe('roles:expiry-warn task', () => {
     const holder = await createUser({ email: 'holder@example-user.co.uk', plainPassword: 'Passw0rd' })
     await grantRole(holder.id, 'rooms:ADMIN', { expiresAt: new Date(Date.now() + 7 * DAY) })
     await grantRole(holder.id, 'proscenium:BOX_OFFICE', { expiresAt: new Date(Date.now() + 10 * DAY) })
-    // Not in the window / not dated — untouched.
+    // Not in the window / not dated: untouched.
     await grantRole(holder.id, 'proscenium:MANAGER', { expiresAt: new Date(Date.now() + 100 * DAY) })
     const other = await createUser({ email: 'other@example-user.co.uk', plainPassword: 'Passw0rd' })
     await grantRole(other.id, 'auth:ADMIN')
@@ -54,7 +54,7 @@ describe('roles:expiry-warn task', () => {
     let { result } = await runTask()
     expect(result.warnedGrants).toBe(0)
 
-    // Renewal: roles.put clears expiryWarnedAt when expiry changes —
+    // Renewal: roles.put clears expiryWarnedAt when expiry changes.
     // simulate its effect, with the new date inside the window again.
     await db.update(schema.userRoles)
       .set({ expiresAt: new Date(Date.now() + 12 * DAY), expiryWarnedAt: null })

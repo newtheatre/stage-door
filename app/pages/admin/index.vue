@@ -10,7 +10,7 @@
       color="error"
       icon="i-lucide-alert-circle"
       title="Could not load users"
-      :description="getErrorMessage(listError, 'Something went wrong — try reloading.')"
+      :description="getErrorMessage(listError, 'Something went wrong: try reloading.')"
     />
 
     <!-- Rollout hints for the Workspace/MFA rules (ADR-0012). Each one is a
@@ -106,7 +106,7 @@
         <span
           v-else
           class="text-muted"
-        >—</span>
+        >None</span>
       </template>
     </UTable>
 
@@ -128,7 +128,7 @@
     <UModal
       v-model:open="createOpen"
       title="Create user"
-      description="They'll receive a set-password email — no generated passwords."
+      description="They'll receive a set-password email: no generated passwords."
     >
       <template #body>
         <UForm
@@ -185,7 +185,7 @@ import type { TableRow } from '@nuxt/ui'
 
 definePageMeta({
   middleware: 'admin',
-  title: 'Admin — users',
+  title: 'Admin: users',
 })
 
 const toast = useToast()
@@ -292,7 +292,7 @@ async function createUser() {
     createOpen.value = false
     Object.assign(createForm, { name: '', email: '', roles: '' })
     await refresh()
-    toast.add({ title: 'User created — set-password email sent', color: 'success' })
+    toast.add({ title: 'User created: set-password email sent', color: 'success' })
     await navigateTo(`/admin/users/${result.user.id}`)
   }
   catch (error) {

@@ -1,7 +1,7 @@
 import { z } from 'zod/v4'
 
 /**
- * Reusable Zod password schema — same policy as Proscenium's:
+ * Reusable Zod password schema: same policy as Proscenium's:
  * minimum 8 characters, at least one lowercase, one uppercase, one digit.
  */
 export const passwordSchema = z.string()
@@ -10,7 +10,7 @@ export const passwordSchema = z.string()
   .refine(val => /[A-Z]/.test(val), { message: 'Password must contain at least one uppercase letter' })
   .refine(val => /\d/.test(val), { message: 'Password must contain at least one number' })
 
-/** Email, lowercased on the way in — always (docs/data-model.md). */
+/** Email, lowercased on the way in: always (docs/data-model.md). */
 export const emailSchema = z.email('Please enter a valid email address')
   .transform(val => val.toLowerCase())
 
@@ -97,7 +97,7 @@ export function assertPasswordAllowed(email: string): void {
 
 /**
  * Addresses that can never receive mail. They must never be registrable or
- * claimable — claiming needs no email round-trip.
+ * claimable: claiming needs no email round-trip.
  */
 export function isUndeliverableEmail(email: string): boolean {
   return /\.invalid$|\.test$|\.example$|\.localhost$|@example\.(com|org|net)$/.test(email)

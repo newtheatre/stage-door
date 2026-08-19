@@ -39,7 +39,7 @@ describe('isWorkspaceEmail', () => {
   })
 
   it.each([
-    // Subdomains are not Workspace accounts — this is what keeps the dev
+    // Subdomains are not Workspace accounts: this is what keeps the dev
     // seed (@dev.newtheatre.org.uk) able to log in with a password locally.
     'admin@dev.newtheatre.org.uk',
     'matthew.n.adcock@gmail.com',
@@ -53,7 +53,7 @@ describe('isWorkspaceEmail', () => {
 })
 
 describe('Workspace addresses cannot use password login (ADR-0012)', () => {
-  it('refuses password login with a 403 that points at Google — deliberately not the generic 401', async () => {
+  it('refuses password login with a 403 that points at Google: deliberately not the generic 401', async () => {
     // The account exists with a valid password; the domain rule still wins.
     await createUser({ email: 'president@newtheatre.org.uk', plainPassword: 'Passw0rd', verified: true })
 
@@ -103,7 +103,7 @@ describe('Workspace addresses cannot use password login (ADR-0012)', () => {
     expect(sentEmails).toHaveLength(0)
   })
 
-  it('leaves the Google path untouched — a Workspace account still signs in and keeps its history', async () => {
+  it('leaves the Google path untouched: a Workspace account still signs in and keeps its history', async () => {
     // resolveGoogleUser is what picks these accounts up on next sign-in.
     const existing = await createUser({ email: 'president@newtheatre.org.uk', plainPassword: 'Passw0rd' })
 

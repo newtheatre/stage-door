@@ -49,7 +49,7 @@ describe('session refresh', () => {
     expect(result.user.roles).toEqual([])
 
     const rows = await db.select().from(schema.userRoles).where(eq(schema.userRoles.userId, user.id)).all()
-    expect(rows).toHaveLength(1) // history intact — read-time enforcement, not deletion
+    expect(rows).toHaveLength(1) // history intact: read-time enforcement, not deletion
   })
 
   it('preserves loggedInAt but updates refreshedAt', async () => {

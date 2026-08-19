@@ -23,7 +23,7 @@ export async function assertGrantsDefined(roles: { role: string }[], alreadyHeld
     if (!defined.has(grant.role)) {
       throw createError({
         statusCode: 400,
-        statusMessage: `No definition for ${grant.role} — define it under Role definitions first`,
+        statusMessage: `No definition for ${grant.role}: define it under Role definitions first`,
       })
     }
   }
@@ -39,6 +39,6 @@ export function assertEligibilityModeAllowed(namespace: string, role: string, mo
 
   throw createError({
     statusCode: 400,
-    statusMessage: `${namespace}:ADMIN cannot have an enforcing training prerequisite — an outage would lock out the people who fix it`,
+    statusMessage: `${namespace}:ADMIN cannot have an enforcing training prerequisite: an outage would lock out the people who fix it`,
   })
 }

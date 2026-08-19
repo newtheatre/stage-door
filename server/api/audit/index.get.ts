@@ -11,7 +11,7 @@ const querySchema = z.object({
 
 const PAGE_SIZE = 50
 
-/** GET /api/audit?actor=&action=&target=&page= — audit log query (admin). */
+/** GET /api/audit?actor=&action=&target=&page=: audit log query (admin). */
 export default defineEventHandler(async (event) => {
   await requireAuthAdmin(event)
   const { actor, action, target, page } = await getValidatedQuery(event, querySchema.parse)

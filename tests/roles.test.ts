@@ -130,7 +130,7 @@ describe('role definitions', () => {
   })
 })
 
-describe('PUT /api/users/:id/roles — grant diff semantics', () => {
+describe('PUT /api/users/:id/roles: grant diff semantics', () => {
   it('accepts bare strings (back-compat) as permanent grants', async () => {
     await defineRole('rooms', 'ADMIN')
     const target = await createUser({ email: 'target@example-user.co.uk' })
@@ -196,7 +196,7 @@ describe('PUT /api/users/:id/roles — grant diff semantics', () => {
 
   it('refuses to create a grant with no definition, but leaves held ones editable (ADR-0014)', async () => {
     const target = await createUser({ email: 'undefined-role@example-user.co.uk' })
-    // ticketing:* — the dormant legacy namespace deliberately has no
+    // ticketing:*: the dormant legacy namespace deliberately has no
     // definitions (ADR-0010), and history like it must stay manageable.
     await grantRole(target.id, 'ticketing:LEGACY')
 

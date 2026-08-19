@@ -1,5 +1,5 @@
 /**
- * Roles v2 configuration (ADR-0011) — committee-ratifiable values live here,
+ * Roles v2 configuration (ADR-0011): committee-ratifiable values live here,
  * not in code paths, mirroring retentionConfig.ts.
  */
 
@@ -23,7 +23,7 @@ export const ROLES_CONFIG = {
   dormantNamespaces: ['ticketing'] as string[],
 
   /**
-   * Cosmetic cleanup only (0 disables) — read-time enforcement already makes
+   * Cosmetic cleanup only (0 disables): read-time enforcement already makes
    * an expired grant inert. 90 days keeps one-click renewal available.
    */
   cleanupAfterDays: 90,

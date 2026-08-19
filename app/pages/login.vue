@@ -38,7 +38,7 @@
             color="info"
             icon="i-simple-icons-google"
             title="NNT accounts sign in with Google"
-            description="Your @newtheatre.org.uk account doesn't use a password here — use the Google button below and you'll be signed in with everything you had before."
+            description="Your @newtheatre.org.uk account doesn't use a password here: use the Google button below and you'll be signed in with everything you had before."
           />
           <UAlert
             v-else-if="errorMessage"
@@ -168,7 +168,7 @@ async function onPasskey() {
     await navigateToTarget()
   }
   catch (error) {
-    // A cancelled prompt throws too — say nothing rather than alarm them.
+    // A cancelled prompt throws too: say nothing rather than alarm them.
     if ((error as { name?: string })?.name !== 'NotAllowedError') {
       errorMessage.value = getErrorMessage(error, 'That passkey could not be used. Try your password instead.')
     }
@@ -199,7 +199,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     await navigateToTarget()
   }
   catch (error) {
-    // A Workspace address hit the domain rule (ADR-0012) — point at Google
+    // A Workspace address hit the domain rule (ADR-0012): point at Google
     // rather than leaving them re-typing a password that will never work.
     if ((error as { data?: { data?: { useGoogle?: boolean } } })?.data?.data?.useGoogle) {
       useGoogleInstead.value = true

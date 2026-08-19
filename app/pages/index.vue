@@ -1,6 +1,6 @@
 <template>
   <UContainer class="flex flex-col justify-center gap-4 p-4 flex-1 w-full max-w-4xl">
-    <!-- Logged in: 2×2 grid — identity spans the left column, estate links
+    <!-- Logged in: 2×2 grid: identity spans the left column, estate links
          and the security snapshot stack on the right. -->
     <div
       v-if="loggedIn"
@@ -63,7 +63,7 @@
           </div>
 
           <p class="text-sm text-muted">
-            One login for every NNT site — tickets, room bookings, and the
+            One login for every NNT site: tickets, room bookings, and the
             tools behind them.
           </p>
 
@@ -105,7 +105,7 @@
             trailing-icon="i-lucide-arrow-up-right"
             :ui="{ trailingIcon: 'ms-auto text-muted' }"
           >
-            Tickets &amp; shows — newtheatre.org.uk
+            Tickets &amp; shows: newtheatre.org.uk
           </UButton>
           <UButton
             to="https://rooms.newtheatre.org.uk"
@@ -118,7 +118,7 @@
             trailing-icon="i-lucide-arrow-up-right"
             :ui="{ trailingIcon: 'ms-auto text-muted' }"
           >
-            Room bookings — rooms.newtheatre.org.uk
+            Room bookings: rooms.newtheatre.org.uk
           </UButton>
         </div>
       </UPageCard>
@@ -239,7 +239,7 @@ const mfaLocked = computed(() => !!mfa.value && mfa.value.required && mfa.value.
 
 const loggingOut = ref(false)
 
-// Clears the shared cookie — logs this browser out of every NNT site. The
+// Clears the shared cookie: logs this browser out of every NNT site. The
 // stronger epoch-bumping "log out everywhere" lives on /account.
 async function logout() {
   loggingOut.value = true

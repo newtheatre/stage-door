@@ -1,7 +1,7 @@
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 
-/** POST /api/users/:id/enable — reverse a disable. */
+/** POST /api/users/:id/enable: reverse a disable. */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)
   const user = await loadUserOr404(getRouterParam(event, 'id'))

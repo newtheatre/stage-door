@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   if (remaining === 0 && await isMfaRequired(user)) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'This is your only second factor and your account requires one — set up another first',
+      statusMessage: 'This is your only second factor and your account requires one: set up another first',
     })
   }
 

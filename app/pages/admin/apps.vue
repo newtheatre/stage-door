@@ -171,7 +171,7 @@
 <script lang="ts" setup>
 definePageMeta({
   middleware: 'admin',
-  title: 'Admin — apps',
+  title: 'Admin: apps',
 })
 
 const toast = useToast()

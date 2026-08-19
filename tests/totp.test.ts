@@ -67,7 +67,7 @@ describe('verifyTotp', () => {
     expect((await verifyTotp(secret, await totpCode(secret, step + 2), { at })).valid).toBe(false)
   })
 
-  it('refuses a code from a step already used — a code is valid for 30s, once', async () => {
+  it('refuses a code from a step already used: a code is valid for 30s, once', async () => {
     const step = totpStep(at)
     const code = await totpCode(secret, step)
 

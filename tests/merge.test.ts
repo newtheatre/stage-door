@@ -53,7 +53,7 @@ async function caught(fn: () => Promise<unknown>) {
   }
 }
 
-describe('mergeUsers — dry run', () => {
+describe('mergeUsers: dry run', () => {
   it('calls every hook with dryRun and writes nothing', async () => {
     await seedTokens()
     hooksSucceed()
@@ -82,7 +82,7 @@ describe('mergeUsers — dry run', () => {
   })
 })
 
-describe('mergeUsers — commit', () => {
+describe('mergeUsers: commit', () => {
   it('unions roles, moves legacy ids, fills credentials, erases the loser', async () => {
     await seedTokens()
     hooksSucceed()

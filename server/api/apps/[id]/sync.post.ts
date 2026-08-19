@@ -1,7 +1,7 @@
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 
-/** POST /api/apps/:id/sync — the admin "Sync now" button. */
+/** POST /api/apps/:id/sync: the admin "Sync now" button. */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)
   const id = getRouterParam(event, 'id')!
