@@ -72,7 +72,7 @@ Query `?redirect=<url>` (validated against the allowlist). Re-reads user + roles
 
 ## Users & admin
 
-All require session + `auth:ADMIN` unless noted. All mutations **[AUD]**.
+All require session + `auth:ADMIN` unless noted. All mutations **[AUD]** (enforced by `tests/audit-coverage.test.ts`, which fails if a non-GET route under `server/api/account` or `server/api/users` neither calls `writeAudit` nor delegates to a helper that does; deliberate exemptions are listed there with their reason).
 
 | Endpoint | Purpose |
 |---|---|

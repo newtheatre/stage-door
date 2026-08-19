@@ -33,6 +33,13 @@ export default defineEventHandler(async (event) => {
     .where(eq(schema.users.id, user.id))
     .returning()
 
+  await writeAudit({
+    actorUserId: user.id,
+    action: 'user.password-changed',
+    target: user.id,
+    detail: { via: 'self-service', hadPassword: user.password !== null },
+  })
+
   const roles = await loadRoles(user.id)
   await sealUserSession(event, updated!, roles, { fresh: false, loggedInAt })
 
