@@ -26,6 +26,7 @@ Why the service is the way it is. One decision per file, numbered, never edited 
 | [0020](0020-what-this-service-caches.md) | What this service caches, and what it must never cache | Accepted |
 | [0021](0021-migrations-apply-in-ci.md) | Migrations apply from CI, and the service reports when they have not | Accepted — the bespoke script it describes was replaced by Proscenium's `nuxt-db migrate` workflow days later, with a Time Travel restore point and a ledger gate; the decision and its reasoning stand |
 | [0022](0022-register-never-seals-a-session.md) | Register never seals a session; claiming needs the emailed link | Accepted |
+| [0023](0023-suspect-grants-reported-not-revoked.md) | Suspect grants are reported to the ITM, never revoked automatically | Accepted |
 
 ## Template
 

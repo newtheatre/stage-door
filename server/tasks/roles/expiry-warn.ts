@@ -93,7 +93,7 @@ export default defineTask({
     }
 
     // Grants that reference nothing an app reads. Reported here rather than in
-    // their own task: it is the same daily look at the role table (ADR-0021).
+    // their own task: it is the same daily look at the role table (ADR-0023).
     const suspects = await findSuspectGrants(new Date(now))
     if (suspects.length) {
       await sendSuspectGrantsEmail(

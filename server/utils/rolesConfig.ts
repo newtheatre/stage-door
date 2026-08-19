@@ -18,7 +18,7 @@ export const ROLES_CONFIG = {
 
   /**
    * Namespaces with no app behind them on purpose, so their definition-less
-   * grants are history rather than mistakes (ADR-0010, ADR-0021).
+   * grants are history rather than mistakes (ADR-0010, ADR-0023).
    */
   dormantNamespaces: ['ticketing'] as string[],
 

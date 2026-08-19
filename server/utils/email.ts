@@ -145,7 +145,7 @@ export async function sendRoleExpiryDigestEmail(
   })
 }
 
-/** Daily digest: grants that reference nothing an app reads (ADR-0021). */
+/** Daily digest: grants that reference nothing an app reads (ADR-0023). */
 export async function sendSuspectGrantsEmail(
   to: string,
   suspects: { role: string, holders: number, explanation: string }[],
