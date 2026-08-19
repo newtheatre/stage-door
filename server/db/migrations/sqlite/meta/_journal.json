@@ -78,6 +78,13 @@
       "when": 1787085152050,
       "tag": "0010_broad_kid_colt",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1787179277116,
+      "tag": "0011_mighty_argent",
+      "breakpoints": true
     }
   ]
 }

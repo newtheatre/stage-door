@@ -7,6 +7,7 @@ import updateHandler from '../server/api/apps/[id].put'
 import deleteHandler from '../server/api/apps/[id].delete'
 import { callAppHook, callAllAppHooks } from '../server/utils/appHooks'
 import { baseUrlSchema } from '../server/utils/validation'
+import { createServiceToken, hashServiceToken, requireServiceToken } from '../server/utils/serviceToken'
 import { fetchMock, makeEvent } from './setup'
 import type { FakeEvent } from './setup'
 import { createUser, grantRole, enrolTotp, registerApp } from './helpers/users'
@@ -82,16 +83,25 @@ describe('app registry (ADR-0017)', () => {
     expect(apps.find(a => a.name === 'photos')!.hasToken).toBe(false)
   })
 
-  it('deregisters without the token foreign key blocking it', async () => {
+  it('deregisters and revokes the app\'s tokens with it', async () => {
     const app = await registerApp('photos')
     await db.insert(schema.serviceTokens).values({ name: 'photos', tokenHash: 'hash-x', appId: app.id })
 
     await deleteApp(await adminEvent({ params: { id: app.id } }))
 
     expect(await db.select().from(schema.apps).all()).toHaveLength(0)
-    // The token survives deregistration; revoking it is a separate action.
-    const token = await db.select().from(schema.serviceTokens).get()
-    expect(token!.appId).toBeNull()
+    // Orphaning it would leave a credential that still authenticates inbound.
+    expect(await db.select().from(schema.serviceTokens).all()).toHaveLength(0)
+  })
+
+  it('leaves an unlinked token alone when a different app is deregistered', async () => {
+    const app = await registerApp('photos')
+    await db.insert(schema.serviceTokens).values({ name: 'rooms', tokenHash: 'hash-r' })
+
+    await deleteApp(await adminEvent({ params: { id: app.id } }))
+
+    const left = await db.select().from(schema.serviceTokens).all()
+    expect(left.map(t => t.name)).toEqual(['rooms'])
   })
 })
 
@@ -158,5 +168,38 @@ describe('the base URL localhost escape hatch', () => {
 
   it('still accepts https origins', () => {
     expect(baseUrlSchema.safeParse('https://rooms.newtheatre.org.uk').success).toBe(true)
+  })
+})
+
+describe('overlap token rotation (docs/operations.md)', () => {
+  it('issues a second token for the same app without a unique clash', async () => {
+    const first = await createServiceToken('proscenium')
+    const second = await createServiceToken('proscenium')
+
+    expect(first.id).not.toBe(second.id)
+    const rows = await db.select().from(schema.serviceTokens).all()
+    expect(rows).toHaveLength(2)
+  })
+
+  it('authenticates on either token, and sends the newest outbound', async () => {
+    await registerApp('proscenium', { baseUrl: 'https://newtheatre.org.uk' })
+    const old = await createServiceToken('proscenium')
+    // createdAt is the tiebreak, so the new row must sort after the old one.
+    await db.update(schema.serviceTokens)
+      .set({ createdAt: new Date(Date.now() - 60_000) })
+      .where(eq(schema.serviceTokens.id, old.id))
+    const fresh = await createServiceToken('proscenium')
+
+    // Both are accepted inbound during the overlap.
+    for (const token of [old.token, fresh.token]) {
+      const event = makeEvent({ headers: { authorization: `Bearer ${token}` } })
+      await expect(requireServiceToken(event)).resolves.toMatchObject({ name: 'proscenium' })
+    }
+
+    // Outbound uses the newest, so the app can revoke the old one safely.
+    fetchMock.mockResolvedValue({ ok: true })
+    await callAppHook('proscenium', 'anonymise', { userId: 'u1' })
+    const [, options] = fetchMock.mock.calls.at(-1)!
+    expect(options.headers.Authorization).toBe(`Bearer ${hashServiceToken(fresh.token)}`)
   })
 })

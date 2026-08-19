@@ -4,7 +4,7 @@
  */
 
 import { db, schema } from '@nuxthub/db'
-import { eq } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 
 /** An app name as registered, e.g. 'rehearsal'. Not its role namespace. */
 export type HookApp = string
@@ -29,10 +29,12 @@ export async function loadHookApps() {
     .all()
 }
 
+/** The newest token, so an overlap rotation sends the one just issued. */
 async function hookBearer(app: HookApp): Promise<string> {
   const row = await db.select({ tokenHash: schema.serviceTokens.tokenHash })
     .from(schema.serviceTokens)
     .where(eq(schema.serviceTokens.name, app))
+    .orderBy(desc(schema.serviceTokens.createdAt))
     .get()
   if (!row) throw new Error(`No service token registered for app '${app}'`)
   return row.tokenHash
