@@ -6,6 +6,8 @@ import verifyHandler from '../server/api/auth/mfa/verify.post'
 import totpStartHandler from '../server/api/account/mfa/totp.post'
 import totpConfirmHandler from '../server/api/account/mfa/totp-confirm.post'
 import removeFactorHandler from '../server/api/account/mfa/[id].delete'
+import changeOwnPasswordHandler from '../server/api/account/password.put'
+import changeOwnProfileHandler from '../server/api/account/profile.put'
 import mfaResetHandler from '../server/api/users/[id]/mfa-reset.post'
 import rolesHandler from '../server/api/users/[id]/roles.put'
 import { totpCode } from '../server/utils/totp'
@@ -30,6 +32,8 @@ const verify = verifyHandler as unknown as (event: unknown) => Promise<Record<st
 const startTotp = totpStartHandler as unknown as (event: unknown) => Promise<{ secret: string, uri: string }>
 const confirmTotp = totpConfirmHandler as unknown as (event: unknown) => Promise<{ recoveryCodes: string[] | null }>
 const removeFactor = removeFactorHandler as unknown as (event: unknown) => Promise<unknown>
+const changeOwnPassword = changeOwnPasswordHandler as unknown as (event: unknown) => Promise<unknown>
+const changeOwnProfile = changeOwnProfileHandler as unknown as (event: unknown) => Promise<unknown>
 const mfaReset = mfaResetHandler as unknown as (event: unknown) => Promise<unknown>
 const putRoles = rolesHandler as unknown as (event: unknown) => Promise<unknown>
 
@@ -453,5 +457,33 @@ describe('single-use secrets are claimed by the write, not the read', () => {
     ])
 
     expect([first, second].filter(Boolean)).toHaveLength(1)
+  })
+})
+
+describe('self-service credential changes are audited', () => {
+  it('records a password change against the account', async () => {
+    const user = await createUser({ email: 'selfpw@example.com', plainPassword: 'Passw0rd', verified: true })
+    const event = await sessionEvent(user, { body: { currentPassword: 'Passw0rd', password: 'N3wPassw0rd' } })
+
+    await changeOwnPassword(event)
+
+    const audit = await db.select().from(schema.auditLog)
+      .where(eq(schema.auditLog.action, 'user.password-changed')).all()
+    expect(audit).toHaveLength(1)
+    expect(audit[0]?.target).toBe(user.id)
+    expect(audit[0]?.actorUserId).toBe(user.id)
+  })
+
+  it('records an email change with its from and to', async () => {
+    const user = await createUser({ email: 'old-self@example-user.co.uk', plainPassword: 'Passw0rd', verified: true })
+    const event = await sessionEvent(user, { body: { email: 'new-self@example-user.co.uk' } })
+
+    await changeOwnProfile(event)
+
+    const audit = await db.select().from(schema.auditLog)
+      .where(eq(schema.auditLog.action, 'user.updated')).all()
+    expect(audit).toHaveLength(1)
+    expect(audit[0]?.detail).toContain('old-self@example-user.co.uk')
+    expect(audit[0]?.detail).toContain('new-self@example-user.co.uk')
   })
 })

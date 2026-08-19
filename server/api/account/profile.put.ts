@@ -44,6 +44,17 @@ export default defineEventHandler(async (event) => {
     await sendVerificationEmail(email, token)
   }
 
+  await writeAudit({
+    actorUserId: user.id,
+    action: 'user.updated',
+    target: user.id,
+    detail: {
+      via: 'self-service',
+      ...(name !== undefined ? { name } : {}),
+      ...(emailChanged ? { email: { from: user.email, to: email } } : {}),
+    },
+  })
+
   const roles = await loadRoles(user.id)
   await sealUserSession(event, updated!, roles, { fresh: false, loggedInAt })
 
