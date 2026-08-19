@@ -57,7 +57,14 @@ export default defineEventHandler(async (event) => {
   // Re-seal the caller's session with the fresh flag (single-writer rule:
   // this service is the only place that may do this).
   const session = await getUserSession(event)
-  if (session.user?.id === user.id) {
+
+  // An id match alone re-stamps the current epoch onto a cookie force-logout
+  // revoked, undoing it. Same liveness triple as requireAccountUser.
+  const live = session.user?.id === user.id
+    && !user.disabled
+    && (session.epoch ?? -1) === user.sessionEpoch
+
+  if (live) {
     const roles = await loadRoles(user.id)
     await sealUserSession(event, { ...user, verified: true }, roles, {
       fresh: false,

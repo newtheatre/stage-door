@@ -55,6 +55,51 @@ describe('POST /api/auth/email/verify', () => {
     expect(session.loggedInAt).toBeLessThan(Date.now()) // original login time preserved
   })
 
+  it('does not re-seal a session that force-logout revoked', async () => {
+    const user = await createUser({ email: 'alice@example.com', plainPassword: 'Passw0rd' })
+    const token = await issueToken(user.id)
+
+    // Admin bumps the epoch after the cookie was sealed.
+    await db.update(schema.users).set({ sessionEpoch: 1 }).where(eq(schema.users.id, user.id))
+
+    const event = makeEvent({ body: { token } })
+    await (globalThis as never as { setUserSession: (e: unknown, s: unknown) => Promise<unknown> })
+      .setUserSession(event, {
+        user: { id: user.id, email: user.email, name: user.name, verified: false, guest: false, roles: [] },
+        loggedInAt: Date.now() - 5_000,
+        refreshedAt: Date.now() - 5_000,
+        epoch: 0,
+      })
+
+    await verify(event)
+
+    // The address is verified, but the revoked cookie is left untouched:
+    // still the stale epoch, still verified: false.
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, user.id)).get()
+    expect(row!.verified).toBe(true)
+    const session = sealedSession(event)!
+    expect(session.epoch).toBe(0)
+    expect(session.user).toMatchObject({ verified: false })
+  })
+
+  it('does not re-seal a session for a disabled account', async () => {
+    const user = await createUser({ email: 'bob@example.com', plainPassword: 'Passw0rd' })
+    const token = await issueToken(user.id)
+    await db.update(schema.users).set({ disabled: true }).where(eq(schema.users.id, user.id))
+
+    const event = makeEvent({ body: { token } })
+    await (globalThis as never as { setUserSession: (e: unknown, s: unknown) => Promise<unknown> })
+      .setUserSession(event, {
+        user: { id: user.id, email: user.email, name: user.name, verified: false, guest: false, roles: [] },
+        loggedInAt: Date.now() - 5_000,
+        refreshedAt: Date.now() - 5_000,
+        epoch: 0,
+      })
+
+    await verify(event)
+    expect(sealedSession(event)!.user).toMatchObject({ verified: false })
+  })
+
   it('auto-resends on an expired token and reports 400', async () => {
     const user = await createUser({ email: 'alice@example.com', plainPassword: 'Passw0rd' })
     const token = await issueToken(user.id, -1000)
