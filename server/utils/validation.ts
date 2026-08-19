@@ -75,6 +75,20 @@ export function isWorkspaceEmail(email: string): boolean {
 }
 
 /**
+ * The ADR-0012 rule, enforced where a password is actually written or a
+ * set-password token minted. Login-side checks alone were bypassable.
+ */
+export function assertPasswordAllowed(email: string): void {
+  if (isWorkspaceEmail(email)) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'NNT accounts sign in with Google and cannot hold a password.',
+      data: { useGoogle: true },
+    })
+  }
+}
+
+/**
  * Addresses that can never receive mail. They must never be registrable or
  * claimable — claiming needs no email round-trip.
  */

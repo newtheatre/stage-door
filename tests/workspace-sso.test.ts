@@ -3,15 +3,32 @@ import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 import { isWorkspaceEmail } from '../server/utils/validation'
 import loginHandler from '../server/api/auth/login.post'
+import adminResetHandler from '../server/api/users/[id]/reset-password.post'
+import changePasswordHandler from '../server/api/account/password.put'
+import redeemResetHandler from '../server/api/auth/password/reset.post'
+import { createPasswordResetToken } from '../server/utils/tokens'
 import forgotHandler from '../server/api/auth/password/forgot.post'
 import registerHandler from '../server/api/auth/register.post'
 import { makeEvent, sealedSession, sentEmails } from './setup'
 import { resolveGoogleUser } from '../server/utils/googleAccount'
-import { createUser } from './helpers/users'
+import { createUser, grantRole, enrolTotp } from './helpers/users'
 
 const login = loginHandler as unknown as (event: unknown) => Promise<unknown>
 const forgot = forgotHandler as unknown as (event: unknown) => Promise<{ ok: boolean }>
 const register = registerHandler as unknown as (event: unknown) => Promise<{ ok: boolean }>
+const adminReset = adminResetHandler as unknown as (event: unknown) => Promise<unknown>
+const changePassword = changePasswordHandler as unknown as (event: unknown) => Promise<unknown>
+const redeemReset = redeemResetHandler as unknown as (event: unknown) => Promise<unknown>
+
+async function sealFor(event: object, user: { id: string, email: string, name: string }, roles: string[] = []) {
+  await (globalThis as never as { setUserSession: (e: unknown, s: unknown) => Promise<unknown> })
+    .setUserSession(event, {
+      user: { id: user.id, email: user.email, name: user.name, verified: true, guest: false, roles },
+      loggedInAt: Date.now(),
+      refreshedAt: Date.now(),
+      epoch: 0,
+    })
+}
 
 describe('isWorkspaceEmail', () => {
   it.each([
@@ -102,5 +119,43 @@ describe('Workspace addresses cannot use password login (ADR-0012)', () => {
     expect(user.id).toBe(existing.id) // same account, same roles, same history
     const linked = await db.select().from(schema.users).where(eq(schema.users.id, existing.id)).get()
     expect(linked!.googleSub).toBe('google-sub-president')
+  })
+})
+
+describe('ADR-0012 is enforced where a password is written, not only at login', () => {
+  it('refuses to mint an admin set-password token for a Workspace address', async () => {
+    const admin = await createUser({ email: 'admin-ws@example.com', plainPassword: 'Passw0rd', verified: true })
+    await grantRole(admin.id, 'auth:ADMIN')
+    await enrolTotp(admin.id)
+    const target = await createUser({ email: 'president@newtheatre.org.uk', googleSub: 'g-pres' })
+
+    const event = makeEvent({ params: { id: target.id } })
+    await sealFor(event, admin, ['auth:ADMIN'])
+
+    await expect(adminReset(event)).rejects.toMatchObject({ statusCode: 403 })
+    expect(sentEmails).toHaveLength(0)
+  })
+
+  it('refuses to set a password on a Workspace address from /account', async () => {
+    const user = await createUser({ email: 'sec@newtheatre.org.uk', googleSub: 'g-sec', verified: true })
+
+    const event = makeEvent({ body: { password: 'Passw0rd' } })
+    await sealFor(event, user)
+
+    await expect(changePassword(event)).rejects.toMatchObject({ statusCode: 403 })
+
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, user.id)).get()
+    expect(row!.password).toBeNull()
+  })
+
+  it('refuses to redeem a reset token against a Workspace address', async () => {
+    const user = await createUser({ email: 'tres@newtheatre.org.uk', googleSub: 'g-tres', verified: true })
+    const token = await createPasswordResetToken(user.id)
+
+    const event = makeEvent({ body: { token, password: 'Passw0rd' } })
+    await expect(redeemReset(event)).rejects.toMatchObject({ statusCode: 403 })
+
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, user.id)).get()
+    expect(row!.password).toBeNull()
   })
 })

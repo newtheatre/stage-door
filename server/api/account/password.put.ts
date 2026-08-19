@@ -23,6 +23,8 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  assertPasswordAllowed(user.email)
+
   const [updated] = await db.update(schema.users)
     .set({
       password: await hashPassword(password),

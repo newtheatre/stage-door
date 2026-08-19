@@ -46,6 +46,8 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  assertPasswordAllowed(user.email)
+
   const token = await createPasswordResetToken(user.id, TOKEN_EXPIRY.ADMIN_PASSWORD_RESET)
   await sendPasswordResetEmail(user.email, token)
 
