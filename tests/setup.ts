@@ -9,8 +9,8 @@ import { passwordSchema, emailSchema, roleSchema, roleGrantSchema, namespaceSche
 import { TOKEN_EXPIRY, generateVerificationToken, hashLoginToken, createEmailVerificationToken, createPasswordResetToken, createMagicLinkToken } from '../server/utils/tokens'
 import { enforceRateLimit, getClientIP, sweepRateLimits, RATE_LIMITS } from '../server/utils/rateLimit'
 import { verifyPasswordGuarded } from '../server/utils/passwordCheck'
-import { loadRoles, loadRoleGrants, activeRoleCondition, activeGrantExists, sealUserSession, sealLoginSession } from '../server/utils/session'
-import { assertGrantsDefined } from '../server/utils/roleDefinitions'
+import { loadRoles, loadRoleGrants, loadEffectiveRolesFor, activeRoleCondition, activeGrantExists, effectiveRoleCondition, eligibilitySatisfiedCondition, sealUserSession, sealLoginSession } from '../server/utils/session'
+import { assertGrantsDefined, assertEligibilityModeAllowed } from '../server/utils/roleDefinitions'
 import { ROLES_CONFIG, nextCommitteeYearEnd } from '../server/utils/rolesConfig'
 import { writeAudit } from '../server/utils/audit'
 import { validateRedirect } from '../shared/utils/validateRedirect'
@@ -22,6 +22,7 @@ import { loadUserOr404, adminUserView, isAnonymisedRow, isRealRow } from '../ser
 import { isWorkspaceProfile, resolveGoogleUser, WORKSPACE_DOMAIN } from '../server/utils/googleAccount'
 import { callAppHook, callAllAppHooks, loadHookApps } from '../server/utils/appHooks'
 import { manifestSchema, manifestHash, MANIFEST_MAX_BYTES } from '../server/utils/manifest'
+import { snapshotRule, snapshotAllRules, referencedRuleKeys, trainingApp } from '../server/utils/eligibility'
 import { syncApp, syncAllApps, reconcileManifest } from '../server/utils/manifestSync'
 import { eraseUser } from '../server/utils/erase'
 import { mergeUsers } from '../server/utils/mergeUsers'
@@ -71,6 +72,10 @@ g.sendRedirect = (event: FakeEvent, url: string, status = 302) => {
 g.getRouterParam = (event: FakeEvent, name: string) => event.params?.[name]
 g.getValidatedQuery = async (event: FakeEvent, parse: (query: unknown) => unknown) => parse(event.query ?? {})
 g.setHeader = () => {}
+
+/** Programmable stand-in for useRuntimeConfig (worker secrets in tests). */
+export const runtimeConfig: Record<string, unknown> = {}
+g.useRuntimeConfig = () => runtimeConfig
 
 /** Programmable stand-in for the global $fetch (app-hook calls in tests). */
 export const fetchMock = vi.fn()
@@ -165,9 +170,13 @@ Object.assign(g, {
   verifyPasswordGuarded,
   loadRoles,
   loadRoleGrants,
+  loadEffectiveRolesFor,
   activeRoleCondition,
   activeGrantExists,
+  effectiveRoleCondition,
+  eligibilitySatisfiedCondition,
   assertGrantsDefined,
+  assertEligibilityModeAllowed,
   ROLES_CONFIG,
   nextCommitteeYearEnd,
   sealUserSession,
@@ -197,6 +206,10 @@ Object.assign(g, {
   syncApp,
   syncAllApps,
   reconcileManifest,
+  snapshotRule,
+  snapshotAllRules,
+  referencedRuleKeys,
+  trainingApp,
   eraseUser,
   mergeUsers,
   exportUser,
@@ -251,5 +264,6 @@ beforeEach(() => {
   sentEmails.length = 0
   fetchMock.mockReset()
   rawFetchMock.mockReset()
+  Object.keys(runtimeConfig).forEach(key => Reflect.deleteProperty(runtimeConfig, key))
   vi.useRealTimers()
 })

@@ -101,15 +101,21 @@ export default defineEventHandler(async (event) => {
     ? await db.select().from(schema.userRoles)
         .where(inArray(schema.userRoles.userId, rows.map(u => u.id))).all()
     : []
+  // Same page-scoped bound as the grant query above.
+  const effective = await loadEffectiveRolesFor(rows.map(u => u.id), now)
+
   const rolesByUser = new Map<string, RoleGrant[]>()
   for (const r of roleRows) {
-    const grant = {
+    const expired = r.expiresAt !== null && r.expiresAt.getTime() <= now.getTime()
+    const grant: RoleGrant = {
       role: r.role,
       expiresAt: r.expiresAt?.getTime() ?? null,
       grantedAt: r.grantedAt?.getTime() ?? null,
       grantedBy: r.grantedBy,
       note: r.note,
-      expired: r.expiresAt !== null && r.expiresAt.getTime() <= now.getTime(),
+      expired,
+      inert: !expired && !effective.get(r.userId)?.has(r.role),
+      overrideUntil: r.eligibilityOverrideUntil?.getTime() ?? null,
     }
     rolesByUser.set(r.userId, [...(rolesByUser.get(r.userId) ?? []), grant])
   }

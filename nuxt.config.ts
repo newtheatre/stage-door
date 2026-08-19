@@ -47,6 +47,9 @@ export default defineNuxtConfig({
     },
     resendApiKey: '',
     resendFromEmail: '',
+    // NUXT_TRAINING_API_TOKEN — an nnt_trn_ token minted in rehearsal's admin,
+    // read only by the eligibility snapshot task (ADR-0019).
+    trainingApiToken: '',
     public: {
       baseURL: 'http://localhost:3000',
     },
@@ -65,7 +68,7 @@ export default defineNuxtConfig({
       '0 3 * * *': ['rate-limits:sweep'],
       // Retention sweep (dry-run until armed in retentionConfig) and role-expiry
       // warnings. See docs/gdpr-retention.md and ADR-0011.
-      '0 4 * * *': ['retention:sweep', 'roles:expiry-warn', 'apps:sync-manifests'],
+      '0 4 * * *': ['retention:sweep', 'roles:expiry-warn', 'apps:sync-manifests', 'eligibility:snapshot'],
     },
     rollupConfig: {
       plugins: [

@@ -68,3 +68,28 @@ export const roleDefinitionPermissions = sqliteTable('role_definition_permission
   primaryKey({ columns: [table.roleDefinitionId, table.permissionId] }),
   index('role_definition_permissions_permission_idx').on(table.permissionId),
 ])
+
+/**
+ * Who currently satisfies each of rehearsal's eligibility rules. Presence
+ * means eligible; the snapshot is the authority, never a live call (ADR-0019).
+ */
+export const eligibilitySnapshots = sqliteTable('eligibility_snapshots', {
+  ruleKey: text('rule_key').notNull(),
+  userId: text('user_id').notNull(),
+  capturedAt: integer('captured_at', { mode: 'timestamp_ms' }).notNull(),
+}, table => [
+  primaryKey({ columns: [table.ruleKey, table.userId] }),
+  index('eligibility_snapshots_user_idx').on(table.userId),
+])
+
+/**
+ * Per-rule sync state. A null `last_success_at` means never answered, which
+ * is what stops enforcement engaging on a rule nobody has confirmed.
+ */
+export const eligibilitySyncs = sqliteTable('eligibility_syncs', {
+  ruleKey: text('rule_key').primaryKey(),
+  lastAttemptAt: integer('last_attempt_at', { mode: 'timestamp_ms' }),
+  lastSuccessAt: integer('last_success_at', { mode: 'timestamp_ms' }),
+  userCount: integer('user_count').notNull().default(0),
+  lastError: text('last_error'),
+})

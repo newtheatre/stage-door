@@ -32,6 +32,7 @@ Weekly `wrangler d1 export` of the `auth` DB to the `nnt-db-backups` R2 bucket (
 | `NUXT_RESEND_API_KEY` | Auth worker | Password manager |
 | `NUXT_OAUTH_GOOGLE_CLIENT_ID/SECRET` | Auth worker | Password manager (Google Cloud project: NNT Workspace) |
 | Service tokens (one per app) | Consumer app workers (`NUXT_AUTH_SERVICE_TOKEN`) | Password manager, one entry per app |
+| `NUXT_TRAINING_API_TOKEN` | Auth worker | Password manager. An `nnt_trn_…` token minted in rehearsal's admin, read only by the `eligibility:snapshot` task (ADR-0019). Single-worker, so a plain worker secret rather than the Secrets Store. |
 
 A secret shared by more than one worker lives in the account Secrets Store
 (`default_secrets_store`, id `fdfe08b6b01f498fbddbc08c2891cadb`) so there is one
@@ -113,6 +114,9 @@ Historical note: the `proscenium` and `rooms` tokens issued at cutover (2026-08-
 | A manifest sync is failing | Admin → Apps | The row is red and names the error. **No role has been withdrawn**: the last good manifest stays in force. Fix the app or its base URL, then Sync now. |
 | A role shows as withdrawn | Admin → Role definitions | Its app has stopped reading it. It cannot be granted again; existing holders keep it until you revoke them deliberately. |
 | Who can do X? | Admin → Permissions | Every declared permission with the roles that carry it and their holder counts. Beats reading an app's source. |
+| Tie a role to training | Admin → Role definitions → edit | Name a rehearsal eligibility rule and pick advisory or enforcing. Enforcing makes the grant inert while the holder is unqualified; it is refused on any ADMIN role. Takes effect at the next snapshot. |
+| Someone lost a role they should have | Admin → user → Roles | If it shows inert, their training lapsed or the snapshot is wrong. Fix it in rehearsal and re-run `eligibility:snapshot`, or set an override (max 90 days, audited, lapses on its own). |
+| The eligibility snapshot is failing | Admin → user → Roles, and the task log | **Nobody's access has changed**: the last good answer stays in force, and a rule never answered does not enforce at all. Fix rehearsal or the token, then re-run the task. |
 | Force logout one user | User → Force logout | Bumps session epoch; their sessions die at next refresh/privileged action. |
 | Disable an account | User → Disable | Blocks login and refresh. Use for compromise or misuse; it is reversible, erasure is not. |
 | Erasure (GDPR) | User → Data & GDPR → Erase… | Anonymises auth + all app data via hooks. **Irreversible** (typed email confirmation required). Confirm identity of the requester first; note the request date (one-month statutory clock). If a hook fails the erasure reports incomplete — fix the app and re-run (idempotent). |
