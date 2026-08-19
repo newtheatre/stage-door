@@ -4,11 +4,9 @@
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)
-  const user = await loadUserOr404(getRouterParam(event, 'id'))
-
-  if (user.id === admin.id) {
-    throw createError({ statusCode: 400, statusMessage: 'Use the forgot-password flow for your own account' })
-  }
+  const user = await loadUserOr404(getRouterParam(event, 'id'), {
+    notSelf: { actorId: admin.id, message: 'Use the forgot-password flow for your own account' },
+  })
 
   assertNotAnonymised(user)
   assertPasswordAllowed(user.email)

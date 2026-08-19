@@ -11,7 +11,9 @@ const bodySchema = z.object({
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)
-  const target = await loadUserOr404(getRouterParam(event, 'id'))
+  const target = await loadUserOr404(getRouterParam(event, 'id'), {
+    notSelf: { actorId: admin.id, message: 'Use the self-service erasure on your own account' },
+  })
   const { confirmEmail } = await readValidatedBody(event, bodySchema.parse)
 
   if (target.id === admin.id) {

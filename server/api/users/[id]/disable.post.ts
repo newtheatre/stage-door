@@ -7,11 +7,9 @@ import { eq, sql } from 'drizzle-orm'
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)
-  const user = await loadUserOr404(getRouterParam(event, 'id'))
-
-  if (user.id === admin.id) {
-    throw createError({ statusCode: 400, statusMessage: 'You cannot disable your own account' })
-  }
+  const user = await loadUserOr404(getRouterParam(event, 'id'), {
+    notSelf: { actorId: admin.id, message: 'You cannot disable your own account' },
+  })
 
   await db.update(schema.users)
     .set({ disabled: true, sessionEpoch: sql`${schema.users.sessionEpoch} + 1` })

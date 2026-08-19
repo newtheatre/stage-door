@@ -7,7 +7,9 @@ import { eq } from 'drizzle-orm'
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)
-  const user = await loadUserOr404(getRouterParam(event, 'id'))
+  const user = await loadUserOr404(getRouterParam(event, 'id'), {
+    notSelf: { actorId: admin.id, message: 'Use your own account settings to unlink Google' },
+  })
 
   if (user.googleSub === null) {
     throw createError({ statusCode: 400, statusMessage: 'No Google account is linked' })
