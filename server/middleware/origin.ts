@@ -1,19 +1,24 @@
 /**
- * CSRF: origin check on state-changing API requests (docs/security.md).
- * Service-token calls send no Origin and are exempt: they carry no cookie.
+ * CSRF: origin check on every state-changing cookie-authenticated request
+ * (docs/security.md). Scoped by what it protects, not by path prefix.
  */
 
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
 const ESTATE_ORIGIN = /^https:\/\/([a-z0-9-]+\.)?newtheatre\.org\.uk$/
 
+/**
+ * The only routes authenticated by a service token rather than the cookie.
+ * Named, so a Bearer header cannot exempt a cookie-authenticated route.
+ */
+const SERVICE_TOKEN_ROUTES = new Set(['/api/users/shadow', '/api/apps/sync'])
+
 export default defineEventHandler((event) => {
   if (!UNSAFE_METHODS.has(event.method)) return
-  if (!event.path.startsWith('/api/')) return
 
-  // Bearer-authenticated (service token) requests carry no cookies.
-  const authorization = getRequestHeader(event, 'authorization')
-  if (authorization?.startsWith('Bearer ')) return
+  // Not `/api/` alone: server/routes holds browser flows too, and /logout is
+  // cookie-authenticated and state-changing.
+  if (SERVICE_TOKEN_ROUTES.has(event.path.split('?')[0]!)) return
 
   const origin = getRequestHeader(event, 'origin')
 
