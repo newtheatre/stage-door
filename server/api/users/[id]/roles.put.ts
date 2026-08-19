@@ -25,6 +25,14 @@ export default defineEventHandler(async (event) => {
   const existingByRole = new Map(existing.map(r => [r.role, r]))
 
   await assertGrantsDefined(roles, new Set(existingByRole.keys()))
+
+  // Aiming this at yourself is allowed; losing the last auth:ADMIN is not,
+  // and a dated one lapses into the same lockout at handover.
+  const wantedAdmin = wanted.get('auth:ADMIN')
+  if (await holdsAuthAdmin(user.id) && (!wantedAdmin || wantedAdmin.expiresAt !== null)) {
+    await assertNotLastAuthAdmin(user.id, wantedAdmin ? 'Dating that grant' : 'Removing that grant')
+  }
+
   const before = await loadRoleGrants(user.id)
 
   // Removals: anything not in the wanted set (expired rows included — the

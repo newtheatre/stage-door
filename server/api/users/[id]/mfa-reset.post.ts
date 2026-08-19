@@ -7,7 +7,9 @@ import { eq, sql } from 'drizzle-orm'
  */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)
-  const user = await loadUserOr404(getRouterParam(event, 'id'))
+  const user = await loadUserOr404(getRouterParam(event, 'id'), {
+    notSelf: { actorId: admin.id, message: 'Use your own account settings to manage your second factors' },
+  })
 
   await clearAllFactors(user.id)
 

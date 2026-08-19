@@ -10,6 +10,8 @@ import createUserHandler from '../server/api/users/index.post'
 import putUserHandler from '../server/api/users/[id]/index.put'
 import enableUserHandler from '../server/api/users/[id]/enable.post'
 import adminResetPasswordHandler from '../server/api/users/[id]/reset-password.post'
+import clearPasswordHandler from '../server/api/users/[id]/clear-password.post'
+import mfaResetAdminHandler from '../server/api/users/[id]/mfa-reset.post'
 import listUsersHandler from '../server/api/users/index.get'
 import { makeEvent, sentEmails } from './setup'
 import type { FakeEvent } from './setup'
@@ -25,6 +27,9 @@ const listUsers = listUsersHandler as unknown as (event: unknown) => Promise<unk
 const putUser = putUserHandler as unknown as (event: unknown) => Promise<unknown>
 const enableUser = enableUserHandler as unknown as (event: unknown) => Promise<unknown>
 const adminResetPassword = adminResetPasswordHandler as unknown as (event: unknown) => Promise<unknown>
+const clearPassword = clearPasswordHandler as unknown as (event: unknown) => Promise<unknown>
+const mfaResetAdmin = mfaResetAdminHandler as unknown as (event: unknown) => Promise<unknown>
+const unlinkGoogleAdmin = unlinkGoogle
 
 let adminCounter = 0
 
@@ -291,5 +296,56 @@ describe('request bodies are bounded', () => {
     const target = await createUser({ email: 'atcap@example.com' })
     const { event } = await adminEvent({ params: { id: target.id }, body: { roles } })
     await expect(putRoles(event)).resolves.toBeTruthy()
+  })
+})
+
+describe('the last auth:ADMIN cannot be removed or dated', () => {
+  it('refuses to drop the only live auth:ADMIN grant', async () => {
+    await defineRole('auth', 'ADMIN')
+    const { event, adminId } = await adminEvent({ body: { roles: [] } })
+    event.params = { id: adminId }
+
+    await expect(putRoles(event)).rejects.toMatchObject({ statusCode: 400 })
+
+    const still = await db.select().from(schema.userRoles)
+      .where(eq(schema.userRoles.userId, adminId)).all()
+    expect(still.map(r => r.role)).toContain('auth:ADMIN')
+  })
+
+  it('refuses to give the only auth:ADMIN an expiry, which lapses into the same lockout', async () => {
+    await defineRole('auth', 'ADMIN')
+    const { event, adminId } = await adminEvent({
+      body: { roles: [{ role: 'auth:ADMIN', expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000 }] },
+    })
+    event.params = { id: adminId }
+
+    await expect(putRoles(event)).rejects.toMatchObject({ statusCode: 400 })
+  })
+
+  it('allows it once someone else holds auth:ADMIN', async () => {
+    await defineRole('auth', 'ADMIN')
+    const { event, adminId } = await adminEvent({ body: { roles: [] } })
+    const peer = await createUser({ email: 'peer-admin@example.com' })
+    await grantRole(peer.id, 'auth:ADMIN')
+    event.params = { id: adminId }
+
+    await expect(putRoles(event)).resolves.toBeTruthy()
+  })
+})
+
+describe('admin routes state whether they may be aimed at yourself', () => {
+  it.each([
+    ['clear-password', () => clearPassword],
+    ['mfa-reset', () => mfaResetAdmin],
+    ['unlink-google', () => unlinkGoogleAdmin],
+  ])('%s refuses a self-target, and says why', async (_name, handler) => {
+    const { event, adminId } = await adminEvent({ params: { id: '' } })
+    event.params = { id: adminId }
+
+    // The message proves it was the self-target guard, not an adjacent one.
+    await expect(handler()(event)).rejects.toMatchObject({
+      statusCode: 400,
+      statusMessage: expect.stringContaining('your own'),
+    })
   })
 })

@@ -37,8 +37,14 @@ export function assertNotAnonymised(user: UserRow): void {
   }
 }
 
-/** Load a user by route param or 404. */
-export async function loadUserOr404(id: string | undefined): Promise<UserRow> {
+/**
+ * Load a user by route param or 404. `notSelf` makes each admin route state
+ * its answer to "may this be aimed at me?" where it loads its target.
+ */
+export async function loadUserOr404(
+  id: string | undefined,
+  opts: { notSelf?: { actorId: string, message: string } } = {},
+): Promise<UserRow> {
   const user = id
     ? await db.select().from(schema.users).where(eq(schema.users.id, id)).get()
     : undefined
@@ -46,7 +52,46 @@ export async function loadUserOr404(id: string | undefined): Promise<UserRow> {
   if (!user) {
     throw createError({ statusCode: 404, statusMessage: 'User not found' })
   }
+
+  if (opts.notSelf && user.id === opts.notSelf.actorId) {
+    throw createError({ statusCode: 400, statusMessage: opts.notSelf.message })
+  }
   return user
+}
+
+/**
+ * requireAuthAdmin re-reads roles per request, so losing the last one closes
+ * every admin route including this one. Recovery means hand-editing D1.
+ */
+export async function assertNotLastAuthAdmin(userId: string, what: string): Promise<void> {
+  const others = await db.select({ userId: schema.userRoles.userId })
+    .from(schema.userRoles)
+    .where(and(
+      eq(schema.userRoles.role, 'auth:ADMIN'),
+      sql`${schema.userRoles.userId} <> ${userId}`,
+      activeRoleCondition(new Date()),
+    ))
+    .all()
+
+  if (others.length === 0) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: `${what} would leave nobody with auth:ADMIN — grant it to someone else first`,
+    })
+  }
+}
+
+/** Whether this user currently holds a live auth:ADMIN grant. */
+export async function holdsAuthAdmin(userId: string): Promise<boolean> {
+  const row = await db.select({ userId: schema.userRoles.userId })
+    .from(schema.userRoles)
+    .where(and(
+      eq(schema.userRoles.userId, userId),
+      eq(schema.userRoles.role, 'auth:ADMIN'),
+      activeRoleCondition(new Date()),
+    ))
+    .get()
+  return Boolean(row)
 }
 
 /**
