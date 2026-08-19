@@ -10,6 +10,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Use the forgot-password flow for your own account' })
   }
 
+  assertNotAnonymised(user)
   assertPasswordAllowed(user.email)
 
   const token = await createPasswordResetToken(user.id, TOKEN_EXPIRY.ADMIN_PASSWORD_RESET)

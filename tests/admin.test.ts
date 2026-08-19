@@ -7,6 +7,9 @@ import forceLogoutHandler from '../server/api/users/[id]/force-logout.post'
 import pendingGoogleHandler from '../server/api/users/[id]/pending-google.put'
 import unlinkGoogleHandler from '../server/api/users/[id]/unlink-google.post'
 import createUserHandler from '../server/api/users/index.post'
+import putUserHandler from '../server/api/users/[id]/index.put'
+import enableUserHandler from '../server/api/users/[id]/enable.post'
+import adminResetPasswordHandler from '../server/api/users/[id]/reset-password.post'
 import listUsersHandler from '../server/api/users/index.get'
 import { makeEvent, sentEmails } from './setup'
 import type { FakeEvent } from './setup'
@@ -19,6 +22,9 @@ const putPendingGoogle = pendingGoogleHandler as unknown as (event: unknown) => 
 const unlinkGoogle = unlinkGoogleHandler as unknown as (event: unknown) => Promise<unknown>
 const adminCreate = createUserHandler as unknown as (event: unknown) => Promise<{ user: { id: string } }>
 const listUsers = listUsersHandler as unknown as (event: unknown) => Promise<unknown>
+const putUser = putUserHandler as unknown as (event: unknown) => Promise<unknown>
+const enableUser = enableUserHandler as unknown as (event: unknown) => Promise<unknown>
+const adminResetPassword = adminResetPasswordHandler as unknown as (event: unknown) => Promise<unknown>
 
 let adminCounter = 0
 
@@ -220,5 +226,44 @@ describe('the users list standing counts', () => {
     expect(result.needsAttention.workspacePassword).toBe(1)
     // workspace + bare, but not lapsed (expired) and not the enrolled admin.
     expect(result.needsAttention.adminNoMfa).toBe(2)
+  })
+})
+
+describe('an erased account cannot be written back over', () => {
+  async function erasedUser() {
+    const user = await createUser({ email: 'gone@example.com', name: 'Gone' })
+    await db.update(schema.users)
+      .set({ email: `deleted-${user.id}@anonymised.invalid`, name: 'Deleted user', disabled: true })
+      .where(eq(schema.users.id, user.id))
+    return user
+  }
+
+  it('refuses to restore a name and address', async () => {
+    const target = await erasedUser()
+    const { event } = await adminEvent({ params: { id: target.id }, body: { name: 'Real Name', email: 'real@person.com' } })
+
+    await expect(putUser(event)).rejects.toMatchObject({ statusCode: 400 })
+
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, target.id)).get()
+    expect(row!.email).toBe(`deleted-${target.id}@anonymised.invalid`)
+    expect(row!.name).toBe('Deleted user')
+  })
+
+  it('refuses to re-enable it', async () => {
+    const target = await erasedUser()
+    const { event } = await adminEvent({ params: { id: target.id } })
+
+    await expect(enableUser(event)).rejects.toMatchObject({ statusCode: 400 })
+
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, target.id)).get()
+    expect(row!.disabled).toBe(true)
+  })
+
+  it('refuses to mint it a set-password link', async () => {
+    const target = await erasedUser()
+    const { event } = await adminEvent({ params: { id: target.id } })
+
+    await expect(adminResetPassword(event)).rejects.toMatchObject({ statusCode: 400 })
+    expect(sentEmails).toHaveLength(0)
   })
 })

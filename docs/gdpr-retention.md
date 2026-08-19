@@ -26,7 +26,7 @@ Data minimisation is a design rule: no DOB, no address, no phone, no analytics i
 
 Bookings and reservations survive as anonymous rows: attendance counts, revenue, and room-usage statistics are intact; the person is gone. Retention exception (document per request, don't build): records genuinely needed for legal claims or financial audit may be retained per the policy.
 
-**Erasure is irreversible.** The admin UI requires typed confirmation, and [operations.md](operations.md#user-operations-admin-ui-admin) covers verifying the requester's identity first.
+**Erasure is irreversible**, and the code enforces it: `assertNotAnonymised` refuses `PUT /api/users/:id`, `POST /api/users/:id/enable` and `POST /api/users/:id/reset-password` on an erased row, so its identity cannot be written back while every app's mirror row stays scrubbed. The admin UI requires typed confirmation, and [operations.md](operations.md#user-operations-admin-ui-admin) covers verifying the requester's identity first.
 
 ## Right of access
 
