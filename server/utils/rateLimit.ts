@@ -34,6 +34,9 @@ export const RATE_LIMITS = {
   'magic:acct': { limit: 3, windowMs: 60 * 60_000 },
   'mfa:ip': { limit: 30, windowMs: 15 * 60_000 },
   'mfa:acct': { limit: 8, windowMs: 15 * 60_000 },
+  // Passkeys separately: no guessable secret, so this is a backstop rather
+  // than a guessing limit, and it must not share a budget with enrolment.
+  'passkey:acct': { limit: 30, windowMs: 15 * 60_000 },
   // An app pinging after deploy. Generous enough for a retried release, tight
   // enough that a deploy loop cannot hammer the poller (ADR-0018).
   'manifest-ping:app': { limit: 12, windowMs: 60 * 60_000 },

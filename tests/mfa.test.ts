@@ -383,3 +383,46 @@ describe('admin reset', () => {
     }
   })
 })
+
+describe('removing a factor counts credentials, not kinds', () => {
+  it('lets an admin with two passkeys remove one', async () => {
+    const user = await createUser({ email: 'two-keys@example.com', plainPassword: 'Passw0rd', verified: true })
+    await grantRole(user.id, 'auth:ADMIN')
+    const [first] = await db.insert(schema.webauthnCredentials).values({
+      userId: user.id, credentialId: 'cred-a', publicKey: 'pk-a', counter: 0, backedUp: false, name: 'Laptop',
+    }).returning()
+    await db.insert(schema.webauthnCredentials).values({
+      userId: user.id, credentialId: 'cred-b', publicKey: 'pk-b', counter: 0, backedUp: false, name: 'Phone',
+    })
+
+    const event = await sessionEvent(user, { params: { id: first!.id } })
+    await expect(removeFactor(event)).resolves.toMatchObject({ ok: true })
+
+    const left = await db.select().from(schema.webauthnCredentials)
+      .where(eq(schema.webauthnCredentials.userId, user.id)).all()
+    expect(left.map(c => c.credentialId)).toEqual(['cred-b'])
+  })
+
+  it('still refuses when it really is the only one left', async () => {
+    const user = await createUser({ email: 'one-key@example.com', plainPassword: 'Passw0rd', verified: true })
+    await grantRole(user.id, 'auth:ADMIN')
+    const [only] = await db.insert(schema.webauthnCredentials).values({
+      userId: user.id, credentialId: 'cred-only', publicKey: 'pk', counter: 0, backedUp: false, name: 'Laptop',
+    }).returning()
+
+    const event = await sessionEvent(user, { params: { id: only!.id } })
+    await expect(removeFactor(event)).rejects.toMatchObject({ statusCode: 400 })
+  })
+
+  it('lets TOTP go while a passkey remains', async () => {
+    const user = await createUser({ email: 'both@example.com', plainPassword: 'Passw0rd', verified: true })
+    await grantRole(user.id, 'auth:ADMIN')
+    await enrolTotp(user.id, SECRET)
+    await db.insert(schema.webauthnCredentials).values({
+      userId: user.id, credentialId: 'cred-c', publicKey: 'pk-c', counter: 0, backedUp: false, name: 'Phone',
+    })
+
+    const event = await sessionEvent(user, { params: { id: 'totp' } })
+    await expect(removeFactor(event)).resolves.toMatchObject({ ok: true })
+  })
+})

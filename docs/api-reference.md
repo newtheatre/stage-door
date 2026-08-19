@@ -105,7 +105,7 @@ Self-service (session, own account only — all verify the account live: exists,
 | `POST /api/account/mfa/totp` | Begin TOTP enrolment → `{ secret, uri }`. Nothing gates a login until it's confirmed, so an abandoned setup can't lock anyone out |
 | `POST /api/account/mfa/totp-confirm` **[AUD]** | `{ code }` proves the app works and arms it. First enrolment returns `{ recoveryCodes }` **once**, bumps epoch, re-seals this session |
 | `POST /api/account/mfa/recovery-codes` **[AUD]** | Regenerate the eight codes; returns them once and invalidates the old set |
-| `DELETE /api/account/mfa/:id` **[AUD]** | Remove a passkey (row id) or the literal `totp`. Refuses to remove your last factor while MFA is required of the account |
+| `DELETE /api/account/mfa/:id` **[AUD]** | Remove a passkey (row id) or the literal `totp`. Refuses to remove your last factor (counted in credentials, so a second passkey is enough) while MFA is required of the account |
 | `GET /api/account/export` | Own subject-access bundle (JSON download) |
 | `POST /api/account/erase` **[AUD]** | Close own account: `{ confirmEmail, password? }` — irreversible anonymisation everywhere, session cleared |
 
