@@ -5,14 +5,16 @@ import journal from '../db/migrations/sqlite/meta/_journal.json'
 
 /** GET /api/health — uptime check (docs/api-reference.md). */
 export default defineEventHandler(async (event) => {
-  const expected = journal.entries.map(entry => `${entry.tag}.sql`)
+  // Both ledger spellings exist in production: `nuxt-db migrate` records the
+  // bare tag, wrangler records it with `.sql`. Compare on the tag.
+  const expected = journal.entries.map(entry => entry.tag)
   let pending: string[] = []
 
   try {
     // Raw SQL on purpose: NuxtHub owns this table, so declaring it in the
     // Drizzle schema would make db:generate try to create it.
     const rows = await db.all<{ name: string }>(sql`select name from _hub_migrations`)
-    const applied = new Set(rows.map(r => r.name))
+    const applied = new Set(rows.map(r => r.name.replace(/\.sql$/, '')))
     pending = expected.filter(name => !applied.has(name))
   }
   catch (error) {
