@@ -4,7 +4,7 @@ Procedures for whoever holds `auth:ADMIN` — normally the IT Manager/Archivist,
 
 ## Deployments
 
-Deploys are handled by Cloudflare's Workers Builds git integration — pushing `main` builds and deploys automatically. GitHub Actions runs test + lint only (`.github/workflows/ci.yml`). Manual fallback — wrangler auth here spans multiple Cloudflare accounts, so the account id must be explicit:
+Deploys are handled by Cloudflare's Workers Builds git integration — pushing `main` builds and deploys automatically. **Migrations are applied separately, by `.github/workflows/migrate.yml`** ([ADR-0021](decisions/0021-migrations-apply-in-ci.md)): Workers Builds only builds, and until 2026-08-19 nothing applied migrations at all, which took the estate down for an hour. If a deploy ever lands ahead of its migration, `GET /api/health` returns 503 naming the pending files. GitHub Actions runs test + lint only (`.github/workflows/ci.yml`). Manual fallback — wrangler auth here spans multiple Cloudflare accounts, so the account id must be explicit:
 
 ```bash
 bun run build
@@ -118,6 +118,9 @@ Historical note: the `proscenium` and `rooms` tokens issued at cutover (2026-08-
 | Someone lost a role they should have | Admin → user → Roles | If it shows inert, their training lapsed or the snapshot is wrong. Fix it in rehearsal and re-run `eligibility:snapshot`, or set an override (max 90 days, audited, lapses on its own). |
 | The eligibility snapshot is failing | Admin → user → Roles, and the task log | **Nobody's access has changed**: the last good answer stays in force, and a rule never answered does not enforce at all. Fix rehearsal or the token, then re-run the task. |
 | "Can we cache this?" | — | [ADR-0020](decisions/0020-what-this-service-caches.md). Short version: nothing that decides access, ever, outside one request. There is no KV layer and enabling one is infrastructure work, not a config flag. |
+| Migrations did not apply | Actions → Migrate, or run it locally | `CLOUDFLARE_ACCOUNT_ID=… node scripts/migrate-remote.mjs --dry-run` lists what is pending; drop `--dry-run` to apply. Idempotent and safe to re-run. |
+| `/api/health` returns 503 | — | The deployed code was built against a schema this database does not have. The body names the pending migrations. Run the Migrate workflow; do not roll back unless the migration itself is the problem. |
+| A grant does nothing | Admin → Role definitions | Grants matching no live definition are listed there and emailed in the daily digest. Dormant namespaces (`ticketing`, ADR-0010) are excluded, so anything listed is a mistake: revoke it, or define the role. |
 | Force logout one user | User → Force logout | Bumps session epoch; their sessions die at next refresh/privileged action. |
 | Disable an account | User → Disable | Blocks login and refresh. Use for compromise or misuse; it is reversible, erasure is not. |
 | Erasure (GDPR) | User → Data & GDPR → Erase… | Anonymises auth + all app data via hooks. **Irreversible** (typed email confirmation required). Confirm identity of the requester first; note the request date (one-month statutory clock). If a hook fails the erasure reports incomplete — fix the app and re-run (idempotent). |

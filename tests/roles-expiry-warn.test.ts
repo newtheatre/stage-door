@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import expiryWarnTask from '../server/tasks/roles/expiry-warn'
 import { sentEmails } from './setup'
 import { activeRoleCondition } from '../server/utils/session'
-import { createUser, grantRole } from './helpers/users'
+import { createUser, grantRole, defineRole } from './helpers/users'
 
 const runTask = () => (expiryWarnTask as unknown as { run: () => Promise<{ result: Record<string, number> }> }).run()
 
@@ -12,6 +12,11 @@ const DAY = 24 * 60 * 60 * 1000
 
 describe('roles:expiry-warn task', () => {
   it('warns each holder once, digests to the ITM, and marks the grants', async () => {
+    // Defined, so the suspect-grant check has nothing to report here.
+    await defineRole('rooms', 'ADMIN')
+    await defineRole('proscenium', 'BOX_OFFICE')
+    await defineRole('proscenium', 'MANAGER')
+    await defineRole('auth', 'ADMIN')
     const holder = await createUser({ email: 'holder@example-user.co.uk', plainPassword: 'Passw0rd' })
     await grantRole(holder.id, 'rooms:ADMIN', { expiresAt: new Date(Date.now() + 7 * DAY) })
     await grantRole(holder.id, 'proscenium:BOX_OFFICE', { expiresAt: new Date(Date.now() + 10 * DAY) })

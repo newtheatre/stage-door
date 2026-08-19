@@ -19,6 +19,33 @@
       </UButton>
     </div>
 
+    <UAlert
+      v-if="suspects.length"
+      color="error"
+      icon="i-lucide-triangle-alert"
+      title="Some grants do nothing"
+    >
+      <template #description>
+        <p class="mb-2">
+          These are held by real accounts but match nothing any app reads, so
+          they confer no access and never will. Revoke them, or define the role
+          if it was meant to work.
+        </p>
+        <ul class="flex flex-col gap-1">
+          <li
+            v-for="suspect in suspects"
+            :key="suspect.role"
+          >
+            <ULink :to="`/admin?role=${encodeURIComponent(suspect.role)}`">
+              <code>{{ suspect.role }}</code>
+            </ULink>
+            — {{ suspect.holders }} {{ suspect.holders === 1 ? 'holder' : 'holders' }}.
+            {{ suspect.explanation }}
+          </li>
+        </ul>
+      </template>
+    </UAlert>
+
     <UTable
       :data="tableRows"
       :columns="columns"
@@ -244,6 +271,10 @@ interface Definition {
 }
 
 const { data, pending, refresh } = await useFetch<{ definitions: Definition[] }>('/api/role-definitions')
+
+// Dormant namespaces are excluded server-side, so anything here is a mistake.
+const { data: auditData } = await useFetch('/api/role-audit')
+const suspects = computed(() => auditData.value?.suspects ?? [])
 
 const columns = [
   { accessorKey: 'role', header: 'Role' },

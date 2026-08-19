@@ -131,6 +131,12 @@ A role definition may name one of rehearsal's eligibility rule keys and pick `ad
 
 The snapshot is refreshed by the `eligibility:snapshot` task. **This service never calls rehearsal on a request path**, and a failed sync leaves the previous answer in force. Full failure-direction table: [ADR-0019](decisions/0019-training-conditional-grants.md).
 
+## Suspect grants (ADR-0021)
+
+`GET /api/role-audit` — session + `auth:ADMIN`. Active grants on real accounts whose role matches no live definition, worst first: `unknown-namespace` (no registered app owns it, so it is a typo), `undefined-role` (the app exists but declares no such role), `withdrawn` (the app stopped declaring it).
+
+**Dormant namespaces are excluded** (`ticketing`, [ADR-0010](decisions/0010-legacy-roles-dormant-namespace.md), configured in `rolesConfig.ts`), so anything returned is a mistake rather than deliberate history. Surfaced on the role-definitions page and emailed in the daily digest.
+
 ## Permissions (ADR-0018)
 
 `GET /api/permissions` — session + `auth:ADMIN`. The estate's declared permission vocabulary, each with the role definitions that carry it and how many people actively hold one. This is the "who can approve refunds?" query, served from one join on `role_definition_permissions.permission_id`.
@@ -166,7 +172,7 @@ Reconciliation is described in full in [ADR-0018](decisions/0018-manifest-declar
 `{ email, name }` → match on lowercased email or create `{ password: NULL, email_verified: false }`. Returns `{ id, existing: boolean, guest: boolean }`. Used by Proscenium's guest checkout. Idempotent by email. If the email belongs to a full account, returns that account's id (`existing: true, guest: false`) — the booking attaches to their history.
 
 ### `GET /api/health` — public
-`{ ok: true, version }` for uptime checks.
+`{ ok: true, version }` for uptime checks. Returns **503** with `{ ok: false, version, pendingMigrations: [] }` when the migration journal compiled into the build is ahead of `_hub_migrations` — the deployed code was built against a schema this database does not have ([ADR-0021](decisions/0021-migrations-apply-in-ci.md)).
 
 ## App hooks (implemented by consumer apps, called by the auth service)
 

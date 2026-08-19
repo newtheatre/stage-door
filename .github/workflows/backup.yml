@@ -2,8 +2,8 @@
 # Retention is enforced by R2 lifecycle rules on the bucket, not here:
 # weekly/ objects expire after 70 days, monthly/ after 400.
 #
-# Uses the same CLOUDFLARE_API_TOKEN repo secret as deploy.yml — the token
-# additionally needs D1:Edit and Workers R2 Storage:Edit.
+# Uses the same CLOUDFLARE_API_TOKEN repo secret as migrate.yml — the token
+# needs D1:Edit and Workers R2 Storage:Edit.
 name: Backup auth DB
 
 on:
