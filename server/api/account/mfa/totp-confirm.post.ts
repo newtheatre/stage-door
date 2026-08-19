@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
     .returning()
 
   // Keep this session alive; only the others die.
-  await sealUserSession(event, updated!, await loadRoles(user.id), { fresh: false, loggedInAt })
+  await reSealSession(event, updated!, loggedInAt)
 
   await writeAudit({
     actorUserId: user.id,

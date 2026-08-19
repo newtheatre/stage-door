@@ -51,7 +51,7 @@ Google OAuth via `defineOAuthGoogleEventHandler`. The redirect target rides the 
 ### `GET /auth/google-link`: session (browser redirect flow) [AUD]
 Self-service "Connect NNT Google account" from `/account`: the OAuth flow bound to the **current session's user**; on success stores `google_sub` on that account regardless of the Google address (hd check still applies). Sensitive operation: requires a **live** session (account exists, not disabled, session epoch current, else the cookie is cleared and it 302s to login) that is also **fresh** (login within the last 10 minutes; otherwise 302 back to `/account?error=stale-session`). Both are checked before anything is written, so a revoked cookie cannot attach an identity. Refuses if the Google identity is already linked to another account (that's a merge situation, not a link).
 
-### `POST /api/auth/email/request`: session [RL]
+### `POST /api/auth/email/request`: live session [RL]
 Resend verification email. Enumeration-safe.
 
 ### `POST /api/auth/email/verify`: public

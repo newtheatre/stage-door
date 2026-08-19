@@ -40,8 +40,7 @@ export default defineEventHandler(async (event) => {
     detail: { via: 'self-service', hadPassword: user.password !== null },
   })
 
-  const roles = await loadRoles(user.id)
-  await sealUserSession(event, updated!, roles, { fresh: false, loggedInAt })
+  await reSealSession(event, updated!, loggedInAt)
 
   return { ok: true }
 })

@@ -24,22 +24,13 @@ export async function refreshSession(event: H3Event): Promise<RefreshResult> {
   const user = await db.select().from(schema.users)
     .where(eq(schema.users.id, session.user.id)).get()
 
-  if (!user) {
+  const failure = livenessFailure(session, user)
+  if (failure) {
     await clearUserSession(event)
-    return { ok: false, reason: 'gone' }
-  }
-  if (user.disabled) {
-    await clearUserSession(event)
-    return { ok: false, reason: 'disabled' }
-  }
-  if ((session.epoch ?? -1) !== user.sessionEpoch) {
-    // Force-logout / password reset elsewhere: this cookie is dead.
-    await clearUserSession(event)
-    return { ok: false, reason: 'stale-epoch' }
+    return { ok: false, reason: failure }
   }
 
-  const roles = await loadRoles(user.id)
-  await sealUserSession(event, user, roles, { fresh: false, loggedInAt: session.loggedInAt })
+  await reSealSession(event, user!, session.loggedInAt)
 
   const fresh = await getUserSession(event)
   return { ok: true, user: fresh.user! }

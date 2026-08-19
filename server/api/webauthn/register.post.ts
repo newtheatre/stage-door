@@ -93,7 +93,7 @@ export default defineWebAuthnRegisterEventHandler({
         .set({ sessionEpoch: sql`${schema.users.sessionEpoch} + 1` })
         .where(eq(schema.users.id, user.id))
         .returning()
-      await sealUserSession(event, updated!, await loadRoles(user.id), { fresh: false, loggedInAt })
+      await reSealSession(event, updated!, loggedInAt)
     }
 
     await writeAudit({

@@ -64,8 +64,7 @@ export default defineOAuthGoogleEventHandler({
     })
 
     // Re-seal so the account page reflects the link immediately.
-    const roles = await loadRoles(user.id)
-    await sealUserSession(event, user, roles, { fresh: false, loggedInAt: session.loggedInAt })
+    await reSealSession(event, user, session.loggedInAt)
 
     return sendRedirect(event, '/account?linked=1', 302)
   },
