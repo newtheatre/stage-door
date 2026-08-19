@@ -1,13 +1,11 @@
 import { db, schema } from '@nuxthub/db'
 import { and, eq, like, or, sql } from 'drizzle-orm'
 import type { RoleGrant } from './session'
+import { UNDELIVERABLE_SUFFIXES } from './validation'
 
-// Anonymised accounts live on undeliverable domains. SQL, so the filter
-// happens in the database.
-const UNDELIVERABLE_LIKE = [
-  '%.invalid', '%.test', '%.example', '%.localhost',
-  '%@example.com', '%@example.org', '%@example.net',
-]
+// The same list isUndeliverableEmail uses, as LIKE patterns, so the filter
+// happens in the database and the two cannot drift.
+const UNDELIVERABLE_LIKE = UNDELIVERABLE_SUFFIXES.map(suffix => `%${suffix}`)
 
 /** WHERE: this users row is an anonymised/placeholder account. */
 export function isAnonymisedRow() {

@@ -4,16 +4,10 @@
  */
 
 import { z } from 'zod/v4'
-import { namespaceSchema, roleNameSchema, permissionKeySchema, eligibilityKeySchema } from './validation'
+import { defaultExpirySchema, namespaceSchema, roleNameSchema, permissionKeySchema, eligibilityKeySchema } from './validation'
 
 /** Refuse anything larger before parsing: a manifest is a few kilobytes. */
 export const MANIFEST_MAX_BYTES = 64 * 1024
-
-const defaultExpirySchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('none') }),
-  z.object({ kind: z.literal('committee-year') }),
-  z.object({ kind: z.literal('days'), days: z.number().int().min(1).max(3650) }),
-])
 
 export const manifestSchema = z.object({
   contract: z.literal(1),

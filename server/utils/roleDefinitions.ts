@@ -33,9 +33,14 @@ export async function assertGrantsDefined(roles: { role: string }[], alreadyHeld
  * A bad snapshot must never be able to remove every `auth:ADMIN` or
  * `training:ADMIN`: that removes the ability to fix the rule (ADR-0019).
  */
+export function eligibilityModeAllowed(namespace: string, role: string, mode: string): boolean {
+  void namespace
+  return mode !== 'enforcing' || role !== 'ADMIN'
+}
+
+/** The throwing form, for an admin edit. A manifest is downgraded instead. */
 export function assertEligibilityModeAllowed(namespace: string, role: string, mode: string): void {
-  if (mode !== 'enforcing') return
-  if (role !== 'ADMIN') return
+  if (eligibilityModeAllowed(namespace, role, mode)) return
 
   throw createError({
     statusCode: 400,

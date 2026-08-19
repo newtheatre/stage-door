@@ -127,7 +127,7 @@ const googleHref = computed(() =>
 )
 
 const schema = z.object({
-  email: z.email('Please enter a valid email address'),
+  email: emailSchema,
   password: z.string('Password is required').min(1, 'Password is required'),
 })
 

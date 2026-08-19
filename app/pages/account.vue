@@ -326,15 +326,11 @@ watchEffect(() => {
 })
 const emailChanged = computed(() => !!profile.value && profileForm.email.toLowerCase() !== profile.value.email)
 
-// Mirrors the server's passwordSchema, plus the confirmation: mistakes
-// surface inline instead of as a server 400.
+// The shared policy plus the confirmation: mistakes surface inline instead
+// of as a server 400.
 const passwordFormSchema = z.object({
   currentPassword: z.string().optional(),
-  password: z.string()
-    .min(8, 'At least 8 characters')
-    .regex(/[a-z]/, 'Include a lowercase letter')
-    .regex(/[A-Z]/, 'Include an uppercase letter')
-    .regex(/\d/, 'Include a number'),
+  password: passwordSchema,
   confirmPassword: z.string(),
 }).refine(form => form.password === form.confirmPassword, {
   message: 'Passwords do not match',

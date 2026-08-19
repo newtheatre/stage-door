@@ -140,7 +140,7 @@ const consumeError = ref('')
 const challenge = ref<{ attemptId: string, methods: string[] } | null>(null)
 
 const schema = z.object({
-  email: z.email('Please enter a valid email address'),
+  email: emailSchema,
 })
 
 type Schema = z.output<typeof schema>

@@ -74,7 +74,7 @@ const errorMessage = ref('')
 const submitted = ref(false)
 
 const schema = z.object({
-  email: z.email('Please enter a valid email address'),
+  email: emailSchema,
 })
 
 type Schema = z.output<typeof schema>
