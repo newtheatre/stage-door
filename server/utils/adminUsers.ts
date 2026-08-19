@@ -19,7 +19,23 @@ export function isRealRow() {
   return and(...UNDELIVERABLE_LIKE.map(p => sql`${schema.users.email} NOT LIKE ${p}`))
 }
 
+/** The address eraseUser rewrites to. The only marker an erased row carries. */
+export const ANONYMISED_SUFFIX = '@anonymised.invalid'
+
 type UserRow = typeof schema.users.$inferSelect
+
+/**
+ * Erasure is irreversible (docs/gdpr-retention.md): writing identity back
+ * over an erased row re-identifies it while every app stays scrubbed.
+ */
+export function assertNotAnonymised(user: UserRow): void {
+  if (user.email.endsWith(ANONYMISED_SUFFIX)) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'This account has been erased and cannot be modified',
+    })
+  }
+}
 
 /** Load a user by route param or 404. */
 export async function loadUserOr404(id: string | undefined): Promise<UserRow> {

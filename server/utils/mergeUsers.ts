@@ -34,8 +34,6 @@ export interface MergeResult {
   plan: MergePlan
 }
 
-const ANONYMISED_SUFFIX = '@anonymised.invalid'
-
 /**
  * Conservative union: a concrete date beats permanent, and the earlier date
  * wins. A merge must never extend anyone's access.
