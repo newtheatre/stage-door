@@ -62,6 +62,8 @@ High-value suites (keep these green and comprehensive — they encode the securi
 
 Every PR that changes an auth flow adds/updates a test that fails without the change (CLAUDE.md).
 
+CI (`.github/workflows/ci.yml`) gates on all five of `bun run test`, `lint`, `check:comments`, `typecheck` and `build`. Build is gated because merging to `main` deploys, so a bundle that does not build would otherwise be caught by Workers Builds after the merge rather than before it.
+
 ## Seeds
 
 Seed addresses use `@dev.newtheatre.org.uk`. They must **not** use a reserved TLD (`.test`, `.invalid`, `example.com`): those are exactly what `isUndeliverableEmail` treats as anonymised placeholders, so seeded users would be hidden from `/admin` and blocked from register/reset — the dev environment would silently diverge from production (#16).
