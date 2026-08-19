@@ -1,5 +1,5 @@
 import { db, schema } from '@nuxthub/db'
-import { and, eq, isNull, isNotNull, like, or, sql, desc } from 'drizzle-orm'
+import { and, eq, inArray, isNull, isNotNull, like, or, sql, desc } from 'drizzle-orm'
 import { z } from 'zod/v4'
 import type { RoleGrant } from '~~/server/utils/session'
 
@@ -26,12 +26,16 @@ const hasWorkspacePassword = and(
   like(schema.users.email, '%@newtheatre.org.uk'),
   isNotNull(schema.users.password),
 )
-const isAdminWithoutMfa = and(
-  isNotNull(schema.users.password),
-  sql`exists (select 1 from ${schema.userRoles} where ${schema.userRoles.userId} = ${schema.users.id} and ${schema.userRoles.role} like '%:ADMIN' and (${schema.userRoles.expiresAt} is null or ${schema.userRoles.expiresAt} > ${Date.now()}))`,
-  sql`not exists (select 1 from ${schema.totpSecrets} where ${schema.totpSecrets.userId} = ${schema.users.id} and ${schema.totpSecrets.confirmedAt} is not null)`,
-  sql`not exists (select 1 from ${schema.webauthnCredentials} where ${schema.webauthnCredentials.userId} = ${schema.users.id})`,
-)
+// Built per request, never hoisted: a module-scope `now` freezes for the
+// lifetime of the isolate.
+function isAdminWithoutMfa(now: Date) {
+  return and(
+    isNotNull(schema.users.password),
+    activeGrantExists(sql`${schema.userRoles.role} like '%:ADMIN'`, now),
+    sql`not exists (select 1 from ${schema.totpSecrets} where ${schema.totpSecrets.userId} = ${schema.users.id} and ${schema.totpSecrets.confirmedAt} is not null)`,
+    sql`not exists (select 1 from ${schema.webauthnCredentials} where ${schema.webauthnCredentials.userId} = ${schema.users.id})`,
+  )
+}
 
 /**
  * Search and list users. Anonymised accounts are excluded unless asked for.
@@ -40,6 +44,8 @@ export default defineEventHandler(async (event) => {
   await requireAuthAdmin(event)
   const { q, role, guest, disabled, anonymised, attention, page } = await getValidatedQuery(event, querySchema.parse)
 
+  const now = new Date()
+  const adminNoMfa = isAdminWithoutMfa(now)
   const conditions = [anonymised === 'true' ? anonymisedRow : realRow]
 
   if (q) {
@@ -57,11 +63,11 @@ export default defineEventHandler(async (event) => {
   }
   if (role) {
     // Active holders only — expired grants don't count (ADR-0011).
-    conditions.push(sql`exists (select 1 from ${schema.userRoles} where ${schema.userRoles.userId} = ${schema.users.id} and ${schema.userRoles.role} = ${role} and (${schema.userRoles.expiresAt} is null or ${schema.userRoles.expiresAt} > ${Date.now()}))`)
+    conditions.push(activeGrantExists(eq(schema.userRoles.role, role), now))
   }
 
   if (attention === 'workspace-password') conditions.push(hasWorkspacePassword)
-  if (attention === 'admin-no-mfa') conditions.push(isAdminWithoutMfa)
+  if (attention === 'admin-no-mfa') conditions.push(adminNoMfa)
 
   const where = conditions.length ? and(...conditions) : undefined
 
@@ -79,7 +85,7 @@ export default defineEventHandler(async (event) => {
     workspacePassword: (await db.select({ n: sql<number>`count(*)` })
       .from(schema.users).where(and(hasWorkspacePassword, realRow)).get())?.n ?? 0,
     adminNoMfa: (await db.select({ n: sql<number>`count(*)` })
-      .from(schema.users).where(and(isAdminWithoutMfa, realRow)).get())?.n ?? 0,
+      .from(schema.users).where(and(adminNoMfa, realRow)).get())?.n ?? 0,
   }
 
   const rows = await db.select().from(schema.users)
@@ -89,9 +95,11 @@ export default defineEventHandler(async (event) => {
     .offset((page - 1) * PAGE_SIZE)
     .all()
 
-  const now = Date.now()
+  // Scoped to the page: bounded by PAGE_SIZE, not by the data, so the bound
+  // parameter count cannot grow (D1 caps at 100).
   const roleRows = rows.length
-    ? await db.select().from(schema.userRoles).all()
+    ? await db.select().from(schema.userRoles)
+        .where(inArray(schema.userRoles.userId, rows.map(u => u.id))).all()
     : []
   const rolesByUser = new Map<string, RoleGrant[]>()
   for (const r of roleRows) {
@@ -101,7 +109,7 @@ export default defineEventHandler(async (event) => {
       grantedAt: r.grantedAt?.getTime() ?? null,
       grantedBy: r.grantedBy,
       note: r.note,
-      expired: r.expiresAt !== null && r.expiresAt.getTime() <= now,
+      expired: r.expiresAt !== null && r.expiresAt.getTime() <= now.getTime(),
     }
     rolesByUser.set(r.userId, [...(rolesByUser.get(r.userId) ?? []), grant])
   }

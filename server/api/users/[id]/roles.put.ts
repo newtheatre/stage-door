@@ -24,17 +24,7 @@ export default defineEventHandler(async (event) => {
     .where(eq(schema.userRoles.userId, user.id)).all()
   const existingByRole = new Map(existing.map(r => [r.role, r]))
 
-  // New grants only exist by definition (ADR-0014).
-  const definitions = await db.select().from(schema.roleDefinitions).all()
-  const defined = new Set(definitions.map(d => `${d.namespace}:${d.role}`))
-  for (const grant of roles) {
-    if (!existingByRole.has(grant.role) && !defined.has(grant.role)) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: `No definition for ${grant.role} — define it under Role definitions first`,
-      })
-    }
-  }
+  await assertGrantsDefined(roles, new Set(existingByRole.keys()))
   const before = await loadRoleGrants(user.id)
 
   // Removals: anything not in the wanted set (expired rows included — the

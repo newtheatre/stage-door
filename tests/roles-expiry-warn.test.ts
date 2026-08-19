@@ -89,6 +89,30 @@ describe('roles:expiry-warn task', () => {
   })
 })
 
+describe('the warned-at update stays inside D1 limits', () => {
+  it('marks every grant when a whole committee year lapses at once', async () => {
+    // 120 grants in one run: an unchunked inArray would bind 120 parameters
+    // and D1 caps a statement at 100.
+    const holders = []
+    for (let i = 0; i < 120; i++) {
+      const holder = await createUser({ email: `bulk${i}@example-user.co.uk`, plainPassword: 'Passw0rd' })
+      await grantRole(holder.id, 'rooms:ADMIN', { expiresAt: new Date(Date.now() + 7 * DAY) })
+      holders.push(holder)
+    }
+
+    const { result } = await runTask()
+    expect(result.warnedGrants).toBe(120)
+
+    const unwarned = (await db.select().from(schema.userRoles).all())
+      .filter(r => r.expiryWarnedAt === null)
+    expect(unwarned).toHaveLength(0)
+
+    // Second run finds nothing left to do, so no grant was warned twice.
+    const second = await runTask()
+    expect(second.result.warnedGrants).toBe(0)
+  })
+})
+
 describe('retention sweep exemption uses ACTIVE roles only', () => {
   it('sweep-side condition excludes expired grants', async () => {
     const activeHolder = await createUser({ email: 'active@example-user.co.uk', plainPassword: 'Passw0rd' })

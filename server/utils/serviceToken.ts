@@ -41,12 +41,16 @@ export async function requireServiceToken(event: H3Event): Promise<ServiceTokenR
     // in constant time rather than looking up by hash.
     const rows = await db.select().from(schema.serviceTokens).all()
     for (const row of rows) {
-      if (timingSafeEqual(candidate, Buffer.from(row.tokenHash))) {
-        await db.update(schema.serviceTokens)
-          .set({ lastUsedAt: new Date() })
-          .where(eq(schema.serviceTokens.id, row.id))
-        return row
-      }
+      // timingSafeEqual throws on a length mismatch, which would 500 a request
+      // that should simply be rejected.
+      const stored = Buffer.from(row.tokenHash)
+      if (stored.length !== candidate.length) continue
+      if (!timingSafeEqual(candidate, stored)) continue
+
+      await db.update(schema.serviceTokens)
+        .set({ lastUsedAt: new Date() })
+        .where(eq(schema.serviceTokens.id, row.id))
+      return row
     }
   }
 
