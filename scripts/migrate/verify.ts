@@ -118,6 +118,10 @@ const targetIds = new Set((queryTarget('SELECT id FROM users') as { id: string }
 
 // Reservations after the case-duplicate fold: apply proscenium-fixes to a
 // copy and check every owner resolves.
+function tableExists(handle: ReturnType<typeof loadSource>, table: string): boolean {
+  return Boolean(handle.prepare('SELECT name FROM sqlite_master WHERE type = ? AND name = ?').get('table', table))
+}
+
 const prosCopy = loadSource('proscenium')
 const prosFixesFile = join(DATA, 'out/proscenium-fixes.sql')
 if (existsSync(prosFixesFile)) {
@@ -129,6 +133,26 @@ check(`all ${reservationOwners.length} reservation owners resolve post-fold`,
 check('no reservations lost by the fold',
   (prosCopy.prepare('SELECT count(*) n FROM reservations').get() as { n: number }).n
   === (pros.prepare('SELECT count(*) n FROM reservations').get() as { n: number }).n)
+
+// Two of these are restrict (a missed one aborts the DELETE) and two are
+// set null (the attribution is erased silently).
+for (const [table, column] of [
+  ['passes', 'user_id'],
+  ['passes', 'issued_by_user_id'],
+  ['pass_admissions', 'redeemed_by_user_id'],
+] as const) {
+  if (!tableExists(prosCopy, table)) continue
+
+  const orphans = prosCopy
+    .prepare(`SELECT DISTINCT ${column} AS id FROM ${table} WHERE ${column} IS NOT NULL`)
+    .all() as { id: string }[]
+  check(`all ${table}.${column} values resolve post-fold`,
+    orphans.every(r => targetIds.has(r.id)))
+
+  const before = (pros.prepare(`SELECT count(*) n FROM ${table} WHERE ${column} IS NOT NULL`).get() as { n: number }).n
+  const after = (prosCopy.prepare(`SELECT count(*) n FROM ${table} WHERE ${column} IS NOT NULL`).get() as { n: number }).n
+  check(`no ${table}.${column} attribution lost by the fold`, before === after)
+}
 
 // Bookings after the re-point: apply rooms-fixes to a copy and check.
 const roomsCopy = loadSource('rooms')
