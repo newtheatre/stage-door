@@ -113,7 +113,7 @@ function buildPlan(
     loser: { id: loser.id, email: loser.email, name: loser.name },
     roles,
     gains: {
-      password: winner.password === null && loser.password !== null,
+      password: winner.password === null && loser.password !== null && !isWorkspaceEmail(winner.email),
       google: winner.googleSub === null && loser.googleSub !== null,
       verified: !winner.verified && loser.verified,
     },
@@ -220,7 +220,10 @@ export async function mergeUsers(
   // covers what it never had. googleSub is free now (erasure nulled it).
   await db.update(schema.users)
     .set({
-      ...(winner.password === null && loserCredentials.password !== null ? { password: loserCredentials.password } : {}),
+      // A Workspace winner must not gain a password from the loser (ADR-0012).
+      ...(winner.password === null && loserCredentials.password !== null && !isWorkspaceEmail(winner.email)
+        ? { password: loserCredentials.password }
+        : {}),
       ...(winner.googleSub === null && loserCredentials.googleSub !== null ? { googleSub: loserCredentials.googleSub } : {}),
       ...(loserCredentials.verified ? { verified: true } : {}),
       ...(loserCredentials.lastLogin && (!winner.lastLogin || loserCredentials.lastLogin > winner.lastLogin)

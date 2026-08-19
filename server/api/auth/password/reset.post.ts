@@ -37,6 +37,10 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  const owner = await db.select({ email: schema.users.email }).from(schema.users)
+    .where(eq(schema.users.id, resetRecord.userId)).get()
+  assertPasswordAllowed(owner?.email ?? '')
+
   const hashedPassword = await hashPassword(password)
 
   const [user] = await db.update(schema.users)

@@ -15,7 +15,7 @@ Why the service is the way it is. One decision per file, numbered, never edited 
 | [0009](0009-d1-backed-rate-limiting.md) | Rate limiting via D1-backed fixed-window counters | Accepted |
 | [0010](0010-legacy-roles-dormant-namespace.md) | Legacy-import roles land in a dormant `ticketing:*` namespace | Accepted |
 | [0011](0011-role-definitions-and-expiry.md) | Role definitions and grant expiry (roles v2) | Accepted — partially superseded by [0014](0014-grants-require-definitions.md) (registry now mandatory for new grants) and [0018](0018-manifest-declared-roles.md) (definitions come from the app, not by hand) |
-| [0012](0012-sso-only-workspace-and-mfa.md) | Workspace addresses are SSO-only; MFA (passkeys + TOTP) for the residual privileged accounts | Accepted |
+| [0012](0012-sso-only-workspace-and-mfa.md) | Workspace addresses are SSO-only; MFA (passkeys + TOTP) for the residual privileged accounts | Accepted — the "three entry points that must move together" it describes are now a single `assertPasswordAllowed` at each write boundary, because the login-side checks left five write paths unguarded; the decision is unchanged |
 | [0013](0013-magic-links-and-the-mfa-seam.md) | Magic-link sign-in; one MFA seam for every password-equivalent entry point; emailed tokens hashed at rest | Accepted |
 | [0014](0014-grants-require-definitions.md) | New grants must reference a role definition; free-text granting removed | Accepted |
 | [0015](0015-account-merge.md) | Account merge: winner absorbs loser, app hooks first, loser erased | Accepted |

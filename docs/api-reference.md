@@ -61,6 +61,8 @@ Resend verification email. Enumeration-safe.
 `{ email }` → always `{ ok: true }`. Sends reset email iff the account exists (shadow accounts included — this is the account-claiming path advertised in booking confirmations).
 
 ### `POST /api/auth/password/reset` — public [RL]
+Refuses a Workspace address with 403 (`assertPasswordAllowed`, ADR-0012), as do `PUT /api/account/password`, `POST /api/users/:id/reset-password` and `POST /api/users`. The rule lives at the write boundary: the login-side checks alone could not stop an admin-minted token from restoring a password.
+
 `{ token, password }` → sets password, consumes token, bumps `session_epoch` (invalidate old sessions), then **the same MFA seam as login** (ADR-0013): no factors → seals a fresh session, `{ ok: true }`; enrolled → `{ mfaRequired, attemptId, methods }` and no session — the password changed but the factor still gates. Mailbox control alone no longer logs in an enrolled account.
 
 ## Session maintenance
