@@ -195,3 +195,17 @@ describe('recovery codes forgive pasted whitespace', () => {
     expect(await useRecoveryCode(user.id, `  ${code!.toUpperCase()} \n`)).toBe(true)
   })
 })
+
+describe('a magic link is claimed by the delete, not the read', () => {
+  it('seals at most one session when two requests race the same link', async () => {
+    const user = await createUser({ email: 'racer@example-user.co.uk', verified: true })
+    const token = await createMagicLinkToken(user.id)
+
+    const events = [makeEvent({ body: { token } }), makeEvent({ body: { token } })]
+    const results = await Promise.allSettled(events.map(e => verify(e)))
+
+    const fulfilled = results.filter(r => r.status === 'fulfilled')
+    expect(fulfilled).toHaveLength(1)
+    expect(events.filter(e => sealedSession(e)).length).toBe(1)
+  })
+})
