@@ -32,7 +32,17 @@ export default defineTask({
     const now = Date.now()
 
     // ── Gather candidates ──────────────────────────────────────────────────
-    const users = await db.select().from(schema.users).all()
+
+    // Six fields, not every column: otherwise every scrypt hash in the
+    // estate is pulled into the isolate and discarded.
+    const users = await db.select({
+      id: schema.users.id,
+      email: schema.users.email,
+      password: schema.users.password,
+      googleSub: schema.users.googleSub,
+      lastLogin: schema.users.lastLogin,
+      createdAt: schema.users.createdAt,
+    }).from(schema.users).all()
     // ACTIVE grants only: an expired role must not exempt anyone (ADR-0011).
     const roleRows = await db.select({ userId: schema.userRoles.userId })
       .from(schema.userRoles).where(activeRoleCondition(new Date(now))).all()

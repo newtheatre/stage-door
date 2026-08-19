@@ -115,11 +115,11 @@ The permission vocabulary an app declares, and which role definition carries whi
 
 | Column | Notes |
 |---|---|
-| `id` · `actor_user_id` (null = system/cron) · `action` text · `target` text · `detail` text (JSON) · `created_at` | Append-only. Written by: all admin UI actions, role grants/revokes, force-logouts, account disable, erasure/anonymisation, retention sweep actions, service-token issuance. Not written by: ordinary logins (that's `last_login`). |
+| `id` · `actor_user_id` (null = system/cron) · `action` text · `target` text · `detail` text (JSON) · `created_at` | Append-only. Written by: all admin UI actions, role grants/revokes, force-logouts, account disable, erasure/anonymisation, retention sweep actions, service-token issuance. Not written by: ordinary logins (that's `last_login`). Indexed on `target`, `actor_user_id`, `action` and `created_at`: the table grows without bound, and "everything that happened to this user" is `?target=` |
 
 ### `retention_notices`
 
-Warning-email bookkeeping for the retention sweep: `user_id` (FK cascade), `stage` (`warning-60d` | `warning-30d`, unique per user), `sent_at`. Rows are cleared when the user logs in again (their clock resets) and cascade away on erasure.
+Warning-email bookkeeping for the retention sweep: `user_id` (FK cascade), `stage` (`warning-60d` | `warning-30d`, unique per user), `sent_at`. Rows are cleared when the user logs in again (their clock resets), and are deleted outright on erasure along with `eligibility_snapshots`.
 
 ### MFA tables (ADR-0012)
 

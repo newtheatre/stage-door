@@ -39,9 +39,7 @@ describe('integration guide fixture addresses', () => {
 
 describe('the undeliverable list has one source', () => {
   it('drives both the JS guard and the SQL filter', () => {
-    // Adding a domain to one and not the other used to half-apply the policy:
-    // either anonymised rows reappear in admin lists, or a blocked address is
-    // still treated as mailable.
+    // A domain added to one and not the other half-applies the policy.
     for (const suffix of UNDELIVERABLE_SUFFIXES) {
       expect(isUndeliverableEmail(`someone${suffix.startsWith('@') ? '' : '@host'}${suffix}`)).toBe(true)
     }

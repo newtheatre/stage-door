@@ -107,13 +107,14 @@ export interface RoleGrant {
  */
 export async function loadRoleGrants(userId: string): Promise<RoleGrant[]> {
   const now = Date.now()
-  const rows = await db.select().from(schema.userRoles)
-    .where(eq(schema.userRoles.userId, userId))
-    .all()
 
-  // What the session would actually carry, so the admin can see why a held
-  // role is doing nothing.
-  const effective = new Set(await loadRoles(userId))
+  // The second is what the session would actually carry, so the admin can see
+  // why a held role is doing nothing. Neither depends on the other.
+  const [rows, held] = await Promise.all([
+    db.select().from(schema.userRoles).where(eq(schema.userRoles.userId, userId)).all(),
+    loadRoles(userId),
+  ])
+  const effective = new Set(held)
 
   return rows.map((r) => {
     const expired = r.expiresAt !== null && r.expiresAt.getTime() <= now

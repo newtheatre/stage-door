@@ -13,14 +13,17 @@ export async function requireAuthAdmin(event: H3Event): Promise<{ user: UserRow,
   // leave the privileged surface accepting what the account surface rejects.
   const { user } = await requireLiveUser(event)
 
-  const roles = await loadRoles(user.id)
+  // Independent of each other, and this guard prefixes every admin route, so
+  // they go together rather than one after the other.
+  const [roles, factors] = await Promise.all([loadRoles(user.id), enrolledFactors(user.id)])
+
   if (!roles.includes('auth:ADMIN')) {
     throw createError({ statusCode: 403, statusMessage: 'Admin access required' })
   }
 
   // A privileged password account that has not enrolled keeps its session but
   // does no admin work until it does (ADR-0012).
-  if (await isMfaRequired(user, roles) && (await enrolledFactors(user.id)).length === 0) {
+  if (await isMfaRequired(user, roles) && factors.length === 0) {
     throw createError({
       statusCode: 403,
       statusMessage: 'Set up two-factor authentication on your account before using admin tools',

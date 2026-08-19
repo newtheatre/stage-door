@@ -40,10 +40,18 @@ async function hookBearer(app: HookApp): Promise<string> {
   return row.tokenHash
 }
 
-/** Call one hook on one app. Never throws: failures come back in the result. */
-export async function callAppHook<T>(app: HookApp, hook: AppHook, body: Record<string, unknown>): Promise<HookResult<T>> {
+/**
+ * Call one hook on one app. Never throws: failures come back in the result.
+ * `known` skips the registry lookup when the caller already read the row.
+ */
+export async function callAppHook<T>(
+  app: HookApp,
+  hook: AppHook,
+  body: Record<string, unknown>,
+  known?: { baseUrl: string, hooksEnabled: boolean },
+): Promise<HookResult<T>> {
   try {
-    const row = await db.select({ baseUrl: schema.apps.baseUrl, hooksEnabled: schema.apps.hooksEnabled })
+    const row = known ?? await db.select({ baseUrl: schema.apps.baseUrl, hooksEnabled: schema.apps.hooksEnabled })
       .from(schema.apps).where(eq(schema.apps.name, app)).get()
     if (!row) throw new Error(`App '${app}' is not registered`)
     if (!row.hooksEnabled) throw new Error(`Hooks are disabled for app '${app}'`)
@@ -68,5 +76,7 @@ export async function callAppHook<T>(app: HookApp, hook: AppHook, body: Record<s
 /** Call the same hook on every app with hooks enabled. */
 export async function callAllAppHooks<T>(hook: AppHook, body: Record<string, unknown>): Promise<HookResult<T>[]> {
   const registered = await loadHookApps()
-  return Promise.all(registered.map(({ name }) => callAppHook<T>(name, hook, body)))
+  return Promise.all(registered.map(app =>
+    callAppHook<T>(app.name, hook, body, { baseUrl: app.baseUrl, hooksEnabled: app.hooksEnabled }),
+  ))
 }
