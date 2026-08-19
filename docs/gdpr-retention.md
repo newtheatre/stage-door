@@ -1,6 +1,6 @@
 # GDPR & Data Retention
 
-The auth service's part of the theatre's data-protection obligations. **Status: built (Phase 7, 2026-08-12)** — erasure, subject-access export, and the retention sweep are live; the sweep ships in dry-run until the Archivist reviews a production report and arms it in `server/utils/retentionConfig.ts`.
+The auth service's part of the theatre's data-protection obligations. **Status: built (Phase 7, 2026-08-12)** — erasure, subject-access export, and the retention sweep are live; the sweep ships in dry-run until the Archivist reviews a production report and arms it in `server/utils/retentionConfig.ts`. The digest reports `incompleteErasures`: an erasure whose app hook failed is re-driven on the next run (`retention-redrive`), because the planner will never select an already-anonymised row again.
 
 Framing, honestly: software is never "GDPR compliant" by itself — compliance is mostly process (lawful basis, privacy notice, honouring requests within one month, breach handling). The NNT's full data-protection policy is a committee document (in progress, ITM + Secretary, target spring 2027); the Workspace & Data Retention Policy v1.0 covers Workspace and explicitly defers audience/ticketing data to it. **This service and the app databases are where that deferred data lives.** This doc makes the technical side ready. None of it is legal advice; SU guidance takes precedence.
 
