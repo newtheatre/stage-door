@@ -108,7 +108,7 @@ export async function sendRoleExpiryWarningEmail(
   grants: { role: string, expiresAt: number }[],
 ): Promise<void> {
   const rows = grants
-    .map(g => `<li><code>${g.role}</code> — expires ${new Date(g.expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</li>`)
+    .map(g => `<li><code>${g.role}</code> — expires ${formatDateLong(g.expiresAt)}</li>`)
     .join('')
 
   await sendEmail({
@@ -130,7 +130,7 @@ export async function sendRoleExpiryDigestEmail(
   warned: { email: string, role: string, expiresAt: number }[],
 ): Promise<void> {
   const rows = warned
-    .map(w => `<li>${w.email} — <code>${w.role}</code> expires ${new Date(w.expiresAt).toLocaleDateString('en-GB')}</li>`)
+    .map(w => `<li>${w.email} — <code>${w.role}</code> expires ${formatDate(w.expiresAt)}</li>`)
     .join('')
 
   await sendEmail({

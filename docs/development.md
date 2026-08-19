@@ -64,6 +64,12 @@ Every PR that changes an auth flow adds/updates a test that fails without the ch
 
 CI (`.github/workflows/ci.yml`) gates on all five of `bun run test`, `lint`, `check:comments`, `typecheck` and `build`. Build is gated because merging to `main` deploys, so a bundle that does not build would otherwise be caught by Workers Builds after the merge rather than before it.
 
+## Dates
+
+Every rendered date goes through `shared/utils/formatDate.ts`, which pins `Europe/London`. The Worker runs in UTC and a browser runs wherever the reader is, so an unpinned date is wrong twice over.
+
+Anchoring matters as much as formatting: `endOfLondonDay(year, month, day)` gives the last instant of a London day. A naive `Date.UTC(y, m, d, 23, 59, 59, 999)` is an hour late for any date inside BST, which is why the committee year end (31 July, always BST) used to store and render as 1 August.
+
 ## Seeds
 
 Seed addresses use `@dev.newtheatre.org.uk`. They must **not** use a reserved TLD (`.test`, `.invalid`, `example.com`): those are exactly what `isUndeliverableEmail` treats as anonymised placeholders, so seeded users would be hidden from `/admin` and blocked from register/reset — the dev environment would silently diverge from production (#16).

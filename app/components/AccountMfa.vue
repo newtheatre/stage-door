@@ -496,10 +496,6 @@ async function removeFactor() {
 
 // ── Shared helpers ──────────────────────────────────────────────────────────
 
-function formatDate(ms: number) {
-  return new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
 async function copy(text: string, title: string) {
   await navigator.clipboard.writeText(text)
   toast.add({ title, color: 'success' })

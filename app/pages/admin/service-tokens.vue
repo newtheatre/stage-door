@@ -65,8 +65,8 @@ const { data, pending, refresh } = await useFetch('/api/service-tokens')
 const rows = computed(() => (data.value?.tokens ?? []).map(t => ({
   id: t.id,
   name: t.name,
-  created: new Date(t.createdAt).toLocaleDateString('en-GB'),
-  lastUsed: t.lastUsedAt ? new Date(t.lastUsedAt).toLocaleString('en-GB') : 'never',
+  created: formatDate(t.createdAt),
+  lastUsed: t.lastUsedAt ? formatDateTime(t.lastUsedAt) : 'never',
 })))
 
 const columns = [

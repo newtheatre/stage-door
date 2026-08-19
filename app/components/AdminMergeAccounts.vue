@@ -232,7 +232,7 @@ function closePlan() {
 }
 
 function roleOutcomeLabel(role: MergePlan['roles'][number]): string {
-  const expiry = role.expiresAt === null ? 'permanent' : `until ${new Date(role.expiresAt).toLocaleDateString('en-GB')}`
+  const expiry = role.expiresAt === null ? 'permanent' : `until ${formatDate(role.expiresAt)}`
   switch (role.outcome) {
     case 'moved': return `moves from the absorbed account (${expiry})`
     case 'conflict-earliest-expiry': return `held by both — earliest expiry kept (${expiry})`

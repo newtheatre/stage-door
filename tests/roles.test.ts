@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { db, schema } from '@nuxthub/db'
 import { and, eq } from 'drizzle-orm'
 import { loadRoles, loadRoleGrants } from '../server/utils/session'
+import { formatDate } from '../shared/utils/formatDate'
 import { nextCommitteeYearEnd } from '../server/utils/rolesConfig'
 import rolesHandler from '../server/api/users/[id]/roles.put'
 import definitionsListHandler from '../server/api/role-definitions/index.get'
@@ -66,20 +67,23 @@ describe('read-time expiry enforcement (ADR-0011)', () => {
   })
 })
 
+// 22:59:59.999Z, not 23: 31 July is inside BST, so the last instant of that
+// London day is an hour earlier in UTC. Rendering it must say 31 July.
 describe('nextCommitteeYearEnd', () => {
   it('October rolls to the following 31 July', () => {
     const result = nextCommitteeYearEnd(new Date(Date.UTC(2026, 9, 15)))
-    expect(result.toISOString()).toBe('2027-07-31T23:59:59.999Z')
+    expect(result.toISOString()).toBe('2027-07-31T22:59:59.999Z')
+    expect(formatDate(result)).toBe('31 Jul 2027')
   })
 
   it('1 August rolls to the NEXT year (the year end just passed)', () => {
     const result = nextCommitteeYearEnd(new Date(Date.UTC(2026, 7, 1)))
-    expect(result.toISOString()).toBe('2027-07-31T23:59:59.999Z')
+    expect(result.toISOString()).toBe('2027-07-31T22:59:59.999Z')
   })
 
   it('midday on 31 July resolves to that same evening', () => {
     const result = nextCommitteeYearEnd(new Date(Date.UTC(2026, 6, 31, 12)))
-    expect(result.toISOString()).toBe('2026-07-31T23:59:59.999Z')
+    expect(result.toISOString()).toBe('2026-07-31T22:59:59.999Z')
   })
 })
 

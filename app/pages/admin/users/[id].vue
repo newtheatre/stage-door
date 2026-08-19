@@ -97,11 +97,11 @@
             <dt class="text-muted">
               Last login
             </dt>
-            <dd>{{ user.lastLogin ? new Date(user.lastLogin).toLocaleString('en-GB') : 'never' }}</dd>
+            <dd>{{ user.lastLogin ? formatDateTime(user.lastLogin) : 'never' }}</dd>
             <dt class="text-muted">
               Created
             </dt>
-            <dd>{{ new Date(user.createdAt).toLocaleDateString('en-GB') }}</dd>
+            <dd>{{ formatDate(user.createdAt) }}</dd>
             <dt class="text-muted">
               Legacy ids
             </dt>
