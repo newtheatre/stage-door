@@ -159,6 +159,48 @@ describe('the snapshot writer', () => {
     expect(sync!.lastError).toContain('ECONNREFUSED')
   })
 
+  it('does not empty a live snapshot when rehearsal answers with no holders', async () => {
+    await trainingRegistered()
+    fetchMock.mockResolvedValue({ key: 'duty-manager', userIds: ['keeper', 'other'] })
+    await snapshotRule('duty-manager')
+
+    fetchMock.mockResolvedValue({ key: 'duty-manager', userIds: [] })
+    const result = await snapshotRule('duty-manager')
+
+    expect(result.ok).toBe(false)
+    const rows = await db.select().from(schema.eligibilitySnapshots).all()
+    expect(rows.map(r => r.userId).sort()).toEqual(['keeper', 'other'])
+  })
+
+  it('treats a malformed 200 as a failure rather than an empty set', async () => {
+    await trainingRegistered()
+    fetchMock.mockResolvedValue({ key: 'duty-manager', userIds: ['keeper'] })
+    await snapshotRule('duty-manager')
+
+    // No userIds at all must not read as "nobody is eligible".
+    fetchMock.mockResolvedValue({ key: 'duty-manager' })
+    const result = await snapshotRule('duty-manager')
+
+    expect(result.ok).toBe(false)
+    const rows = await db.select().from(schema.eligibilitySnapshots).all()
+    expect(rows.map(r => r.userId)).toEqual(['keeper'])
+    const sync = await db.select().from(schema.eligibilitySyncs).get()
+    expect(sync!.lastSuccessAt).not.toBeNull()
+  })
+
+  it('swaps the membership over without a window where nobody is eligible', async () => {
+    await trainingRegistered()
+    fetchMock.mockResolvedValue({ key: 'duty-manager', userIds: ['stays', 'leaves'] })
+    await snapshotRule('duty-manager')
+
+    fetchMock.mockResolvedValue({ key: 'duty-manager', userIds: ['stays', 'joins'] })
+    const result = await snapshotRule('duty-manager')
+
+    expect(result).toMatchObject({ ok: true, userCount: 2 })
+    const rows = await db.select().from(schema.eligibilitySnapshots).all()
+    expect(rows.map(r => r.userId).sort()).toEqual(['joins', 'stays'])
+  })
+
   it('only asks about rules a definition actually references', async () => {
     await trainingRegistered()
     expect(await referencedRuleKeys()).toEqual(['duty-manager'])

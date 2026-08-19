@@ -93,8 +93,8 @@ Who currently satisfies each of rehearsal's eligibility rules. **Presence means 
 
 | Table | Notes |
 |---|---|
-| `eligibility_snapshots(rule_key, user_id, captured_at)` | PK on `(rule_key, user_id)`. Replaced wholesale per rule. The insert is chunked at 30 rows (3 bound parameters each = 90; D1 caps at 100). |
-| `eligibility_syncs(rule_key, last_attempt_at, last_success_at, user_count, last_error)` | Separate so it survives the snapshot being replaced. **A null `last_success_at` means never answered, which is what stops enforcement engaging on an unconfirmed rule.** A failed sync stamps `last_attempt_at` and `last_error` and leaves `last_success_at` alone, so the old answer stays in force. |
+| `eligibility_snapshots(rule_key, user_id, captured_at)` | PK on `(rule_key, user_id)`. Replaced per rule by **upserting the new membership, then pruning rows older than this run's stamp**, so the snapshot is never briefly empty and a failure part-way leaves the old answer in force. The stamp is forced strictly newer than every row already present, so two syncs inside one millisecond still prune exactly. The insert is chunked at 30 rows (3 bound parameters each = 90; D1 caps at 100). |
+| `eligibility_syncs(rule_key, last_attempt_at, last_success_at, user_count, last_error)` | Separate so it survives the snapshot being replaced. **A null `last_success_at` means never answered, which is what stops enforcement engaging on an unconfirmed rule.** A failed sync stamps `last_attempt_at` and `last_error` and leaves `last_success_at` alone, so the old answer stays in force. rehearsal's answer is Zod-parsed, so a malformed 200 is a failure rather than an empty set, and an answer naming no holders at all is refused rather than applied, because emptying a live snapshot revokes the role for every holder estate-wide. |
 
 Populated by the `eligibility:snapshot` task on the 04:00 cron, and never on a request path. `user_roles.eligibility_override_until` lifts an enforcing prerequisite for one grant, capped at 90 days and audited.
 
