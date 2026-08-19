@@ -4,7 +4,8 @@
  */
 
 import { db, schema } from '@nuxthub/db'
-import { eq, isNotNull } from 'drizzle-orm'
+import { and, count, eq, isNotNull, lt, max } from 'drizzle-orm'
+import { z } from 'zod/v4'
 
 export interface SnapshotResult {
   ruleKey: string
@@ -39,9 +40,15 @@ async function recordSyncFailure(ruleKey: string, message: string): Promise<void
     })
 }
 
+/** rehearsal's answer. Parsed, so a malformed 200 is a failure, not an empty set. */
+const answerSchema = z.object({
+  key: z.string().optional(),
+  userIds: z.array(z.string().min(1)),
+})
+
 /**
- * Replace one rule's snapshot from rehearsal's answer. Never throws; a failure
- * leaves the previous snapshot exactly as it was.
+ * Replace one rule's snapshot from rehearsal's answer. Never throws, and a
+ * failure at any point leaves the previous snapshot in force.
  */
 export async function snapshotRule(ruleKey: string): Promise<SnapshotResult> {
   try {
@@ -51,22 +58,41 @@ export async function snapshotRule(ruleKey: string): Promise<SnapshotResult> {
     const token = useRuntimeConfig().trainingApiToken
     if (!token) throw new Error('NUXT_TRAINING_API_TOKEN is not set')
 
-    const answer = await $fetch<{ key: string, userIds: string[] }>(
+    const raw = await $fetch(
       `${app.baseUrl}/api/v1/eligibility/${ruleKey}`,
       { headers: { Authorization: `Bearer ${token}` }, retry: 1, timeout: 10_000 },
     )
 
-    const userIds = [...new Set(answer.userIds ?? [])]
-    const now = new Date()
+    const userIds = [...new Set(answerSchema.parse(raw).userIds)]
 
-    await db.delete(schema.eligibilitySnapshots)
-      .where(eq(schema.eligibilitySnapshots.ruleKey, ruleKey))
+    const [existing] = await db.select({ held: count(), newest: max(schema.eligibilitySnapshots.capturedAt) })
+      .from(schema.eligibilitySnapshots)
+      .where(eq(schema.eligibilitySnapshots.ruleKey, ruleKey)).all()
+    const held = existing?.held ?? 0
 
+    // Strictly newer than every row already here, so the prune below is exact
+    // even for two syncs inside one millisecond.
+    const now = new Date(Math.max(Date.now(), (existing?.newest?.getTime() ?? 0) + 1))
+
+    // Emptying a live snapshot revokes the role for every holder estate-wide.
+    // Too destructive to do on one answer (ADR-0019).
+    if (userIds.length === 0 && held > 0) {
+      throw new Error(`Refusing to empty a snapshot of ${held}: rehearsal returned no holders`)
+    }
+
+    // Written before the old rows go, so the snapshot is never briefly empty.
     // Three bound parameters per row, so 30 rows is 90 (D1 caps at 100).
     for (let i = 0; i < userIds.length; i += 30) {
       await db.insert(schema.eligibilitySnapshots)
         .values(userIds.slice(i, i + 30).map(userId => ({ ruleKey, userId, capturedAt: now })))
+        .onConflictDoUpdate({
+          target: [schema.eligibilitySnapshots.ruleKey, schema.eligibilitySnapshots.userId],
+          set: { capturedAt: now },
+        })
     }
+
+    await db.delete(schema.eligibilitySnapshots)
+      .where(and(eq(schema.eligibilitySnapshots.ruleKey, ruleKey), lt(schema.eligibilitySnapshots.capturedAt, now)))
 
     await db.insert(schema.eligibilitySyncs)
       .values({ ruleKey, lastAttemptAt: now, lastSuccessAt: now, userCount: userIds.length, lastError: null })
