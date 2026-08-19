@@ -68,7 +68,9 @@ async function fetchManifest(app: AppRow): Promise<{ body: string, etag: string 
   if (response.status === 304) return null
 
   const body = typeof response._data === 'string' ? response._data : JSON.stringify(response._data)
-  if (body.length > MANIFEST_MAX_BYTES) {
+  // Bytes, not UTF-16 code units: a non-ASCII manifest is up to 3x longer
+  // on the wire than String.length suggests.
+  if (new TextEncoder().encode(body).length > MANIFEST_MAX_BYTES) {
     throw new Error(`Manifest is over ${MANIFEST_MAX_BYTES} bytes`)
   }
 

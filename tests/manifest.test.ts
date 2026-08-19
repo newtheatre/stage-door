@@ -252,3 +252,23 @@ describe('the permission vocabulary is queryable', () => {
     expect(permissions.find(p => p.key === 'booking.read.any')!.active).toBe(false)
   })
 })
+
+describe('the manifest size guard measures bytes', () => {
+  it('rejects a document whose UTF-8 length exceeds the limit', async () => {
+    const app = await roomsApp()
+
+    // 3 bytes each in UTF-8 but one UTF-16 code unit, so a code-unit check
+    // lets roughly 3x the limit through.
+    const padding = '中'.repeat(30_000)
+    expect(padding.length).toBeLessThan(MANIFEST_MAX_BYTES)
+    expect(new TextEncoder().encode(padding).length).toBeGreaterThan(MANIFEST_MAX_BYTES)
+
+    serve({ version: 1, namespace: 'rooms', description: padding, roles: [], permissions: [] })
+
+    const result = await syncApp(app)
+
+    expect(result.ok).toBe(false)
+    const stored = await db.select().from(schema.appManifests).get()
+    expect(stored!.lastError).toContain('bytes')
+  })
+})

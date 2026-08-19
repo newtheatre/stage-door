@@ -1,5 +1,13 @@
 import { db, schema } from '@nuxthub/db'
 import { eq, sql } from 'drizzle-orm'
+import { z } from 'zod/v4'
+
+/** useWebAuthn() only lets a caller shape `user`, so the label rides there. */
+const labelSchema = z.object({
+  user: z.object({
+    label: z.string().trim().min(1).max(60).catch('Passkey').default('Passkey'),
+  }).default({ label: 'Passkey' }),
+})
 
 /**
  * Enrol a passkey (ADR-0012). Three options here are not the module's
@@ -64,11 +72,7 @@ export default defineWebAuthnRegisterEventHandler({
 
     // The client's label for this device, carried on the user object because
     // that is the only part of the body useWebAuthn() lets a caller shape.
-    const body = await readBody(event)
-    const submitted = body?.user?.label
-    const label = typeof submitted === 'string' && submitted.trim()
-      ? submitted.trim().slice(0, 60)
-      : 'Passkey'
+    const { user: { label } } = await readValidatedBody(event, labelSchema.parse)
 
     const firstFactor = (await enrolledFactors(user.id)).length === 0
 

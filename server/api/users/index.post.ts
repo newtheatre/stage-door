@@ -5,7 +5,7 @@ import { z } from 'zod/v4'
 const bodySchema = z.object({
   email: emailSchema,
   name: z.string().min(1, 'Name is required').max(200),
-  roles: z.array(roleGrantSchema).default([]),
+  roles: z.array(roleGrantSchema).max(MAX_GRANTS_PER_REQUEST).default([]),
 })
 
 /**
