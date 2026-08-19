@@ -144,6 +144,8 @@ export default defineNuxtConfig({
 
   hub: {
     db: 'sqlite',
+    // KV and cache stay off: bindings here come from nitro.cloudflare.wrangler,
+    // so hub's cache would have no store to write to (ADR-0020).
     kv: false,
     cache: false,
     blob: false,

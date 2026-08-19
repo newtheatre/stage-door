@@ -74,18 +74,18 @@ export default defineEventHandler(async (event) => {
   const total = (await db.select({ total: sql<number>`count(*)` })
     .from(schema.users).where(where).get())?.total ?? 0
 
-  // The number somewhere: how many anonymised/placeholder rows exist in all
-  // (unfiltered — it's a standing fact about the store, not the search).
-  const hiddenAnonymised = (await db.select({ n: sql<number>`count(*)` })
-    .from(schema.users).where(anonymisedRow).get())?.n ?? 0
+  // Three standing facts about the store, unfiltered by the search, so one
+  // pass rather than three. Recomputed on every keystroke otherwise.
+  const standing = await db.select({
+    hiddenAnonymised: sql<number>`sum(case when ${anonymisedRow} then 1 else 0 end)`,
+    workspacePassword: sql<number>`sum(case when ${and(hasWorkspacePassword, realRow)} then 1 else 0 end)`,
+    adminNoMfa: sql<number>`sum(case when ${and(adminNoMfa, realRow)} then 1 else 0 end)`,
+  }).from(schema.users).get()
 
-  // Standing counts for the dashboard banner — unfiltered, like the
-  // anonymised count above.
+  const hiddenAnonymised = standing?.hiddenAnonymised ?? 0
   const needsAttention = {
-    workspacePassword: (await db.select({ n: sql<number>`count(*)` })
-      .from(schema.users).where(and(hasWorkspacePassword, realRow)).get())?.n ?? 0,
-    adminNoMfa: (await db.select({ n: sql<number>`count(*)` })
-      .from(schema.users).where(and(adminNoMfa, realRow)).get())?.n ?? 0,
+    workspacePassword: standing?.workspacePassword ?? 0,
+    adminNoMfa: standing?.adminNoMfa ?? 0,
   }
 
   const rows = await db.select().from(schema.users)

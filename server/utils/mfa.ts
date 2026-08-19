@@ -4,7 +4,7 @@
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { db, schema } from '@nuxthub/db'
-import { and, eq, isNotNull, isNull, lt } from 'drizzle-orm'
+import { and, eq, isNull, lt, sql } from 'drizzle-orm'
 
 type UserRow = typeof schema.users.$inferSelect
 
@@ -21,25 +21,25 @@ const RECOVERY_CODE_COUNT = 8
  * MFA is required of an account, not a session, which is what keeps the
  * session contract unchanged. The rule: docs/security.md#mfa
  */
-export async function isMfaRequired(user: UserRow): Promise<boolean> {
+export async function isMfaRequired(user: UserRow, roles?: string[]): Promise<boolean> {
   if (user.password === null) return false
-  const roles = await loadRoles(user.id)
-  return roles.some(role => role.endsWith(':ADMIN'))
+  // Callers that already hold the roles pass them: a guard should not re-read
+  // what it just read.
+  const held = roles ?? await loadRoles(user.id)
+  return held.some(role => role.endsWith(':ADMIN'))
 }
 
 /** Confirmed factors only — a half-finished enrolment must not gate a login. */
 export async function enrolledFactors(userId: string): Promise<('totp' | 'passkey')[]> {
+  // One round trip: this runs on every admin request, before the handler.
+  const row = await db.select({
+    totp: sql<number>`exists (select 1 from ${schema.totpSecrets} where ${schema.totpSecrets.userId} = ${userId} and ${schema.totpSecrets.confirmedAt} is not null)`,
+    passkey: sql<number>`exists (select 1 from ${schema.webauthnCredentials} where ${schema.webauthnCredentials.userId} = ${userId})`,
+  }).from(sql`(select 1)`).get()
+
   const factors: ('totp' | 'passkey')[] = []
-
-  const totp = await db.select().from(schema.totpSecrets)
-    .where(and(eq(schema.totpSecrets.userId, userId), isNotNull(schema.totpSecrets.confirmedAt)))
-    .get()
-  if (totp) factors.push('totp')
-
-  const passkey = await db.select().from(schema.webauthnCredentials)
-    .where(eq(schema.webauthnCredentials.userId, userId)).get()
-  if (passkey) factors.push('passkey')
-
+  if (row?.totp) factors.push('totp')
+  if (row?.passkey) factors.push('passkey')
   return factors
 }
 

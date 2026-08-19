@@ -27,7 +27,7 @@ export async function requireAuthAdmin(event: H3Event): Promise<{ user: UserRow,
 
   // A privileged password account that has not enrolled keeps its session but
   // does no admin work until it does (ADR-0012).
-  if (await isMfaRequired(user) && (await enrolledFactors(user.id)).length === 0) {
+  if (await isMfaRequired(user, roles) && (await enrolledFactors(user.id)).length === 0) {
     throw createError({
       statusCode: 403,
       statusMessage: 'Set up two-factor authentication on your account before using admin tools',

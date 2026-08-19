@@ -59,8 +59,8 @@ export function effectiveRoleCondition(now: Date = new Date()) {
 }
 
 /**
- * Active roles as flat strings. Every seal path funnels through here, which
- * is what makes an expired or unqualified grant vanish within the window.
+ * Active roles as flat strings. Never memoised beyond a request: an isolate is
+ * reused across users, so a module-scope cache leaks roles (ADR-0020).
  */
 export async function loadRoles(userId: string): Promise<string[]> {
   const now = new Date()
