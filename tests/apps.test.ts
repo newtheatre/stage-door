@@ -6,6 +6,7 @@ import createHandler from '../server/api/apps/index.post'
 import updateHandler from '../server/api/apps/[id].put'
 import deleteHandler from '../server/api/apps/[id].delete'
 import { callAppHook, callAllAppHooks } from '../server/utils/appHooks'
+import { baseUrlSchema } from '../server/utils/validation'
 import { fetchMock, makeEvent } from './setup'
 import type { FakeEvent } from './setup'
 import { createUser, grantRole, enrolTotp, registerApp } from './helpers/users'
@@ -137,5 +138,25 @@ describe('hooks fan out from the registry, not a hardcoded list', () => {
 
     expect(fetchMock.mock.calls.map(c => c[0]))
       .toEqual(['https://rooms.newtheatre.org.uk/api/_hooks/auth/anonymise'])
+  })
+})
+
+describe('the base URL localhost escape hatch', () => {
+  it.each([
+    'http://localhost.attacker.example/x',
+    'http://localhostile.example',
+    'http://localhost@evil.example/',
+    'http://evil.example/localhost',
+  ])('rejects %s', (baseUrl) => {
+    expect(baseUrlSchema.safeParse(baseUrl).success).toBe(false)
+  })
+
+  it('rejects plain http://localhost outside development', () => {
+    // import.meta.dev is undefined under vitest, so this is the prod branch.
+    expect(baseUrlSchema.safeParse('http://localhost:3001').success).toBe(false)
+  })
+
+  it('still accepts https origins', () => {
+    expect(baseUrlSchema.safeParse('https://rooms.newtheatre.org.uk').success).toBe(true)
   })
 })

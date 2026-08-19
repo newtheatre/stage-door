@@ -123,7 +123,7 @@ Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/role-definitions` (each w
 
 Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/apps` (each with `hasToken`, false where no `service_tokens` row shares the name — such an app cannot be called at all), `POST /api/apps { name, namespace, displayName, baseUrl, hooksEnabled }` (409 on a duplicate name or namespace; links an already-issued token of the same name), `PUT /api/apps/:id { displayName, baseUrl, hooksEnabled }` (name and namespace immutable), `DELETE /api/apps/:id` (clears `service_tokens.app_id`, then removes the row; the token itself survives).
 
-`baseUrl` must be https or `http://localhost:PORT`, with no trailing slash. Registering an app needs no deploy of this service.
+`baseUrl` must be https, with no trailing slash. `http://localhost:PORT` is accepted **in development builds only**, and the pattern is anchored, so lookalikes such as `http://localhost.attacker.example` are rejected: hooks and manifest fetches send the app's bearer token to this origin, so a plaintext one in production would hand that token over in the clear. Registering an app needs no deploy of this service.
 
 `POST /api/apps/:id/sync` — session + `auth:ADMIN` **[AUD]**. The "Sync now" button: fetch and reconcile one app's manifest, returning `{ app, ok, unchanged?, error?, counts? }`.
 
