@@ -40,17 +40,14 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const user = await db.select().from(schema.users).where(eq(schema.users.id, verification.userId)).get()
+  const user = await loadUserOr404(verification.userId)
 
-  if (!user) {
-    throw createError({ statusCode: 404, statusMessage: 'User not found' })
-  }
-
-  if (!user.verified) {
-    await db.update(schema.users)
-      .set({ verified: true })
-      .where(eq(schema.users.id, user.id))
-  }
+  const [verified] = user.verified
+    ? [user]
+    : await db.update(schema.users)
+        .set({ verified: true })
+        .where(eq(schema.users.id, user.id))
+        .returning()
 
   await db.delete(schema.emailVerifications).where(eq(schema.emailVerifications.id, verification.id))
 
@@ -59,17 +56,9 @@ export default defineEventHandler(async (event) => {
   const session = await getUserSession(event)
 
   // An id match alone re-stamps the current epoch onto a cookie force-logout
-  // revoked, undoing it. Same liveness triple as requireAccountUser.
-  const live = session.user?.id === user.id
-    && !user.disabled
-    && (session.epoch ?? -1) === user.sessionEpoch
-
-  if (live) {
-    const roles = await loadRoles(user.id)
-    await sealUserSession(event, { ...user, verified: true }, roles, {
-      fresh: false,
-      loggedInAt: session.loggedInAt,
-    })
+  // revoked, undoing it. Same liveness check as requireLiveUser.
+  if (session.user?.id === user.id && !livenessFailure(session, user)) {
+    await reSealSession(event, verified!, session.loggedInAt)
   }
 
   return { ok: true }

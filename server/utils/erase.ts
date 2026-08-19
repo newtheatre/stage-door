@@ -14,10 +14,7 @@ export interface EraseResult {
 }
 
 export async function eraseUser(userId: string, actor: { id: string | null, via: string }): Promise<EraseResult> {
-  const user = await db.select().from(schema.users).where(eq(schema.users.id, userId)).get()
-  if (!user) {
-    throw createError({ statusCode: 404, statusMessage: 'User not found' })
-  }
+  const user = await loadUserOr404(userId)
 
   const anonymisedEmail = `deleted-${userId}@anonymised.invalid`
   const alreadyErased = user.email === anonymisedEmail

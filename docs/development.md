@@ -64,6 +64,12 @@ Every PR that changes an auth flow adds/updates a test that fails without the ch
 
 CI (`.github/workflows/ci.yml`) gates on all five of `bun run test`, `lint`, `check:comments`, `typecheck` and `build`. Build is gated because merging to `main` deploys, so a bundle that does not build would otherwise be caught by Workers Builds after the merge rather than before it.
 
+## Guards
+
+`requireLiveUser` (`server/utils/accountGuard.ts`) is the one place that decides whether a cookie may act: the row exists, is not disabled, and its epoch matches. `requireAccountUser` is that function, `requireAuthAdmin` calls it before checking `auth:ADMIN` and MFA, and `refreshSession` shares its predicate through `livenessFailure` so it can report *which* of the three failed.
+
+Do not reach for `requireUserSession` in a new route. It reads the cookie and stops there, so it accepts a session `force-logout` has revoked.
+
 ## Dates
 
 Every rendered date goes through `shared/utils/formatDate.ts`, which pins `Europe/London`. The Worker runs in UTC and a browser runs wherever the reader is, so an unpinned date is wrong twice over.

@@ -4,21 +4,14 @@
  */
 
 import type { H3Event } from 'h3'
-import { db, schema } from '@nuxthub/db'
-import { eq } from 'drizzle-orm'
+import type { schema } from '@nuxthub/db'
 
 type UserRow = typeof schema.users.$inferSelect
 
 export async function requireAuthAdmin(event: H3Event): Promise<{ user: UserRow, roles: string[] }> {
-  const session = await requireUserSession(event)
-
-  const user = await db.select().from(schema.users)
-    .where(eq(schema.users.id, session.user.id)).get()
-
-  if (!user || user.disabled || (session.epoch ?? -1) !== user.sessionEpoch) {
-    await clearUserSession(event)
-    throw createError({ statusCode: 401, statusMessage: 'Session no longer valid' })
-  }
+  // Liveness first, and only here: a divergence between the two guards would
+  // leave the privileged surface accepting what the account surface rejects.
+  const { user } = await requireLiveUser(event)
 
   const roles = await loadRoles(user.id)
   if (!roles.includes('auth:ADMIN')) {

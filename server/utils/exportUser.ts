@@ -7,10 +7,7 @@ import { db, schema } from '@nuxthub/db'
 import { eq, or } from 'drizzle-orm'
 
 export async function exportUser(userId: string) {
-  const user = await db.select().from(schema.users).where(eq(schema.users.id, userId)).get()
-  if (!user) {
-    throw createError({ statusCode: 404, statusMessage: 'User not found' })
-  }
+  const user = await loadUserOr404(userId)
 
   // Full grants, expired included: grant notes and provenance are personal
   // data and belong in the bundle (ADR-0011).

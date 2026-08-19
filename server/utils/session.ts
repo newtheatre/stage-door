@@ -159,6 +159,14 @@ export async function sealUserSession(
   })
 }
 
+/**
+ * Re-seal after mutating the row, preserving the original login time. Always
+ * pass the row the write returned, or the session carries pre-update values.
+ */
+export async function reSealSession(event: H3Event, user: UserRow, loggedInAt: number): Promise<void> {
+  await sealUserSession(event, user, await loadRoles(user.id), { fresh: false, loggedInAt })
+}
+
 /** Seal a fresh (login) session and stamp `last_login`. */
 export async function sealLoginSession(event: H3Event, user: UserRow): Promise<void> {
   const roles = await loadRoles(user.id)

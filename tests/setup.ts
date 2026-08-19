@@ -9,7 +9,7 @@ import { passwordSchema, emailSchema, roleSchema, roleGrantSchema, MAX_GRANTS_PE
 import { TOKEN_EXPIRY, generateVerificationToken, hashLoginToken, createEmailVerificationToken, createPasswordResetToken, createMagicLinkToken } from '../server/utils/tokens'
 import { enforceRateLimit, getClientIP, sweepRateLimits, RATE_LIMITS } from '../server/utils/rateLimit'
 import { verifyPasswordGuarded } from '../server/utils/passwordCheck'
-import { loadRoles, loadRoleGrants, loadEffectiveRolesFor, activeRoleCondition, activeGrantExists, effectiveRoleCondition, eligibilitySatisfiedCondition, sealUserSession, sealLoginSession } from '../server/utils/session'
+import { loadRoles, loadRoleGrants, loadEffectiveRolesFor, activeRoleCondition, activeGrantExists, effectiveRoleCondition, eligibilitySatisfiedCondition, sealUserSession, sealLoginSession, reSealSession } from '../server/utils/session'
 import { assertGrantsDefined, assertEligibilityModeAllowed } from '../server/utils/roleDefinitions'
 import { ROLES_CONFIG, nextCommitteeYearEnd } from '../server/utils/rolesConfig'
 import { findSuspectGrants, explain } from '../server/utils/grantAudit'
@@ -18,7 +18,7 @@ import { validateRedirect } from '../shared/utils/validateRedirect'
 import { refreshSession } from '../server/utils/refresh'
 import { requireServiceToken, createServiceToken, hashServiceToken, generateServiceToken } from '../server/utils/serviceToken'
 import { requireAuthAdmin } from '../server/utils/adminGuard'
-import { requireAccountUser } from '../server/utils/accountGuard'
+import { requireAccountUser, requireLiveUser, livenessFailure } from '../server/utils/accountGuard'
 import { loadUserOr404, adminUserView, isAnonymisedRow, isRealRow, assertNotAnonymised, ANONYMISED_SUFFIX, assertNotLastAuthAdmin, holdsAuthAdmin } from '../server/utils/adminUsers'
 import { isWorkspaceProfile, resolveGoogleUser, WORKSPACE_DOMAIN } from '../server/utils/googleAccount'
 import { callAppHook, callAllAppHooks, loadHookApps } from '../server/utils/appHooks'
@@ -200,6 +200,9 @@ Object.assign(g, {
   generateServiceToken,
   requireAuthAdmin,
   requireAccountUser,
+  requireLiveUser,
+  livenessFailure,
+  reSealSession,
   loadUserOr404,
   adminUserView,
   isAnonymisedRow,
