@@ -19,8 +19,11 @@ const INVALID_CREDENTIALS = {
 export default defineEventHandler(async (event) => {
   const { email, password } = await readValidatedBody(event, bodySchema.parse)
 
-  await enforceRateLimit('login:ip', getClientIP(event))
-  await enforceRateLimit('login:acct', email)
+  // Different keys, so nothing is gained by doing them one after the other.
+  await Promise.all([
+    enforceRateLimit('login:ip', getClientIP(event)),
+    enforceRateLimit('login:acct', email),
+  ])
 
   // The one deliberate exception to enumeration-safe errors: the domain policy
   // is a public fact about the address, not about whether an account exists.
@@ -49,6 +52,8 @@ export default defineEventHandler(async (event) => {
 
   return {
     user: sessionUser,
-    ...(await isMfaRequired(user) ? { mfaEnrolmentRequired: true } : {}),
+    // The sealed session already holds the effective roles: this is the
+    // hottest path in the estate and must not re-run the eligibility query.
+    ...(await isMfaRequired(user, sessionUser?.roles) ? { mfaEnrolmentRequired: true } : {}),
   }
 })

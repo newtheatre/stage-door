@@ -11,6 +11,7 @@ export const auditLog = sqliteTable('audit_log', {
   detail: text('detail'), // JSON
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
 }, table => [
+  index('audit_log_target_idx').on(table.target),
   index('audit_log_actor_idx').on(table.actorUserId),
   index('audit_log_action_idx').on(table.action),
   index('audit_log_created_at_idx').on(table.createdAt),

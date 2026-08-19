@@ -4,7 +4,7 @@
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { db, schema } from '@nuxthub/db'
-import { and, eq, isNull, lt, sql } from 'drizzle-orm'
+import { and, count, eq, isNull, lt, sql } from 'drizzle-orm'
 
 type UserRow = typeof schema.users.$inferSelect
 
@@ -194,10 +194,10 @@ export async function useRecoveryCode(userId: string, submitted: string): Promis
 }
 
 export async function remainingRecoveryCodes(userId: string): Promise<number> {
-  const rows = await db.select().from(schema.mfaRecoveryCodes)
+  const [row] = await db.select({ left: count() }).from(schema.mfaRecoveryCodes)
     .where(and(eq(schema.mfaRecoveryCodes.userId, userId), isNull(schema.mfaRecoveryCodes.usedAt)))
     .all()
-  return rows.length
+  return row?.left ?? 0
 }
 
 /** Remove every factor: admin reset, and part of erasure. */
