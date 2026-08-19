@@ -36,6 +36,20 @@
       "when": 1786662684416,
       "tag": "0004_greedy_daredevil",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1787081599748,
+      "tag": "0005_public_sue_storm",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1787081599749,
+      "tag": "0006_seed_app_registry",
+      "breakpoints": true
     }
   ]
 }

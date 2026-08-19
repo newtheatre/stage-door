@@ -53,3 +53,18 @@ export async function defineRole(namespace: string, role: string) {
     defaultExpiryKind: 'none',
   })
 }
+
+/**
+ * Register an app so hooks reach it. Tests seed their own registry: the
+ * production seed migration is wiped by resetDb.
+ */
+export async function registerApp(name: string, opts: { namespace?: string, baseUrl?: string, hooksEnabled?: boolean } = {}) {
+  const [row] = await db.insert(schema.apps).values({
+    name,
+    namespace: opts.namespace ?? name,
+    displayName: name,
+    baseUrl: opts.baseUrl ?? `https://${name}.newtheatre.org.uk`,
+    hooksEnabled: opts.hooksEnabled ?? true,
+  }).returning()
+  return row!
+}

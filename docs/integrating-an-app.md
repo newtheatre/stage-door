@@ -203,17 +203,19 @@ Server-side, reject stale role-holding sessions with a 401 carrying `data: { sta
 
 Pick a short lowercase namespace (usually the repo name) and define your roles as `namespace:ROLE`. Tell the ITM; they grant them in the auth admin UI. There is no code registration step — but do add **role definitions** at `auth.newtheatre.org.uk/admin/roles` (description + default expiry; most app roles want `end of committee year`) so granting is dropdown-driven rather than typed (ADR-0011).
 
-### Role namespaces (current)
+### Which namespaces exist
 
-| Namespace | Roles | Meaning |
-|---|---|---|
-| `auth` | `ADMIN` | Auth service admin (ITM + continuity holder — deliberately scarce) |
-| `proscenium` | `ADMIN`, `MANAGER`, `BOX_OFFICE` | Site/box-office tiers (semantics per Proscenium's ability layer) |
-| `rooms` | `ADMIN` | Room-booking admin; logged-in is sufficient for booking requests |
-| `photos` | `ADMIN`, `UPLOADER` | Per the photos platform plan (granted when photos ships) |
-| `ticketing` | `ADMIN`, `MANAGER`, `BOX_OFFICE` | **Dormant.** Held by people the legacy-ticketing import brought in (docs/migration.md rule 4); no app reads them. When ticketing rebuilds on this stack, they're its starting role set — until then they grant nothing anywhere. |
+`auth.newtheatre.org.uk/admin/apps` lists every registered app and its namespace, and
+`/admin/roles` lists every defined role. Those screens are the answer; this document
+deliberately no longer carries a copy for someone to forget to update (ADR-0017).
 
-Update this table when you add a namespace.
+Two namespaces have no app behind them and will not appear under Apps:
+
+- `auth` (`ADMIN`) — this service's own admin, deliberately scarce.
+- `ticketing` (`ADMIN`, `MANAGER`, `BOX_OFFICE`) — **dormant.** Held by people the
+  legacy-ticketing import brought in (docs/migration.md rule 4); no app reads them.
+  When ticketing rebuilds on this stack they are its starting role set. Until then
+  they grant nothing anywhere.
 
 ## Step 7 — Server-to-server (optional)
 
@@ -233,7 +235,7 @@ If the auth service is unreachable, fail the operation with a retry message — 
 
 ## Step 8 — GDPR hooks (required if you store any personal data)
 
-Implement the three hook endpoints from [api-reference.md](api-reference.md#app-hooks) — `export`, `anonymise`, `last-activity` — authenticated by your service token, and register your base URL with the ITM. (The fourth hook is `merge` (ADR-0015): `POST /api/_hooks/auth/merge { fromUserId, toUserId, dryRun? }` re-points every user-referencing column in your database onto `toUserId` and deletes the losing mirror row, returning `{ ok: true, notMirrored, counts }` — with `dryRun: true`, the counts only, writing nothing. Idempotent, like the others: stage-door calls every app before changing anything central, and retries the whole merge if any app fails. Don't miss indirect references (staff-attribution columns, "issued by" fields) — proscenium's implementation re-points four columns, not one.) Ship them with the integration even though the auth-service callers arrive in Phase 7; they're small, and retrofitting them across the estate later is exactly the kind of debt this service exists to end.
+Implement the three hook endpoints from [api-reference.md](api-reference.md#app-hooks) — `export`, `anonymise`, `last-activity` — authenticated by your service token. The ITM then adds your registry row at `auth.newtheatre.org.uk/admin/apps` (name, role namespace, base URL, hooks on). There is no source change in the auth service: registering an app needs no deploy of it (ADR-0017). (The fourth hook is `merge` (ADR-0015): `POST /api/_hooks/auth/merge { fromUserId, toUserId, dryRun? }` re-points every user-referencing column in your database onto `toUserId` and deletes the losing mirror row, returning `{ ok: true, notMirrored, counts }` — with `dryRun: true`, the counts only, writing nothing. Idempotent, like the others: stage-door calls every app before changing anything central, and retries the whole merge if any app fails. Don't miss indirect references (staff-attribution columns, "issued by" fields) — proscenium's implementation re-points four columns, not one.) Ship them with the integration even though the auth-service callers arrive in Phase 7; they're small, and retrofitting them across the estate later is exactly the kind of debt this service exists to end.
 
 ## Step 9 — Local development
 

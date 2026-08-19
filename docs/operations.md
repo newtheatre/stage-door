@@ -108,6 +108,7 @@ Historical note: the `proscenium` and `rooms` tokens issued at cutover (2026-08-
 |---|---|---|
 | Password reset for someone | User → Reset password | Sends 24 h set-password email. Never read or set a password yourself. |
 | Grant/revoke roles | User → Roles | Pick from the definitions dropdown (expiry pre-filled — committee-year roles lapse 31 July automatically). A role must be defined before it can be granted (ADR-0014); define it under Role definitions first. Renewal = edit the expiry date on the grant (one click; re-arms the 14-day warning). Takes effect within 15 min on privileged surfaces; for instant effect, also Force logout. |
+| Register an app | Admin → Apps | Name (matches its service token), role namespace, base URL, hooks on. Needed before GDPR hooks reach it (ADR-0017). No deploy of this service. An app showing no token cannot be called: issue one under Service tokens with the same name. |
 | Force logout one user | User → Force logout | Bumps session epoch; their sessions die at next refresh/privileged action. |
 | Disable an account | User → Disable | Blocks login and refresh. Use for compromise or misuse; it is reversible, erasure is not. |
 | Erasure (GDPR) | User → Data & GDPR → Erase… | Anonymises auth + all app data via hooks. **Irreversible** (typed email confirmation required). Confirm identity of the requester first; note the request date (one-month statutory clock). If a hook fails the erasure reports incomplete — fix the app and re-run (idempotent). |

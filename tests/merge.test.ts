@@ -5,13 +5,15 @@ import mergeHandler from '../server/api/users/[id]/merge.post'
 import { mergeUsers } from '../server/utils/mergeUsers'
 import type { MergeResult } from '../server/utils/mergeUsers'
 import { fetchMock, makeEvent, type FakeEvent } from './setup'
-import { createUser, grantRole, enrolTotp } from './helpers/users'
+import { createUser, grantRole, enrolTotp, registerApp } from './helpers/users'
 
 const merge = mergeHandler as unknown as (event: unknown) => Promise<MergeResult>
 
 const DAY = 24 * 60 * 60 * 1000
 
 async function seedTokens() {
+  await registerApp('proscenium', { baseUrl: 'https://newtheatre.org.uk' })
+  await registerApp('rooms')
   await db.insert(schema.serviceTokens).values([
     { name: 'proscenium', tokenHash: 'hash-p' },
     { name: 'rooms', tokenHash: 'hash-r' },

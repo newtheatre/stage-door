@@ -22,6 +22,20 @@ export const roleSchema = z.string()
 export const namespaceSchema = z.string()
   .regex(/^[a-z][a-z0-9-]*$/, 'Namespaces are lowercase, e.g. proscenium')
 
+/** An app's registered name, and the slug its service token joins on. */
+export const appNameSchema = z.string()
+  .regex(/^[a-z][a-z0-9-]*$/, 'App names are lowercase, e.g. rehearsal')
+  .max(40)
+
+/**
+ * An app's hook and manifest origin. HTTPS only in production; localhost over
+ * http is what makes the estate testable on ports 3000-3003.
+ */
+export const baseUrlSchema = z.url().max(200).refine(
+  value => value.startsWith('https://') || /^http:\/\/localhost(:\d+)?/.test(value),
+  { message: 'Base URL must be https, or http://localhost for development' },
+).refine(value => !value.endsWith('/'), { message: 'Base URL must not end with a slash' })
+
 /** Role half of a scoped role. */
 export const roleNameSchema = z.string()
   .regex(/^[A-Z][A-Z0-9_]*$/, 'Role names are uppercase, e.g. BOX_OFFICE')
