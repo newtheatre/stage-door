@@ -133,3 +133,40 @@ describe('retention sweep exemption uses ACTIVE roles only', () => {
     expect(holders.has(expiredHolder.id)).toBe(false)
   })
 })
+
+describe('a failed warning email does not strand the rest of the run', () => {
+  it('marks only the holders it reached, and keeps going past a bad address', async () => {
+    await defineRole('rooms', 'ADMIN')
+    const bad = await createUser({ email: 'bounces@example-user.co.uk', plainPassword: 'Passw0rd' })
+    const good = await createUser({ email: 'fine@example-user.co.uk', plainPassword: 'Passw0rd' })
+    await grantRole(bad.id, 'rooms:ADMIN', { expiresAt: new Date(Date.now() + 7 * DAY) })
+    await grantRole(good.id, 'rooms:ADMIN', { expiresAt: new Date(Date.now() + 7 * DAY) })
+
+    const g = globalThis as never as { sendRoleExpiryWarningEmail: (to: string, grants: unknown) => Promise<void> }
+    const original = g.sendRoleExpiryWarningEmail
+    g.sendRoleExpiryWarningEmail = async (to, grants) => {
+      if (to === 'bounces@example-user.co.uk') throw new Error('Failed to send email')
+      return original(to, grants)
+    }
+
+    try {
+      const { result } = await runTask()
+      expect(result.sendFailures).toBe(1)
+      expect(result.emailed).toBe(1)
+    }
+    finally {
+      g.sendRoleExpiryWarningEmail = original
+    }
+
+    // The reachable holder is marked and will not be warned again.
+    const goodGrant = await db.select().from(schema.userRoles).where(eq(schema.userRoles.userId, good.id)).get()
+    expect(goodGrant!.expiryWarnedAt).not.toBeNull()
+
+    // The unreachable one is not, so tomorrow retries it rather than skipping.
+    const badGrant = await db.select().from(schema.userRoles).where(eq(schema.userRoles.userId, bad.id)).get()
+    expect(badGrant!.expiryWarnedAt).toBeNull()
+
+    // The digest still goes out for whoever was reached.
+    expect(sentEmails.some(e => e.kind === 'role-expiry-digest')).toBe(true)
+  })
+})
