@@ -25,7 +25,7 @@
     "@newtheatre/auth-types": "workspace:*",
     "@nuxt/eslint": "1.15.1",
     "@nuxt/ui": "4.4.0",
-    "@nuxthub/core": "0.10.6",
+    "@nuxthub/core": "0.10.8",
     "@simplewebauthn/browser": "^11.0.0",
     "@simplewebauthn/server": "^11.0.0",
     "drizzle-orm": "^0.45.2",
