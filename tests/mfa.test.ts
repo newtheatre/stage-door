@@ -360,6 +360,10 @@ describe('admin reset', () => {
     expect(await enrolledFactors(subject.id)).toEqual([])
     expect(await remainingRecoveryCodes(subject.id)).toBe(0)
 
+    // The sessions those factors gated must die with them.
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, subject.id)).get()
+    expect(row!.sessionEpoch).toBe(1)
+
     const audit = await db.select().from(schema.auditLog)
       .where(eq(schema.auditLog.action, 'mfa.admin-reset')).all()
     expect(audit).toHaveLength(1)
