@@ -31,7 +31,7 @@ Derived: `guest` (session field) = `password IS NULL AND google_sub IS NULL`.
 | `role` | text not null | Scoped string `app:ROLE`, e.g. `proscenium:BOX_OFFICE`, `rooms:ADMIN`, `auth:ADMIN`. Unique on `(user_id, role)`. |
 | `expires_at` | integer (ms) null | NULL = permanent. **Enforced at read time** ([ADR-0011](decisions/0011-role-definitions-and-expiry.md)): `loadRoles`/`activeRoleCondition` filter expired grants out of every session seal, the admin guard, the retention-sweep exemption, and the admin role filter. Any new raw query against this table must apply the same predicate. |
 | `granted_by` / `granted_at` / `note` | text / integer / text, all null | Grant provenance. NULL = pre-v2 grant. |
-| `expiry_warned_at` | integer (ms) null | One warning per (grant, expiry value); cleared when `expires_at` changes so renewals re-arm. |
+| `expiry_warned_at` | integer (ms) null | One warning per (grant, expiry value); cleared when `expires_at` changes so renewals re-arm. Written only for holders the task actually reached, so a failed send is retried tomorrow rather than skipped. |
 
 No central registry of apps or roles — a namespace exists the moment a role in it is granted ([ADR-0004](decisions/0004-scoped-role-strings.md)). Known namespaces and their meanings are listed in [integrating-an-app.md](integrating-an-app.md#role-namespaces).
 

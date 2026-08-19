@@ -35,32 +35,46 @@ export default defineTask({
 
     // One email per holder; disabled/anonymised holders are marked warned
     // without an email (nothing can arrive, and re-checking daily is noise).
-    const byHolder = new Map<string, { email: string, emailable: boolean, grants: { role: string, expiresAt: number }[] }>()
+    const byHolder = new Map<string, { email: string, emailable: boolean, grantIds: string[], grants: { role: string, expiresAt: number }[] }>()
     for (const row of expiring) {
       const entry = byHolder.get(row.userId) ?? {
         email: row.email,
         emailable: !row.disabled && !isUndeliverableEmail(row.email),
+        grantIds: [],
         grants: [],
       }
+      entry.grantIds.push(row.id)
       entry.grants.push({ role: row.role, expiresAt: row.expiresAt!.getTime() })
       byHolder.set(row.userId, entry)
     }
 
+    // Only a holder we actually reached is marked warned. One bad recipient
+    // must not abort the run, or nobody is marked and everyone is re-warned.
     const digest: { email: string, role: string, expiresAt: number }[] = []
+    const warnedIds: string[] = []
+    let sendFailures = 0
     for (const holder of byHolder.values()) {
-      if (holder.emailable) {
+      if (!holder.emailable) {
+        warnedIds.push(...holder.grantIds)
+        continue
+      }
+      try {
         await sendRoleExpiryWarningEmail(holder.email, holder.grants)
+        warnedIds.push(...holder.grantIds)
         digest.push(...holder.grants.map(g => ({ email: holder.email, ...g })))
+      }
+      catch (error) {
+        sendFailures += 1
+        console.error(`[roles] expiry warning to ${holder.email} failed:`, error)
       }
     }
 
     // At handover every committee-year grant lapses at once, so this cannot
     // bind one parameter per row.
-    for (let i = 0; i < expiring.length; i += 90) { // D1: 100 bound params max
-      const batch = expiring.slice(i, i + 90).map(r => r.id)
+    for (let i = 0; i < warnedIds.length; i += 90) { // D1: 100 bound params max
       await db.update(schema.userRoles)
         .set({ expiryWarnedAt: new Date(now) })
-        .where(inArray(schema.userRoles.id, batch))
+        .where(inArray(schema.userRoles.id, warnedIds.slice(i, i + 90)))
     }
 
     if (digest.length) {
@@ -89,14 +103,15 @@ export default defineTask({
     }
 
     const summary = {
-      warnedGrants: expiring.length,
+      warnedGrants: warnedIds.length,
       warnedHolders: byHolder.size,
       emailed: digest.length,
+      sendFailures,
       cleaned,
       suspectGrants: suspects.length,
     }
 
-    if (expiring.length || cleaned || suspects.length) {
+    if (expiring.length || cleaned || suspects.length || sendFailures) {
       await writeAudit({
         actorUserId: null,
         action: 'roles.expiry-warned',
