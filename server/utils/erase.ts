@@ -10,7 +10,7 @@ export interface EraseResult {
   userId: string
   alreadyErased: boolean
   complete: boolean
-  hooks: { app: string, ok: boolean, error?: string }[]
+  hooks: { app: string, ok: boolean }[]
 }
 
 export async function eraseUser(userId: string, actor: { id: string | null, via: string }): Promise<EraseResult> {
@@ -42,12 +42,19 @@ export async function eraseUser(userId: string, actor: { id: string | null, via:
     await db.delete(schema.magicLinks).where(eq(schema.magicLinks.userId, userId))
     // Second factors are credentials and personal data both (ADR-0012).
     await clearAllFactors(userId)
+    // Neither is a statistic that must survive: one records a named person's
+    // training standing, the other when we warned them (ADR-0008).
+    await db.delete(schema.eligibilitySnapshots).where(eq(schema.eligibilitySnapshots.userId, userId))
+    await db.delete(schema.retentionNotices).where(eq(schema.retentionNotices.userId, userId))
   }
 
   // App hooks are idempotent, so call them on every run — that is what retries
   // a hook that failed before.
   const hooks = await callAllAppHooks<{ ok: boolean }>('anonymise', { userId })
-  const complete = hooks.every(h => h.ok)
+
+  // every() is vacuously true on an empty list, which would report an erasure
+  // nobody was told about as done. An app answering 200 { ok: false } refused.
+  const complete = hooks.length > 0 && hooks.every(h => h.ok && h.data?.ok !== false)
 
   await writeAudit({
     actorUserId: actor.id,
@@ -60,5 +67,6 @@ export async function eraseUser(userId: string, actor: { id: string | null, via:
     },
   })
 
-  return { userId, alreadyErased, complete, hooks: hooks.map(({ app, ok, error }) => ({ app, ok, error })) }
+  // No upstream error text: this is returned to the member by /api/account/erase.
+  return { userId, alreadyErased, complete, hooks: hooks.map(({ app, ok }) => ({ app, ok })) }
 }

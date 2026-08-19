@@ -179,3 +179,67 @@ describe('the subject-access bundle does not carry other people\'s data', () => 
     expect(JSON.stringify(bundle)).not.toContain('old@example.com')
   })
 })
+
+describe('erasure reports completeness honestly', () => {
+  it('is not complete when no app was told', async () => {
+    // No registry rows, so loadHookApps returns [] and every() is vacuous.
+    hooksSucceed()
+    const user = await createUser({ email: 'nobody-told@example-user.co.uk' })
+
+    const result = await eraseUser(user.id, { id: 'admin-1', via: 'admin' })
+
+    expect(result.complete).toBe(false)
+    const audit = await db.select().from(schema.auditLog)
+      .where(eq(schema.auditLog.target, user.id)).all()
+    expect(audit[0]?.action).toBe('user.erase-incomplete')
+  })
+
+  it('is not complete when an app answers 200 with { ok: false }', async () => {
+    await registerApp('rooms')
+    await db.insert(schema.serviceTokens).values({ name: 'rooms', tokenHash: 'hash-r' })
+    fetchMock.mockResolvedValue({ ok: false })
+
+    const user = await createUser({ email: 'refused@example-user.co.uk' })
+    const result = await eraseUser(user.id, { id: 'admin-1', via: 'admin' })
+
+    expect(result.complete).toBe(false)
+  })
+
+  it('never returns an upstream error message to the caller', async () => {
+    await registerApp('rooms')
+    await db.insert(schema.serviceTokens).values({ name: 'rooms', tokenHash: 'hash-r' })
+    fetchMock.mockRejectedValue(new Error('[POST] "https://rooms.newtheatre.org.uk/api/_hooks/auth/anonymise": 500 Internal Server Error'))
+
+    const user = await createUser({ email: 'leaky@example-user.co.uk' })
+    const result = await eraseUser(user.id, { id: 'admin-1', via: 'admin' })
+
+    expect(result.complete).toBe(false)
+    expect(result.hooks).toEqual([{ app: 'rooms', ok: false }])
+    expect(JSON.stringify(result)).not.toContain('rooms.newtheatre.org.uk')
+    expect(JSON.stringify(result)).not.toContain('500')
+  })
+})
+
+describe('erasure clears the side tables keyed to the user', () => {
+  it('removes eligibility snapshots and retention notices', async () => {
+    hooksSucceed()
+    const user = await createUser({ email: 'sideways@example-user.co.uk' })
+
+    await db.insert(schema.eligibilitySnapshots).values({
+      ruleKey: 'duty-manager',
+      userId: user.id,
+      capturedAt: new Date(),
+    })
+    await db.insert(schema.retentionNotices).values({ userId: user.id, stage: 'warning-60d' })
+
+    await eraseUser(user.id, { id: 'admin-1', via: 'admin' })
+
+    const snaps = await db.select().from(schema.eligibilitySnapshots)
+      .where(eq(schema.eligibilitySnapshots.userId, user.id)).all()
+    expect(snaps).toHaveLength(0)
+
+    const notices = await db.select().from(schema.retentionNotices)
+      .where(eq(schema.retentionNotices.userId, user.id)).all()
+    expect(notices).toHaveLength(0)
+  })
+})

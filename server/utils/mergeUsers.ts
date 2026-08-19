@@ -149,7 +149,8 @@ export async function mergeUsers(
   )
 
   const plan = buildPlan(winner, loser, winnerGrants, loserGrants, legacyIds, loserFactors, apps)
-  const hooksOk = apps.every(a => a.ok)
+  // Empty means no app was asked, not that every app agreed (see erase.ts).
+  const hooksOk = apps.length > 0 && apps.every(a => a.ok)
 
   if (opts.dryRun) {
     return { winnerId: winner.id, loserId: loser.id, complete: hooksOk, dryRun: true, plan }
