@@ -1,5 +1,5 @@
 /**
- * Grants that reference nothing an app reads (ADR-0021). The distinction that
+ * Grants that reference nothing an app reads (ADR-0023). The distinction that
  * matters: `ticketing:*` has no definition on purpose, `app:ROLE` by accident.
  */
 

@@ -139,7 +139,7 @@ A role definition may name one of rehearsal's eligibility rule keys and pick `ad
 
 The snapshot is refreshed by the `eligibility:snapshot` task. **This service never calls rehearsal on a request path**, and a failed sync leaves the previous answer in force. Full failure-direction table: [ADR-0019](decisions/0019-training-conditional-grants.md).
 
-## Suspect grants (ADR-0021)
+## Suspect grants (ADR-0023)
 
 `GET /api/role-audit` — session + `auth:ADMIN`. Active grants on real accounts whose role matches no live definition, worst first: `unknown-namespace` (no registered app owns it, so it is a typo), `undefined-role` (the app exists but declares no such role), `withdrawn` (the app stopped declaring it).
 

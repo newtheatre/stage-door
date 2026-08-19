@@ -1,6 +1,6 @@
 /**
  * Grants that reference nothing an app reads. A typo grant does nothing and
- * looks identical to a working one in the admin UI (ADR-0014, ADR-0021).
+ * looks identical to a working one in the admin UI (ADR-0014, ADR-0023).
  */
 
 import { db, schema } from '@nuxthub/db'
