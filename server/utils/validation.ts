@@ -41,11 +41,12 @@ export const appNameSchema = z.string()
   .max(40)
 
 /**
- * An app's hook and manifest origin. HTTPS only in production; localhost over
- * http is what makes the estate testable on ports 3000-3003.
+ * An app's hook and manifest origin. The localhost escape hatch is anchored
+ * and dev-only: hooks send the app's bearer token to whatever this allows.
  */
 export const baseUrlSchema = z.url().max(200).refine(
-  value => value.startsWith('https://') || /^http:\/\/localhost(:\d+)?/.test(value),
+  value => value.startsWith('https://')
+    || (import.meta.dev && /^http:\/\/localhost(:\d+)?(\/|$)/.test(value)),
   { message: 'Base URL must be https, or http://localhost for development' },
 ).refine(value => !value.endsWith('/'), { message: 'Base URL must not end with a slash' })
 
