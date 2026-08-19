@@ -1,5 +1,22 @@
 import { db, schema } from '@nuxthub/db'
-import { inArray } from 'drizzle-orm'
+import { desc, inArray } from 'drizzle-orm'
+
+/** Users whose last erasure attempt reported an app hook still outstanding. */
+async function stalledErasures(limit: number): Promise<string[]> {
+  const events = await db.select({
+    target: schema.auditLog.target,
+    action: schema.auditLog.action,
+  }).from(schema.auditLog)
+    .where(inArray(schema.auditLog.action, ['user.erased', 'user.erase-incomplete']))
+    .orderBy(desc(schema.auditLog.createdAt))
+    .all()
+
+  const latest = new Map<string, string>()
+  for (const e of events) {
+    if (e.target && !latest.has(e.target)) latest.set(e.target, e.action)
+  }
+  return [...latest].filter(([, action]) => action === 'user.erase-incomplete').map(([id]) => id).slice(0, limit)
+}
 
 /**
  * The inactive-account retention sweep. Dry-run by default; the digest's
@@ -82,6 +99,7 @@ export default defineTask({
     }
 
     // ── Execute (or don't) ─────────────────────────────────────────────────
+    const incompleteErasures: string[] = []
     if (!config.dryRun) {
       const emailOf = new Map(users.map(u => [u.id, u.email]))
 
@@ -93,29 +111,41 @@ export default defineTask({
         await sendRetentionWarningEmail(emailOf.get(id)!, config.reminderDays)
         await db.insert(schema.retentionNotices).values({ userId: id, stage: 'warning-30d' })
       }
-      if (plan.clearNotices.length) {
+      // Unbounded: maxActionsPerRun caps anonymise only.
+      for (let i = 0; i < plan.clearNotices.length; i += 90) { // D1: 100 bound params max
         await db.delete(schema.retentionNotices)
-          .where(inArray(schema.retentionNotices.userId, plan.clearNotices))
+          .where(inArray(schema.retentionNotices.userId, plan.clearNotices.slice(i, i + 90)))
       }
+
+      // planRetention skips an already-anonymised row, so a run whose hooks
+      // failed is only ever retried from here. eraseUser is idempotent.
+      for (const id of await stalledErasures(config.maxActionsPerRun)) {
+        const { complete } = await eraseUser(id, { id: null, via: 'retention-redrive' })
+        if (!complete) incompleteErasures.push(id)
+      }
+
       for (const { id } of plan.anonymise) {
-        await eraseUser(id, { id: null, via: 'retention-sweep' })
+        const { complete } = await eraseUser(id, { id: null, via: 'retention-sweep' })
+        if (!complete) incompleteErasures.push(id)
       }
     }
+
+    const report = { ...summary, incompleteErasures: incompleteErasures.length }
 
     await writeAudit({
       actorUserId: null,
       action: config.dryRun ? 'retention.dry-run' : 'retention.sweep',
       target: 'users',
-      detail: summary,
+      detail: report,
     })
 
     // ── Digest ─────────────────────────────────────────────────────────────
     const hasActions = summary.anonymiseGuest + summary.anonymiseFull + summary.warning60 + summary.warning30 > 0
     const firstOfMonth = new Date(now).getUTCDate() === 1
-    if (hasActions || firstOfMonth || config.dryRun) {
-      await sendRetentionDigestEmail(config.archivistEmail, summary)
+    if (hasActions || firstOfMonth || config.dryRun || incompleteErasures.length) {
+      await sendRetentionDigestEmail(config.archivistEmail, report)
     }
 
-    return { result: summary }
+    return { result: report }
   },
 })
