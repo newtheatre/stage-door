@@ -216,3 +216,39 @@ describe('a withdrawn role cannot be granted again', () => {
     await expect(assertGrantsDefined([{ role: 'rooms:ADMIN' }], new Set())).rejects.toMatchObject({ statusCode: 400 })
   })
 })
+
+describe('the permission vocabulary is queryable', () => {
+  it('answers which roles carry a permission, and how many hold one', async () => {
+    const app = await roomsApp()
+    serve(manifestBody())
+    await syncApp(app)
+    const holder = await createUser({ email: 'admin-holder@example.com', plainPassword: 'Passw0rd' })
+    await grantRole(holder.id, 'rooms:ADMIN')
+
+    const permissions = await db.select().from(schema.appPermissions).all()
+    expect(permissions.map(p => p.key).sort()).toEqual(['admin.access', 'booking.read.any'])
+
+    const links = await db.select().from(schema.roleDefinitionPermissions).all()
+    expect(links).toHaveLength(2)
+  })
+
+  it('deactivates a permission the manifest stops declaring, without deleting it', async () => {
+    const app = await roomsApp()
+    serve(manifestBody())
+    await syncApp(app)
+
+    serve(manifestBody({
+      version: '2',
+      permissions: [{ key: 'admin.access', description: 'Admin surface' }],
+      roles: [{
+        role: 'ADMIN', description: 'Room-booking admin', defaultExpiry: { kind: 'committee-year' },
+        permissions: ['admin.access'], requiresEligibility: null,
+      }],
+    }))
+    await syncApp(app)
+
+    const permissions = await db.select().from(schema.appPermissions).all()
+    expect(permissions).toHaveLength(2)
+    expect(permissions.find(p => p.key === 'booking.read.any')!.active).toBe(false)
+  })
+})

@@ -53,7 +53,14 @@ declare module '#auth-utils' {
 }
 ```
 
-Helpers (same package): `hasRole(user, app, role)`, `hasAnyRole(user, app, ...roles)`, `isStale(session, maxAgeMs)`.
+Helpers (same package): `hasRole(user, app, role)`, `hasAnyRole(user, app, ...roles)`, `isStale(session, maxAgeMs)`, `permissionResolver(manifest)`.
+
+**Permissions are deliberately not in the payload.** An app declares its permission vocabulary in its
+own manifest ([ADR-0018](decisions/0018-manifest-declared-roles.md)) and resolves it locally with
+`permissionResolver`, which is a pure function of the role strings already here. Sealing the resolved
+set instead would grow with (apps × roles) against a 4 KB cookie, and would move into this contract
+the one thing each app understands best about itself ([ADR-0004](decisions/0004-scoped-role-strings.md)).
+Do not add it.
 
 ## Rules for consumer apps
 
@@ -73,3 +80,6 @@ Helpers (same package): `hasRole(user, app, role)`, `hasAnyRole(user, app, ...ro
 ## Change log
 
 - **1.0** — initial contract (Phases 1–2 of the implementation plan).
+- **1.0** (unchanged payload, 2026-08-18) — `permissionResolver` added to the helpers for
+  manifest-declared permissions (ADR-0018). The sealed shape is untouched, so no version bump: the
+  copies in each app need re-syncing, but nothing compiled against 1.0 breaks.
