@@ -2,7 +2,7 @@ import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 
 /**
- * POST /api/account/unlink-google — self-service disconnect. Refuses if the
+ * POST /api/account/unlink-google: self-service disconnect. Refuses if the
  * account would be left with no login method.
  */
 export default defineEventHandler(async (event) => {
@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   if (user.password === null) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Set a password first — unlinking now would lock you out',
+      statusMessage: 'Set a password first: unlinking now would lock you out',
     })
   }
 

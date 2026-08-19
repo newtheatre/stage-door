@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
 
   const before = await loadRoleGrants(user.id)
 
-  // Removals: anything not in the wanted set (expired rows included — the
+  // Removals: anything not in the wanted set (expired rows included: the
   // admin deleting an expired grant removes its history deliberately).
   for (const row of existing) {
     if (!wanted.has(row.role)) {

@@ -20,7 +20,7 @@ const PAGE_SIZE = 20
 const anonymisedRow = isAnonymisedRow()
 const realRow = isRealRow()
 
-// Accounts the ADR-0012 rollout wants an operator's eye on — see
+// Accounts the ADR-0012 rollout wants an operator's eye on: see
 // docs/security.md#rollout-flags.
 const hasWorkspacePassword = and(
   like(schema.users.email, '%@newtheatre.org.uk'),
@@ -62,7 +62,7 @@ export default defineEventHandler(async (event) => {
     conditions.push(eq(schema.users.disabled, disabled === 'true'))
   }
   if (role) {
-    // Active holders only — expired grants don't count (ADR-0011).
+    // Active holders only: expired grants don't count (ADR-0011).
     conditions.push(activeGrantExists(eq(schema.userRoles.role, role), now))
   }
 

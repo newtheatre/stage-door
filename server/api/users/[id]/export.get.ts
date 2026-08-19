@@ -1,5 +1,5 @@
 /**
- * GET /api/users/:id/export — subject-access bundle (admin) [AUD].
+ * GET /api/users/:id/export: subject-access bundle (admin) [AUD].
  * Send securely to the verified requester (operations.md).
  */
 export default defineEventHandler(async (event) => {

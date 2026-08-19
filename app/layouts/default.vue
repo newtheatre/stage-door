@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { hasRole } from '@newtheatre/auth-types'
 
-// Logged out, the header is empty — those visitors are on /login or /register.
+// Logged out, the header is empty: those visitors are on /login or /register.
 const { loggedIn, user } = useUserSession()
 const isAdmin = computed(() => hasRole(user.value, 'auth', 'ADMIN'))
 </script>

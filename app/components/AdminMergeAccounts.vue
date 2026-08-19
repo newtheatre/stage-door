@@ -7,7 +7,7 @@
     <div class="flex flex-col gap-3">
       <UFormField
         label="Account to absorb"
-        help="Usually the older duplicate — its bookings and roles move here"
+        help="Usually the older duplicate: its bookings and roles move here"
       >
         <USelectMenu
           v-model="picked"
@@ -50,7 +50,7 @@
       v-model:open="planOpen"
       title="Merge accounts"
       :description="plan
-        ? `${plan.loser.email} is absorbed into ${plan.winner.email}. The absorbed account is erased — this cannot be undone.`
+        ? `${plan.loser.email} is absorbed into ${plan.winner.email}. The absorbed account is erased: this cannot be undone.`
         : ''"
     >
       <template #body>
@@ -110,7 +110,7 @@
                 <span
                   v-else
                   class="text-error"
-                >{{ app.app }}: unreachable — fix before merging</span>
+                >{{ app.app }} is unreachable, so fix that before merging</span>
               </li>
               <li v-if="plan.gains.password || plan.gains.google || plan.gains.verified">
                 This account gains:
@@ -127,7 +127,7 @@
             color="error"
             icon="i-lucide-alert-circle"
             title="Merge incomplete"
-            :description="`Failed: ${result.plan.apps.filter(a => !a.ok).map(a => a.app).join(', ')}. Nothing central changed — re-run once the app is back.`"
+            :description="`Failed: ${result.plan.apps.filter(a => !a.ok).map(a => a.app).join(', ')}. Nothing central changed: re-run once the app is back.`"
           />
 
           <UFormField
@@ -235,7 +235,7 @@ function roleOutcomeLabel(role: MergePlan['roles'][number]): string {
   const expiry = role.expiresAt === null ? 'permanent' : `until ${formatDate(role.expiresAt)}`
   switch (role.outcome) {
     case 'moved': return `moves from the absorbed account (${expiry})`
-    case 'conflict-earliest-expiry': return `held by both — earliest expiry kept (${expiry})`
+    case 'conflict-earliest-expiry': return `held by both: earliest expiry kept (${expiry})`
     default: return `already here (${expiry})`
   }
 }

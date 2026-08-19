@@ -69,7 +69,7 @@
 <script lang="ts" setup>
 definePageMeta({
   middleware: 'admin',
-  title: 'Admin — permissions',
+  title: 'Admin: permissions',
 })
 
 const { data, pending } = await useFetch('/api/permissions')

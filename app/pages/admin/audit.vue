@@ -45,7 +45,7 @@
     <UModal
       v-model:open="manualOpen"
       title="Record a manual action"
-      description="For operations done outside the admin UI — secret rotations, wrangler surgery. Stored with a manual. prefix."
+      description="For operations done outside the admin UI: secret rotations, wrangler surgery. Stored with a manual. prefix."
     >
       <template #body>
         <UForm
@@ -68,7 +68,7 @@
             label="Target"
             name="target"
             required
-            help="What it applied to — 'estate', a user id, a worker name"
+            help="What it applied to: 'estate', a user id, a worker name"
           >
             <UInput
               v-model="manualForm.target"
@@ -100,7 +100,7 @@
 <script lang="ts" setup>
 definePageMeta({
   middleware: 'admin',
-  title: 'Admin — audit log',
+  title: 'Admin: audit log',
 })
 
 const toast = useToast()
@@ -125,7 +125,7 @@ const { data, pending, refresh } = await useFetch('/api/audit', { query })
 const showPagination = computed(() => (data.value?.total ?? 0) > (data.value?.pageSize ?? 50))
 
 interface ApiEntry {
-  // Date server-side, ISO string once serialised — new Date() takes both.
+  // Date server-side, ISO string once serialised: new Date() takes both.
   createdAt: string | Date
   action: string
   actorUserId: string | null

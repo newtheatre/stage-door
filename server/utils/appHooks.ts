@@ -40,7 +40,7 @@ async function hookBearer(app: HookApp): Promise<string> {
   return row.tokenHash
 }
 
-/** Call one hook on one app. Never throws — failures come back in the result. */
+/** Call one hook on one app. Never throws: failures come back in the result. */
 export async function callAppHook<T>(app: HookApp, hook: AppHook, body: Record<string, unknown>): Promise<HookResult<T>> {
   try {
     const row = await db.select({ baseUrl: schema.apps.baseUrl, hooksEnabled: schema.apps.hooksEnabled })

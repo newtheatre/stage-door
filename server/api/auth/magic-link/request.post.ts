@@ -4,7 +4,7 @@ import { z } from 'zod/v4'
 
 const bodySchema = z.object({
   email: emailSchema,
-  // Rides through the email into the link, validated at consumption — the
+  // Rides through the email into the link, validated at consumption: the
   // request endpoint never acts on it.
   redirect: z.string().max(500).optional(),
 })

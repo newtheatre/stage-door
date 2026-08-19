@@ -10,7 +10,7 @@ export default defineNuxtConfig({
 
   $production: {
     runtimeConfig: {
-      // Production only — localhost has no subdomains. name/password/maxAge repeat
+      // Production only: localhost has no subdomains. name/password/maxAge repeat
       // the base values: env overrides must be complete SessionConfig objects.
       session: {
         name: 'nnt-session',
@@ -47,7 +47,7 @@ export default defineNuxtConfig({
     },
     resendApiKey: '',
     resendFromEmail: '',
-    // NUXT_TRAINING_API_TOKEN — an nnt_trn_ token minted in rehearsal's admin,
+    // NUXT_TRAINING_API_TOKEN: an nnt_trn_ token minted in rehearsal's admin,
     // read only by the eligibility snapshot task (ADR-0019).
     trainingApiToken: '',
     public: {
@@ -117,7 +117,7 @@ export default defineNuxtConfig({
           },
         ],
         // Estate secrets come from the Secrets Store (ADR-0016); the binding name
-        // matters — read server/plugins/0.secrets-store.ts first.
+        // matters: read server/plugins/0.secrets-store.ts first.
 
         // Cast: `secrets_store_secrets` is valid wrangler config but missing from
         // the wrangler types Nitro bundles. Drop it once Nitro catches up.

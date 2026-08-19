@@ -18,7 +18,7 @@ export async function sendEmail({ to, subject, html }: SendEmailOptions): Promis
     // The body carries live reset and magic-link tokens, so logging it in
     // production would put working credentials in the log stream.
     if (!import.meta.dev) {
-      console.error('[Email] NUXT_RESEND_API_KEY is not set — refusing to send')
+      console.error('[Email] NUXT_RESEND_API_KEY is not set: refusing to send')
       throw createError({ statusCode: 500, statusMessage: 'Email is not configured' })
     }
     console.info(`[Email:dev] To: ${to}\n[Email:dev] Subject: ${subject}\n[Email:dev] ${html}`)
@@ -97,18 +97,18 @@ export async function sendMagicLinkEmail(email: string, token: string, redirect?
     html: emailLayout(`
       <p>Click the link below to sign in to your NNT account:</p>
       <p><a href="${url}">${url}</a></p>
-      <p>The link works once and expires in 15 minutes. If you didn't request it, no action is needed — nobody can sign in without it.</p>
+      <p>The link works once and expires in 15 minutes. If you didn't request it, no action is needed: nobody can sign in without it.</p>
     `),
   })
 }
 
-/** Role expiry warning to the holder — 14 days out (ADR-0011). */
+/** Role expiry warning to the holder: 14 days out (ADR-0011). */
 export async function sendRoleExpiryWarningEmail(
   email: string,
   grants: { role: string, expiresAt: number }[],
 ): Promise<void> {
   const rows = grants
-    .map(g => `<li><code>${g.role}</code> — expires ${formatDateLong(g.expiresAt)}</li>`)
+    .map(g => `<li><code>${g.role}</code>: expires ${formatDateLong(g.expiresAt)}</li>`)
     .join('')
 
   await sendEmail({
@@ -118,29 +118,29 @@ export async function sendRoleExpiryWarningEmail(
       <p>The following role${grants.length === 1 ? '' : 's'} on your NNT account will expire soon:</p>
       <ul>${rows}</ul>
       <p>Most roles run for a committee year and lapse automatically at handover.
-      If you're continuing in the role, ask the IT Manager to renew it — it takes one click.
+      If you're continuing in the role, ask the IT Manager to renew it: it takes one click.
       If you're handing over, no action is needed.</p>
     `),
   })
 }
 
-/** Role expiry digest to the ITM — the renew-or-let-lapse prompt. */
+/** Role expiry digest to the ITM: the renew-or-let-lapse prompt. */
 export async function sendRoleExpiryDigestEmail(
   to: string,
   warned: { email: string, role: string, expiresAt: number }[],
 ): Promise<void> {
   const rows = warned
-    .map(w => `<li>${w.email} — <code>${w.role}</code> expires ${formatDate(w.expiresAt)}</li>`)
+    .map(w => `<li>${w.email}: <code>${w.role}</code> expires ${formatDate(w.expiresAt)}</li>`)
     .join('')
 
   await sendEmail({
     to,
-    subject: 'NNT role expiry digest — renew or let lapse',
+    subject: 'NNT role expiry digest: renew or let lapse',
     html: emailLayout(`
       <p>These role grants enter their expiry window today and the holders have been warned:</p>
       <ul>${rows}</ul>
       <p>Renew any that should continue (edit the expiry date on the user's admin page);
-      the rest lapse automatically — that's the point.</p>
+      the rest lapse automatically: that's the point.</p>
     `),
   })
 }
@@ -151,7 +151,7 @@ export async function sendSuspectGrantsEmail(
   suspects: { role: string, holders: number, explanation: string }[],
 ): Promise<void> {
   const rows = suspects
-    .map(s => `<li><code>${s.role}</code> — ${s.holders} holder${s.holders === 1 ? '' : 's'}. ${s.explanation}</li>`)
+    .map(s => `<li><code>${s.role}</code>: ${s.holders} holder${s.holders === 1 ? '' : 's'}. ${s.explanation}</li>`)
     .join('')
 
   await sendEmail({
@@ -177,14 +177,14 @@ export async function sendRetentionWarningEmail(email: string, daysLeft: number)
     html: emailLayout(`
       <p>Your Nottingham New Theatre account hasn't been used for over two years.
       Under our data retention policy it will be <strong>closed and anonymised in ${daysLeft} days</strong>.</p>
-      <p>Want to keep it? Just <a href="${baseURL}/login">log in</a> — that's all it takes.</p>
+      <p>Want to keep it? Just <a href="${baseURL}/login">log in</a>: that's all it takes.</p>
       <p>If you'd rather it were closed, no action is needed. Your booking history is
       kept anonymously for the theatre's records; your personal details are removed.</p>
     `),
   })
 }
 
-/** Retention sweep digest to the Archivist — its absence is an alert. */
+/** Retention sweep digest to the Archivist: its absence is an alert. */
 export async function sendRetentionDigestEmail(to: string, summary: Record<string, unknown>): Promise<void> {
   const dryRun = summary.dryRun === true
 
@@ -193,7 +193,7 @@ export async function sendRetentionDigestEmail(to: string, summary: Record<strin
     subject: `${dryRun ? '[DRY RUN] ' : ''}NNT retention sweep digest`,
     html: emailLayout(`
       <p>${dryRun
-        ? 'The retention sweep ran in <strong>dry-run</strong> mode — nothing was changed. Review and set dryRun: false in retention.config to arm it.'
+        ? 'The retention sweep ran in <strong>dry-run</strong> mode: nothing was changed. Review and set dryRun: false in retention.config to arm it.'
         : 'The retention sweep ran.'}</p>
       <pre style="background:#f5f5f4;padding:12px;border-radius:8px;font-size:12px;">${JSON.stringify(summary, null, 2)}</pre>
       <p style="font-size:13px;color:#666;">Full detail is in the audit log (action: retention.${dryRun ? 'dry-run' : 'sweep'}).</p>
@@ -212,7 +212,7 @@ export async function sendAccountExistsEmail(email: string): Promise<void> {
     to: email,
     subject: 'You already have an NNT account',
     html: emailLayout(`
-      <p>Someone (hopefully you) tried to create an NNT account with this address — but you already have one.</p>
+      <p>Someone (hopefully you) tried to create an NNT account with this address, but you already have one.</p>
       <p>You can <a href="${baseURL}/login">log in here</a>, or
       <a href="${baseURL}/forgot-password">reset your password</a> if you've forgotten it.</p>
     `),

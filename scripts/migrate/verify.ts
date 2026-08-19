@@ -1,5 +1,5 @@
 /**
- * Verification gate (docs/migration.md#verification-gate) — asserts, not
+ * Verification gate (docs/migration.md#verification-gate): asserts, not
  * eyeballs. Exits non-zero on any failure. `--remote` checks production.
  */
 
@@ -17,7 +17,7 @@ const SEED_EMAILS = [
   'user@newtheatre.org.uk', 'unverified@newtheatre.org.uk',
 ]
 
-// Mirrors build.ts — passworded accounts on undeliverable domains.
+// Mirrors build.ts: passworded accounts on undeliverable domains.
 function isUndeliverableTestAccount(email: string, password: string | null): boolean {
   if (password === null) return false
   return /@example\.(com|org|net)$|\.invalid$|\.test$|\.example$/.test(email)
@@ -42,7 +42,7 @@ if (remote) {
 else {
   const file = join(DATA, 'out/rehearsal-auth.sqlite')
   if (!existsSync(file)) {
-    console.error(`No rehearsal DB at ${file} — run scripts/migrate/rehearse.sh first.`)
+    console.error(`No rehearsal DB at ${file}: run scripts/migrate/rehearse.sh first.`)
     process.exit(1)
   }
   const db = new Database(file, { readonly: true })
@@ -51,7 +51,7 @@ else {
 
 function loadSource(name: string): Database {
   const db = new Database(':memory:')
-  // Same sqlite_sequence filtering as build.ts's loadDump — see comment there.
+  // Same sqlite_sequence filtering as build.ts's loadDump: see comment there.
   const sql = readFileSync(join(DATA, `${name}.sql`), 'utf8')
     .split('\n')
     .filter(line => !line.includes('sqlite_sequence'))
@@ -83,7 +83,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   }
   else {
     failures += 1
-    console.error(`  ✗ ${label}${detail !== undefined ? ` — ${JSON.stringify(detail)}` : ''}`)
+    console.error(`  ✗ ${label}${detail !== undefined ? `: ${JSON.stringify(detail)}` : ''}`)
   }
 }
 
@@ -158,7 +158,7 @@ for (const [table, column] of [
 const roomsCopy = loadSource('rooms')
 const fixesFile = join(DATA, 'out/rooms-fixes.sql')
 if (existsSync(fixesFile)) {
-  // The generated file only contains UPDATEs on bookings/push_subscriptions —
+  // The generated file only contains UPDATEs on bookings/push_subscriptions.
   // FK enforcement is off in this scratch copy, so order doesn't matter.
   roomsCopy.exec(readFileSync(fixesFile, 'utf8'))
 }
@@ -197,7 +197,7 @@ check(`${hashChecked} password hashes byte-identical to source`, hashOk)
 check('all stored hashes are scrypt PHC strings',
   one(`SELECT count(*) n FROM users WHERE password IS NOT NULL AND password NOT LIKE '$scrypt$%'`).n === 0)
 
-// Role counts per namespace — see docs/migration.md for the expected split.
+// Role counts per namespace: see docs/migration.md for the expected split.
 const sourceRoles = pros.prepare(`
   SELECT ur.role, u.id, lower(u.email) email FROM user_roles ur JOIN users u ON u.id = ur.user_id
 `).all() as { role: string, id: string, email: string }[]

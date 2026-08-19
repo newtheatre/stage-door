@@ -1,11 +1,11 @@
 /**
- * The NNT session contract, v1.0 — source of truth. Copied into each consumer
+ * The NNT session contract, v1.0: source of truth. Copied into each consumer
  * app; change it here and re-copy. See docs/session-contract.md.
  */
 
 declare module '#auth-utils' {
   interface User {
-    /** Canonical user id — stable forever, apps FK against it. */
+    /** Canonical user id: stable forever, apps FK against it. */
     id: string
     /** Lowercased. */
     email: string
@@ -21,9 +21,9 @@ declare module '#auth-utils' {
   interface UserSession {
     /** Epoch ms of the original login. */
     loggedInAt: number
-    /** Epoch ms of the last DB re-read — drives staleness checks. */
+    /** Epoch ms of the last DB re-read: drives staleness checks. */
     refreshedAt: number
-    /** Copy of users.session_epoch at seal time — drives force-logout. */
+    /** Copy of users.session_epoch at seal time: drives force-logout. */
     epoch: number
   }
 }
@@ -79,7 +79,7 @@ export function permissionResolver(manifest: PermissionSource) {
 
 /**
  * True if the session's roles are too stale to honour on a privileged route.
- * Negative ages (clock skew) count as stale — defensive per the contract.
+ * Negative ages (clock skew) count as stale: defensive per the contract.
  */
 export function isStale(session: StaleCheckable | null | undefined, maxAgeMs: number = ROLE_STALENESS_MS): boolean {
   if (!session || typeof session.refreshedAt !== 'number') return true

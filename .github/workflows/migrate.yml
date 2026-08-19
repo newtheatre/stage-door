@@ -74,7 +74,7 @@ jobs:
           out=$(bunx wrangler d1 time-travel info auth 2>&1 | tee /dev/stderr)
           mark=$(echo "$out" | grep -oE "[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{32}" | head -1)
           if [ -z "$mark" ]; then
-            echo "::error::Could not read a Time Travel bookmark — refusing to migrate without a restore point."
+            echo "::error::Could not read a Time Travel bookmark: refusing to migrate without a restore point."
             exit 1
           fi
           echo "bookmark=$mark" >> "$GITHUB_OUTPUT"
@@ -101,7 +101,7 @@ jobs:
             exit 1
           fi
           if [ -n "$pending" ]; then
-            echo "::error::Migrations are still pending after the apply step — it failed silently:"
+            echo "::error::Migrations are still pending after the apply step: it failed silently:"
             echo "$pending" | sed 's/^/  /'
             exit 1
           fi

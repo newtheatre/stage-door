@@ -43,7 +43,7 @@
           </UButton>
           <p class="text-xs text-muted mb-4">
             Got an <code>@newtheatre.org.uk</code> Workspace account? Use
-            Google — there's no need to create a password.
+            Google: there's no need to create a password.
           </p>
           Already have an account?
           <ULink
@@ -66,7 +66,7 @@ const { fetch: refreshSession } = useUserSession()
 const { raw, withRedirect } = useRedirectTarget()
 
 // The redirect target rides the OAuth round-trip as `state` (validated
-// server-side on the way back) — same as the login page.
+// server-side on the way back): same as the login page.
 const googleHref = computed(() =>
   raw.value ? `/auth/google?state=${encodeURIComponent(raw.value)}` : '/auth/google',
 )

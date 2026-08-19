@@ -8,7 +8,7 @@
       <template #description>
         <template v-if="loggedIn">
           We've sent a verification link to <strong>{{ user?.email }}</strong>.
-          You're logged in already — verifying just confirms the address is yours.
+          You're logged in already: verifying just confirms the address is yours.
         </template>
         <template v-else>
           If this address didn't already have an account, we've sent it a

@@ -1,5 +1,5 @@
 /**
- * TOTP (RFC 6238) over Web Crypto — no dependency, no Node shims. The RFC's
+ * TOTP (RFC 6238) over Web Crypto: no dependency, no Node shims. The RFC's
  * test vectors are asserted in tests/totp.test.ts.
  */
 
@@ -7,7 +7,7 @@ const STEP_SECONDS = 30
 const DIGITS = 6
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
 
-/** RFC 4648 base32 without padding — the format authenticator apps expect. */
+/** RFC 4648 base32 without padding: the format authenticator apps expect. */
 export function base32Encode(bytes: Uint8Array): string {
   let bits = 0
   let value = 0
@@ -42,7 +42,7 @@ export function base32Decode(input: string): Uint8Array {
   return new Uint8Array(out)
 }
 
-/** A fresh 20-byte (160-bit) secret, base32-encoded — the RFC 4226 size. */
+/** A fresh 20-byte (160-bit) secret, base32-encoded: the RFC 4226 size. */
 export function generateTotpSecret(): string {
   const bytes = new Uint8Array(20)
   crypto.getRandomValues(bytes)
@@ -93,7 +93,7 @@ export async function totpCode(
 
 export interface TotpVerifyResult {
   valid: boolean
-  /** The step the code matched — persist it to block replay within the window. */
+  /** The step the code matched: persist it to block replay within the window. */
   step?: number
 }
 

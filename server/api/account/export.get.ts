@@ -1,4 +1,4 @@
-/** GET /api/account/export — self-service subject-access bundle. */
+/** GET /api/account/export: self-service subject-access bundle. */
 export default defineEventHandler(async (event) => {
   const { user } = await requireAccountUser(event)
 

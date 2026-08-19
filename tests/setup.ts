@@ -50,7 +50,7 @@ class HttpError extends Error {
   statusCode: number
   statusMessage: string
   // h3 carries `data` through to the client (that's how the login page gets
-  // `useGoogle` and a re-issued MFA attempt) — the fake must too.
+  // `useGoogle` and a re-issued MFA attempt): the fake must too.
   data?: unknown
   constructor(opts: { statusCode: number, statusMessage: string, data?: unknown }) {
     super(opts.statusMessage)

@@ -51,7 +51,7 @@ describe('POST /api/auth/login', () => {
 
   it('produces identical 401s for unknown user, wrong password, guest account, and disabled account', async () => {
     await createUser({ email: 'real@example.com', plainPassword: 'Passw0rd' })
-    await createUser({ email: 'guest@example.com' }) // password NULL — shadow
+    await createUser({ email: 'guest@example.com' }) // password NULL: shadow
     await createUser({ email: 'gone@example.com', plainPassword: 'Passw0rd', disabled: true })
 
     const outcomes = await Promise.all([

@@ -24,7 +24,7 @@ function candidate(overrides: Partial<RetentionCandidate>): RetentionCandidate {
 
 const config = RETENTION_CONFIG
 
-describe('retention planner — cohorts (docs/gdpr-retention.md)', () => {
+describe('retention planner: cohorts (docs/gdpr-retention.md)', () => {
   it('exempts role holders and already-anonymised rows entirely', () => {
     const plan = planRetention([
       candidate({ id: 'admin', hasRoles: true, lastLogin: NOW - 10 * YEAR }),

@@ -31,7 +31,7 @@ export const totpSecrets = sqliteTable('totp_secrets', {
   secret: text('secret').notNull(), // base32
   confirmedAt: integer('confirmed_at', { mode: 'timestamp_ms' }),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
-  // Highest time-step already accepted — blocks replay of a code inside its
+  // Highest time-step already accepted: blocks replay of a code inside its
   // own validity window.
   lastUsedStep: integer('last_used_step'),
 })

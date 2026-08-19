@@ -54,7 +54,7 @@
         :schema="schema"
         :fields="fields"
         title="Email me a sign-in link"
-        description="No password needed — we'll send a link that signs you in. This works even if you've only ever booked tickets with us."
+        description="No password needed: we'll send a link that signs you in. This works even if you've only ever booked tickets with us."
         icon="i-lucide-mail"
         :submit="{ label: 'Send sign-in link' }"
         @submit="onSubmit"
@@ -65,7 +65,7 @@
             color="info"
             icon="i-simple-icons-google"
             title="NNT accounts sign in with Google"
-            description="Your @newtheatre.org.uk account signs in with Google instead — head back to the login page and use the Google button."
+            description="Your @newtheatre.org.uk account signs in with Google instead: head back to the login page and use the Google button."
           />
           <UAlert
             v-else-if="errorMessage"
@@ -211,7 +211,7 @@ function startOver() {
   router.replace({ query: { ...route.query, token: undefined } })
 }
 
-// Consume client-side only — the token burns on first use, so SSR + client
+// Consume client-side only: the token burns on first use, so SSR + client
 // hydration must not both spend it.
 onMounted(() => {
   if (token.value) consume()

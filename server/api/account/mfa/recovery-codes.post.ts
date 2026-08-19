@@ -1,5 +1,5 @@
 /**
- * POST /api/account/mfa/recovery-codes — regenerate recovery codes [AUD].
+ * POST /api/account/mfa/recovery-codes: regenerate recovery codes [AUD].
  * Returns the new codes once; the old ones stop working immediately.
  */
 export default defineEventHandler(async (event) => {

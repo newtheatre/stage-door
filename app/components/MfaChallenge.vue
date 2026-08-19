@@ -106,9 +106,9 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  /** A factor was proven and the session sealed — navigate away. */
+  /** A factor was proven and the session sealed: navigate away. */
   verified: []
-  /** The attempt is dead (expired and not re-issued) — back to step one. */
+  /** The attempt is dead (expired and not re-issued): back to step one. */
   restart: []
 }>()
 
@@ -175,7 +175,7 @@ async function onPasskey() {
     emit('verified')
   }
   catch (error) {
-    // A cancelled prompt throws too — say nothing rather than alarm them.
+    // A cancelled prompt throws too: say nothing rather than alarm them.
     if ((error as { name?: string })?.name !== 'NotAllowedError') {
       errorMessage.value = getErrorMessage(error, 'That passkey could not be used. Enter a code instead.')
     }

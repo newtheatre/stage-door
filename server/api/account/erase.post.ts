@@ -9,7 +9,7 @@ const bodySchema = z.object({
 })
 
 /**
- * POST /api/account/erase — self-service GDPR erasure [AUD]. IRREVERSIBLE.
+ * POST /api/account/erase: self-service GDPR erasure [AUD]. IRREVERSIBLE.
  */
 export default defineEventHandler(async (event) => {
   const { user } = await requireAccountUser(event)

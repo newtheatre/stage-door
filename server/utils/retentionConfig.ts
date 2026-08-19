@@ -1,5 +1,5 @@
 /**
- * Retention periods, which the committee ratifies — record adopted values
+ * Retention periods, which the committee ratifies: record adopted values
  * here AND in the data-protection policy. All values are PROPOSALS until then.
  */
 

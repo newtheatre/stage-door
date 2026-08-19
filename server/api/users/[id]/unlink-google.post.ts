@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   if (user.password === null) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Unlinking would leave no way to log in — send a password reset first',
+      statusMessage: 'Unlinking would leave no way to log in: send a password reset first',
     })
   }
 

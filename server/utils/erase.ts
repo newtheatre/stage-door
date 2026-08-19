@@ -1,5 +1,5 @@
 /**
- * Right to erasure — anonymise, never delete. Complete only when every app
+ * Right to erasure: anonymise, never delete. Complete only when every app
  * hook succeeded; partial results are returned so it can be retried.
  */
 
@@ -48,7 +48,7 @@ export async function eraseUser(userId: string, actor: { id: string | null, via:
     await db.delete(schema.retentionNotices).where(eq(schema.retentionNotices.userId, userId))
   }
 
-  // App hooks are idempotent, so call them on every run — that is what retries
+  // App hooks are idempotent, so call them on every run: that is what retries
   // a hook that failed before.
   const hooks = await callAllAppHooks<{ ok: boolean }>('anonymise', { userId })
 

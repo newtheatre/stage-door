@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   if (existing?.confirmedAt) {
     throw createError({
       statusCode: 409,
-      statusMessage: 'An authenticator app is already set up — remove it first to enrol a new one',
+      statusMessage: 'An authenticator app is already set up: remove it first to enrol a new one',
     })
   }
 

@@ -113,7 +113,7 @@ describe('POST /api/auth/register', () => {
     expect(sentEmails).toEqual([{ kind: 'account-exists', to: 'sso@example-user.co.uk' }])
   })
 
-  it('never claims accounts on undeliverable domains — the legacy-import hole', async () => {
+  it('never claims accounts on undeliverable domains: the legacy-import hole', async () => {
     // Placeholder rows on reserved TLDs can own reservations containing other
     // customers' data, so registering with one must be a silent no-op.
     const placeholder = await createUser({ email: 'door-sales@legacy.invalid', name: 'Door Sales' })
@@ -138,7 +138,7 @@ describe('POST /api/auth/register', () => {
 
   it('rate-limits per account, not only per IP', async () => {
     // makeEvent hands every event a distinct cf-connecting-ip, so the IP rule
-    // never trips here — only the account rule can.
+    // never trips here: only the account rule can.
     const body = { email: 'victim@example-user.co.uk', name: 'V', password: 'Passw0rd' }
     for (let i = 0; i < 5; i++) {
       await register(makeEvent({ body }))

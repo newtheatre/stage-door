@@ -105,7 +105,7 @@
             <dt class="text-muted">
               Legacy ids
             </dt>
-            <dd>{{ user.legacyIds?.length ? user.legacyIds.map((l: { source: string, legacyId: string }) => `${l.source}:${l.legacyId}`).join(', ') : '—' }}</dd>
+            <dd>{{ user.legacyIds?.length ? user.legacyIds.map((l: { source: string, legacyId: string }) => `${l.source}:${l.legacyId}`).join(', ') : ', ' }}</dd>
           </dl>
         </UPageCard>
 
@@ -188,7 +188,7 @@
               v-else-if="user.mfa.required"
               class="text-warning"
             >
-              Required but not set up — this account holds an admin role and
+              Required but not set up: this account holds an admin role and
               signs in with a password. Admin tools stay closed until they
               enrol.
             </p>
@@ -214,7 +214,7 @@
               class="text-xs text-muted"
             >
               The "lost my phone" path. Verify who you are talking to out of
-              band first — this removes their protection until they re-enrol.
+              band first: this removes their protection until they re-enrol.
             </p>
 
             <template v-if="isWorkspaceAddress && user.hasPassword">
@@ -267,7 +267,7 @@
               Erase (anonymise) account…
             </UButton>
             <p class="text-xs text-muted">
-              Erasure is irreversible. Verify the requester's identity first —
+              Erasure is irreversible. Verify the requester's identity first.
               see the operations runbook. Bookings survive anonymously.
             </p>
           </div>
@@ -339,7 +339,7 @@
               v-if="eraseResult && !eraseResult.complete"
               color="warning"
               icon="i-lucide-alert-triangle"
-              title="Erasure incomplete — some app hooks failed"
+              title="Erasure incomplete: some app hooks failed"
               :description="`Failed: ${eraseResult.hooks.filter(h => !h.ok).map(h => h.app).join(', ')}. Re-run to retry.`"
             />
             <UButton
@@ -361,7 +361,7 @@
 <script lang="ts" setup>
 definePageMeta({
   middleware: 'admin',
-  title: 'Admin — user',
+  title: 'Admin: user',
 })
 
 const route = useRoute()
@@ -386,7 +386,7 @@ interface AdminUserDetail {
   mfa: { required: boolean, factors: string[], passkeys: number, recoveryCodesRemaining: number }
 }
 
-// Dynamic URL defeats Nitro's route typing — assert the shape instead.
+// Dynamic URL defeats Nitro's route typing: assert the shape instead.
 const { data, refresh } = await useFetch<{ user: AdminUserDetail }>(`/api/users/${id}`)
 const user = computed(() => data.value?.user)
 
@@ -474,6 +474,6 @@ const clearPendingGoogle = () => act('Pending link cleared', () =>
   $fetch(`/api/users/${id}/pending-google`, { method: 'PUT', body: { email: null } }))
 const mfaReset = () => act('Second factors cleared', () =>
   $fetch(`/api/users/${id}/mfa-reset`, { method: 'POST' }))
-const clearPassword = () => act('Password cleared — Google sign-in only', () =>
+const clearPassword = () => act('Password cleared: Google sign-in only', () =>
   $fetch(`/api/users/${id}/clear-password`, { method: 'POST' }))
 </script>

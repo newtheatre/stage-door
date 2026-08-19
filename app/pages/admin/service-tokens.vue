@@ -6,7 +6,7 @@
       v-if="freshToken"
       color="warning"
       icon="i-lucide-key-round"
-      title="Copy this token now — it will not be shown again"
+      title="Copy this token now: it will not be shown again"
     >
       <template #description>
         <code class="break-all select-all">{{ freshToken }}</code>
@@ -55,7 +55,7 @@
 <script lang="ts" setup>
 definePageMeta({
   middleware: 'admin',
-  title: 'Admin — service tokens',
+  title: 'Admin: service tokens',
 })
 
 const toast = useToast()

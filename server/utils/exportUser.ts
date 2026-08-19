@@ -1,5 +1,5 @@
 /**
- * Right of access — the subject-access bundle (docs/gdpr-retention.md).
+ * Right of access: the subject-access bundle (docs/gdpr-retention.md).
  * Auth record + each registered app's export-hook contribution.
  */
 
@@ -12,7 +12,7 @@ export async function exportUser(userId: string) {
     throw createError({ statusCode: 404, statusMessage: 'User not found' })
   }
 
-  // Full grants, expired included — grant notes and provenance are personal
+  // Full grants, expired included: grant notes and provenance are personal
   // data and belong in the bundle (ADR-0011).
   const roleGrants = await loadRoleGrants(userId)
   const legacyIds = await db.select({
@@ -36,7 +36,7 @@ export async function exportUser(userId: string) {
     detail: target === userId ? detail : null,
   }))
 
-  // Second factors: types and dates only — never a secret or a public key
+  // Second factors: types and dates only: never a secret or a public key
   // (ADR-0012).
   const totp = await db.select().from(schema.totpSecrets).where(eq(schema.totpSecrets.userId, userId)).get()
   const mfa = {
@@ -67,7 +67,7 @@ export async function exportUser(userId: string) {
       mfa,
     },
     auditEntries,
-    // Hooks answer { data: <app-held personal data> } — unwrap per contract.
+    // Hooks answer { data: <app-held personal data> }: unwrap per contract.
     apps: Object.fromEntries(hooks.map(h => [h.app, h.ok ? h.data?.data : { error: `export unavailable: ${h.error}` }])),
   }
 }

@@ -8,7 +8,7 @@ const bodySchema = z.object({
 
 const LINK_INVALID = {
   statusCode: 400,
-  statusMessage: 'That sign-in link has expired or already been used — request a new one',
+  statusMessage: 'That sign-in link has expired or already been used: request a new one',
 } as const
 
 /**
@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
 
   const user = await db.select().from(schema.users).where(eq(schema.users.id, link.userId)).get()
 
-  // Disabled accounts get the same generic error — indistinguishable from
+  // Disabled accounts get the same generic error: indistinguishable from
   // an expired link by design.
   if (!user || user.disabled) throw createError(LINK_INVALID)
 

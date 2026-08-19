@@ -40,7 +40,7 @@
               <UFormField
                 label="Email"
                 name="email"
-                :help="profile?.verified ? 'Verified' : 'Not yet verified — check your inbox'"
+                :help="profile?.verified ? 'Verified' : 'Not yet verified: check your inbox'"
               >
                 <UInput
                   v-model="profileForm.email"
@@ -141,7 +141,7 @@
               class="flex flex-col gap-3"
             >
               <p class="text-sm text-muted">
-                A <code>@newtheatre.org.uk</code> Google account is connected — you
+                A <code>@newtheatre.org.uk</code> Google account is connected: you
                 can sign in with either method.
               </p>
               <UButton
@@ -160,7 +160,7 @@
             >
               <p class="text-sm text-muted">
                 Members with an NNT Workspace account can connect it here and use
-                "Sign in with Google" from then on — even if this account uses a
+                "Sign in with Google" from then on: even if this account uses a
                 different email address.
               </p>
               <UButton
@@ -210,8 +210,8 @@
           >
             <div class="flex flex-col gap-3">
               <p class="text-sm text-muted">
-                Download everything the NNT holds about you — your account details
-                plus your bookings from each NNT site — or close your account for
+                Download everything the NNT holds about you: your account details
+                plus your bookings from each NNT site, or close your account for
                 good. Closing removes your personal details everywhere; booking
                 records are kept anonymously for the theatre's accounts.
               </p>
@@ -326,7 +326,7 @@ watchEffect(() => {
 })
 const emailChanged = computed(() => !!profile.value && profileForm.email.toLowerCase() !== profile.value.email)
 
-// Mirrors the server's passwordSchema, plus the confirmation — mistakes
+// Mirrors the server's passwordSchema, plus the confirmation: mistakes
 // surface inline instead of as a server 400.
 const passwordFormSchema = z.object({
   currentPassword: z.string().optional(),
@@ -353,7 +353,7 @@ const banner = computed(() => {
     case 'linked':
       return { color: 'success' as const, icon: 'i-lucide-badge-check', text: 'Google account connected.' }
     case 'stale-session':
-      return { color: 'warning' as const, icon: 'i-lucide-clock-alert', text: 'Connecting Google needs a recent login — log out and back in, then try again.' }
+      return { color: 'warning' as const, icon: 'i-lucide-clock-alert', text: 'Connecting Google needs a recent login: log out and back in, then try again.' }
     case 'google-already-linked':
       return { color: 'error' as const, icon: 'i-lucide-alert-circle', text: 'That Google account is already linked to a different NNT account. Contact the IT Manager to sort it out.' }
     case 'google':
@@ -394,7 +394,7 @@ async function savePassword() {
     passwordForm.password = ''
     passwordForm.confirmPassword = ''
     await Promise.all([refresh(), refreshSession()])
-    toast.add({ title: 'Password updated — other sessions have been logged out', color: 'success' })
+    toast.add({ title: 'Password updated: other sessions have been logged out', color: 'success' })
   }
   catch (error) {
     toast.add({ title: getErrorMessage(error, 'Could not change password'), color: 'error' })

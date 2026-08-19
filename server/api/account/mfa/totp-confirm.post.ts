@@ -8,7 +8,7 @@ const bodySchema = z.object({
 
 /**
  * Prove the authenticator works, and arm it. First confirmation also issues
- * recovery codes — the only time they are shown — and bumps the epoch.
+ * recovery codes, the only time they are shown, and bumps the epoch.
  */
 export default defineEventHandler(async (event) => {
   const { user, loggedInAt } = await requireAccountUser(event)
@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
 
   const result = await verifyTotp(secret.secret, code, { lastUsedStep: secret.lastUsedStep })
   if (!result.valid) {
-    throw createError({ statusCode: 400, statusMessage: 'That code was not correct — check your authenticator app' })
+    throw createError({ statusCode: 400, statusMessage: 'That code was not correct: check your authenticator app' })
   }
 
   const firstEnrolment = secret.confirmedAt === null

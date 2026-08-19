@@ -1,4 +1,4 @@
-/** GET /api/account/profile — the caller's own profile. */
+/** GET /api/account/profile: the caller's own profile. */
 export default defineEventHandler(async (event) => {
   const { user } = await requireAccountUser(event)
 

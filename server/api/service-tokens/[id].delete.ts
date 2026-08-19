@@ -1,7 +1,7 @@
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 
-/** DELETE /api/service-tokens/:id — revoke (rotation: issue new, redeploy app, revoke old). */
+/** DELETE /api/service-tokens/:id: revoke (rotation: issue new, redeploy app, revoke old). */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)
   const id = getRouterParam(event, 'id')!

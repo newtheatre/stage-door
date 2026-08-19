@@ -28,7 +28,7 @@ async function longDormant(email: string) {
   return user
 }
 
-describe('retention sweep — a failed erasure is not silently lost', () => {
+describe('retention sweep: a failed erasure is not silently lost', () => {
   it('reports incomplete erasures and re-drives them on the next run', async () => {
     await registerApp('rooms')
     await db.insert(schema.serviceTokens).values({ name: 'rooms', tokenHash: 'hash-r' })
@@ -79,7 +79,7 @@ describe('retention sweep — a failed erasure is not silently lost', () => {
 
 // better-sqlite3 allows ~32k bound parameters, so this cannot reproduce D1's
 // cap of 100. It pins the behaviour; the chunking is what enforces the limit.
-describe('retention sweep — D1 bound-parameter cap', () => {
+describe('retention sweep: D1 bound-parameter cap', () => {
   it('clears more than 100 notices without one oversized statement', async () => {
     config.dryRun = false
     fetchMock.mockResolvedValue({ ok: true })

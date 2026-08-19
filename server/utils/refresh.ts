@@ -12,7 +12,7 @@ export type RefreshResult
     | { ok: false, reason: 'no-session' | 'gone' | 'disabled' | 'stale-epoch' }
 
 /**
- * Refresh the caller's session in place. On failure the session is cleared —
+ * Refresh the caller's session in place. On failure the session is cleared.
  * the caller decides whether to redirect (GET) or 401 (POST).
  */
 export async function refreshSession(event: H3Event): Promise<RefreshResult> {
@@ -33,7 +33,7 @@ export async function refreshSession(event: H3Event): Promise<RefreshResult> {
     return { ok: false, reason: 'disabled' }
   }
   if ((session.epoch ?? -1) !== user.sessionEpoch) {
-    // Force-logout / password reset elsewhere — this cookie is dead.
+    // Force-logout / password reset elsewhere: this cookie is dead.
     await clearUserSession(event)
     return { ok: false, reason: 'stale-epoch' }
   }

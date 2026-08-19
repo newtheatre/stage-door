@@ -6,7 +6,7 @@ const bodySchema = z.object({
 })
 
 /**
- * GDPR erasure. IRREVERSIBLE — verify the requester first
+ * GDPR erasure. IRREVERSIBLE: verify the requester first
  * (docs/operations.md#user-operations). Idempotent; re-POST to retry hooks.
  */
 export default defineEventHandler(async (event) => {

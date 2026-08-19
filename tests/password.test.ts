@@ -26,7 +26,7 @@ describe('POST /api/auth/password/forgot', () => {
     expect(record?.token).not.toBe(sentEmails[0]!.token)
   })
 
-  it('sends a reset email for a shadow account — the claiming path', async () => {
+  it('sends a reset email for a shadow account: the claiming path', async () => {
     await createUser({ email: 'booker@example-user.co.uk' }) // password NULL
 
     await forgot(makeEvent({ body: { email: 'booker@example-user.co.uk' } }))

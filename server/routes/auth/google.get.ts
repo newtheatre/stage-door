@@ -7,7 +7,7 @@ import type { GoogleProfile } from '../../utils/googleAccount'
 export default defineOAuthGoogleEventHandler({
   config: {
     authorizationParams: {
-      hd: WORKSPACE_DOMAIN, // UX hint only — pre-selects the Workspace account
+      hd: WORKSPACE_DOMAIN, // UX hint only: pre-selects the Workspace account
     },
   },
 
@@ -24,7 +24,7 @@ export default defineOAuthGoogleEventHandler({
 
     await sealLoginSession(event, user)
 
-    // No state = they started here, not at an app — stay on the account
+    // No state = they started here, not at an app: stay on the account
     // home. An invalid state still falls back to the apex (invariant 6).
     const { state } = getQuery(event)
     return sendRedirect(event, typeof state === 'string' && state ? validateRedirect(state) : '/', 302)

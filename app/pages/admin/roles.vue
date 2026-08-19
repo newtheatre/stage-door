@@ -39,7 +39,7 @@
             <ULink :to="`/admin?role=${encodeURIComponent(suspect.role)}`">
               <code>{{ suspect.role }}</code>
             </ULink>
-            — {{ suspect.holders }} {{ suspect.holders === 1 ? 'holder' : 'holders' }}.
+            ({{ suspect.holders }} {{ suspect.holders === 1 ? 'holder' : 'holders' }}).
             {{ suspect.explanation }}
           </li>
         </ul>
@@ -122,14 +122,14 @@
       v-if="!pending && !tableRows.length"
       class="text-sm text-muted"
     >
-      No definitions yet — add the roles your apps check.
+      No definitions yet: add the roles your apps check.
     </p>
 
     <!-- ── Add / edit ──────────────────────────────────────────────────── -->
     <UModal
       v-model:open="formOpen"
       :title="editingId ? 'Edit definition' : 'Add a definition'"
-      :description="editingId ? undefined : 'The name must match what the app checks — apps never read this table, only the session strings.'"
+      :description="editingId ? undefined : 'The name must match what the app checks: apps never read this table, only the session strings.'"
     >
       <template #body>
         <UForm
@@ -168,7 +168,7 @@
           <UFormField
             label="Description"
             name="description"
-            help="Shown in the role picker — say what it lets someone do"
+            help="Shown in the role picker: say what it lets someone do"
           >
             <UInput
               v-model="form.description"
@@ -223,7 +223,7 @@
       v-model:open="deleteOpen"
       title="Delete this definition"
       :description="pendingDelete
-        ? `${pendingDelete.namespace}:${pendingDelete.role} disappears from the role picker. ${holdersOf(pendingDelete)} — existing grants are never touched.`
+        ? `${pendingDelete.namespace}:${pendingDelete.role} disappears from the role picker. ${holdersOf(pendingDelete)}: existing grants are never touched.`
         : ''"
     >
       <template #body>
@@ -251,7 +251,7 @@
 <script lang="ts" setup>
 definePageMeta({
   middleware: 'admin',
-  title: 'Admin — role definitions',
+  title: 'Admin: role definitions',
 })
 
 const toast = useToast()

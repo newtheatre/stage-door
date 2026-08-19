@@ -33,7 +33,7 @@ export default defineTask({
 
     // ── Gather candidates ──────────────────────────────────────────────────
     const users = await db.select().from(schema.users).all()
-    // ACTIVE grants only — an expired role must not exempt anyone (ADR-0011).
+    // ACTIVE grants only: an expired role must not exempt anyone (ADR-0011).
     const roleRows = await db.select({ userId: schema.userRoles.userId })
       .from(schema.userRoles).where(activeRoleCondition(new Date(now))).all()
     const roleHolders = new Set(roleRows.map(r => r.userId))
@@ -46,7 +46,7 @@ export default defineTask({
       noticesByUser.set(n.userId, entry)
     }
 
-    // Guests need app activity signals — batch the last-activity hooks.
+    // Guests need app activity signals: batch the last-activity hooks.
     const guestIds = users
       .filter(u => u.password === null && u.googleSub === null && !isUndeliverableEmail(u.email))
       .map(u => u.id)
@@ -59,7 +59,7 @@ export default defineTask({
         if (!result.ok) {
           // Missing signals must fail SAFE: without every app's answer we
           // cannot prove inactivity, so skip guest anonymisation this run.
-          console.error(`[retention] last-activity hook failed for ${result.app} — guest cohort skipped this run`)
+          console.error(`[retention] last-activity hook failed for ${result.app}: guest cohort skipped this run`)
           hookFailure = true
           break
         }

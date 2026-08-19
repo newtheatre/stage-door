@@ -2,7 +2,7 @@
   <UPageCard
     title="Roles"
     icon="i-lucide-shield"
-    description="Changes are staged here and applied together when you save. They reach privileged surfaces within 15 minutes — pair with force-logout for instant effect."
+    description="Changes are staged here and applied together when you save. They reach privileged surfaces within 15 minutes: pair with force-logout for instant effect."
   >
     <div class="flex flex-col gap-3">
       <!-- One grant per row: identity + status on the first line, the
@@ -128,7 +128,7 @@
           v-if="row.grantedAt"
           class="text-xs text-muted"
         >
-          Granted {{ formatDate(row.grantedAt) }}{{ row.expired && row.status !== 'removed' ? ' — pick a new expiry to renew it' : '' }}
+          Granted {{ formatDate(row.grantedAt) }}{{ row.expired && row.status !== 'removed' ? ': pick a new expiry to renew it' : '' }}
         </p>
       </div>
 
@@ -136,7 +136,7 @@
         v-if="!rows.length"
         class="text-sm text-muted"
       >
-        No roles — this account can log in everywhere but administer nothing.
+        No roles: this account can log in everywhere but administer nothing.
       </p>
 
       <!--

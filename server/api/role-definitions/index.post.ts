@@ -13,7 +13,7 @@ const bodySchema = z.object({
   ]),
 })
 
-/** POST /api/role-definitions — create a definition (admin) [AUD]. */
+/** POST /api/role-definitions: create a definition (admin) [AUD]. */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)
   const { namespace, role, description, defaultExpiry } = await readValidatedBody(event, bodySchema.parse)

@@ -69,7 +69,7 @@ describe('who MFA is required of', () => {
     expect(await isMfaRequired(user)).toBe(true)
   })
 
-  it('exempts a Google-only admin — Workspace enforces 2SV upstream', async () => {
+  it('exempts a Google-only admin: Workspace enforces 2SV upstream', async () => {
     const user = await createUser({ email: 'sso@example.com', googleSub: 'g-1' })
     await grantRole(user.id, 'auth:ADMIN')
     expect(await isMfaRequired(user)).toBe(false)

@@ -8,7 +8,7 @@ const bodySchema = z.object({
 })
 
 /**
- * PUT /api/users/:id — update name/email (admin). An email change resets
+ * PUT /api/users/:id: update name/email (admin). An email change resets
  * `verified` and triggers a fresh verification email.
  */
 export default defineEventHandler(async (event) => {

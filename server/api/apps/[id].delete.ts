@@ -1,7 +1,7 @@
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 
-/** DELETE /api/apps/:id — deregister; hooks stop reaching it. */
+/** DELETE /api/apps/:id: deregister; hooks stop reaching it. */
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)
   const id = getRouterParam(event, 'id')!

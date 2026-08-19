@@ -17,7 +17,7 @@ export interface GoogleProfile {
 export const WORKSPACE_DOMAIN = 'newtheatre.org.uk'
 
 /**
- * Server-side Workspace assertion — CLAUDE.md invariant 5. The
+ * Server-side Workspace assertion: CLAUDE.md invariant 5. The
  * `authorizationParams.hd` hint is cosmetic; this is the check.
  */
 export function isWorkspaceProfile(profile: GoogleProfile): boolean {

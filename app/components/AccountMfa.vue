@@ -22,7 +22,7 @@
           Passkeys
         </h3>
         <p class="text-sm text-muted">
-          Sign in with your fingerprint, face or device PIN — no password and
+          Sign in with your fingerprint, face or device PIN: no password and
           no code to type. A passkey works only on the site it was made for,
           so it can't be phished.
         </p>
@@ -83,7 +83,7 @@
           v-else
           class="text-sm text-muted"
         >
-          This browser doesn't support passkeys — use an authenticator app
+          This browser doesn't support passkeys: use an authenticator app
           instead.
         </p>
       </div>
@@ -179,7 +179,7 @@
 
           <div class="w-full">
             <p class="mb-1 text-xs text-muted">
-              Can't scan? Paste this key into the app — or, for a shared
+              Can't scan? Paste this key into the app, or, for a shared
               account, into the committee password manager:
             </p>
             <div class="flex items-center gap-2">
@@ -238,7 +238,7 @@
     <UModal
       v-model:open="codesOpen"
       title="Save your recovery codes"
-      description="Each code works once, if you ever lose your phone or passkey. This is the only time they are shown — keep them in your password manager."
+      description="Each code works once, if you ever lose your phone or passkey. This is the only time they are shown: keep them in your password manager."
       :dismissible="false"
     >
       <template #body>
@@ -326,7 +326,7 @@ const setup = ref<{ secret: string, uri: string } | null>(null)
 const pin = ref<number[]>([])
 const confirmError = ref<string | null>(null)
 
-// Rendered as a data URI rather than v-html — no raw markup injection, and
+// Rendered as a data URI rather than v-html: no raw markup injection, and
 // the QR never leaves the browser.
 const qrSrc = computed(() => setup.value
   ? `data:image/svg+xml;utf8,${encodeURIComponent(renderSVG(setup.value.uri, { border: 1 }))}`
@@ -369,7 +369,7 @@ async function confirmTotp() {
     if (recoveryCodes) revealCodes(recoveryCodes)
   }
   catch (error) {
-    confirmError.value = getErrorMessage(error, 'That code was not correct — try the next one')
+    confirmError.value = getErrorMessage(error, 'That code was not correct: try the next one')
     pin.value = []
   }
   finally {
@@ -402,7 +402,7 @@ function dismissCodes() {
 function downloadCodes() {
   if (!revealedCodes.value) return
   const content = [
-    'NNT account recovery codes — each works once.',
+    'NNT account recovery codes: each works once.',
     `Account: ${user.value?.email ?? ''}`,
     `Generated: ${new Date().toISOString().slice(0, 10)}`,
     '',
@@ -447,7 +447,7 @@ async function addPasskey() {
     await Promise.all([refresh(), refreshSession()])
     toast.add({ title: 'Passkey added', color: 'success' })
 
-    // First factor and no codes yet — issue them straight away rather than
+    // First factor and no codes yet: issue them straight away rather than
     // leaving the account one lost device from a support request.
     if (status.value && status.value.recoveryCodesRemaining === 0) await regenerateCodes()
   }

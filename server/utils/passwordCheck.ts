@@ -1,6 +1,6 @@
 /**
  * Unknown, guest and disabled accounts must be indistinguishable from a
- * wrong password — in timing as well as in the response body.
+ * wrong password: in timing as well as in the response body.
  */
 
 let dummyHash: string | undefined

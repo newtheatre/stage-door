@@ -16,7 +16,7 @@ export interface RateLimitRule {
 
 /**
  * Limits per endpoint (docs/api-reference.md marks which endpoints are [RL]).
- * Generous for real users, hostile to scripts — the estate is small.
+ * Generous for real users, hostile to scripts: the estate is small.
  */
 export const RATE_LIMITS = {
   'login:ip': { limit: 20, windowMs: 15 * 60_000 },

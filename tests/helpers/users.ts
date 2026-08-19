@@ -2,7 +2,7 @@ import { db, schema } from '@nuxthub/db'
 
 type UserInsert = typeof schema.users.$inferInsert
 
-/** Insert a user directly. Password given in plain text — stored with the test fake hash. */
+/** Insert a user directly. Password given in plain text: stored with the test fake hash. */
 export async function createUser(overrides: Partial<UserInsert> & { plainPassword?: string } = {}) {
   const { plainPassword, ...rest } = overrides
 
@@ -42,7 +42,7 @@ export async function enrolTotp(userId: string, secret = 'JBSWY3DPEHPK3PXP') {
 }
 
 /**
- * Insert a role definition so a grant of `namespace:role` is legal — new
+ * Insert a role definition so a grant of `namespace:role` is legal: new
  * grants must reference one (ADR-0014).
  */
 export async function defineRole(namespace: string, role: string) {

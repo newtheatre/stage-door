@@ -1,6 +1,6 @@
 /**
  * Self-service "Connect NNT Google account". Requires a fresh session, and
- * refuses an identity already linked elsewhere — that is a merge, not a link.
+ * refuses an identity already linked elsewhere: that is a merge, not a link.
  */
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
@@ -32,7 +32,7 @@ export default defineOAuthGoogleEventHandler({
     }
 
     if (Date.now() - (session.loggedInAt ?? 0) > FRESH_SESSION_MS) {
-      // Not fresh enough for a credential change — log in again first.
+      // Not fresh enough for a credential change: log in again first.
       return sendRedirect(event, '/account?error=stale-session', 302)
     }
 
