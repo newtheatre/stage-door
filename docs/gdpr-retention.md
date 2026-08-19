@@ -30,7 +30,7 @@ Bookings and reservations survive as anonymous rows: attendance counts, revenue,
 
 ## Right of access
 
-`GET /api/users/:id/export` (admin) and self-service from `/account`: a JSON bundle of the auth record (profile, roles, linked identity, `last_login`, second-factor types and enrolment dates — never the secrets themselves, relevant audit entries) plus each app's `export` hook contribution (their reservations, bookings, preferences). One statutory month to respond; the export takes seconds, so the clock is about identity verification, not tooling.
+`GET /api/users/:id/export` (admin) and self-service from `/account`: a JSON bundle of the auth record (profile, roles, linked identity, `last_login`, second-factor types and enrolment dates — never the secrets themselves, relevant audit entries: rows targeting the subject carry their `detail`, rows the subject merely *acted on* are listed without it, because that `detail` describes someone else) plus each app's `export` hook contribution (their reservations, bookings, preferences). One statutory month to respond; the export takes seconds, so the clock is about identity verification, not tooling.
 
 ## Inactive-account retention sweep
 

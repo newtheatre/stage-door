@@ -20,13 +20,21 @@ export async function exportUser(userId: string) {
     legacyId: schema.legacyIds.legacyId,
   }).from(schema.legacyIds).where(eq(schema.legacyIds.userId, userId)).all()
 
-  const auditEntries = await db.select({
+  // `detail` on a row this user merely acted on describes someone else, so
+  // only rows targeting them carry it (docs/gdpr-retention.md).
+  const auditRows = await db.select({
     action: schema.auditLog.action,
     detail: schema.auditLog.detail,
     createdAt: schema.auditLog.createdAt,
+    target: schema.auditLog.target,
   }).from(schema.auditLog)
     .where(or(eq(schema.auditLog.target, userId), eq(schema.auditLog.actorUserId, userId)))
     .all()
+
+  const auditEntries = auditRows.map(({ target, detail, ...row }) => ({
+    ...row,
+    detail: target === userId ? detail : null,
+  }))
 
   // Second factors: types and dates only — never a secret or a public key
   // (ADR-0012).
