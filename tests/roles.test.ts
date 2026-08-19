@@ -6,16 +6,12 @@ import { formatDate } from '../shared/utils/formatDate'
 import { nextCommitteeYearEnd } from '../server/utils/rolesConfig'
 import rolesHandler from '../server/api/users/[id]/roles.put'
 import definitionsListHandler from '../server/api/role-definitions/index.get'
-import definitionsCreateHandler from '../server/api/role-definitions/index.post'
-import definitionsDeleteHandler from '../server/api/role-definitions/[id].delete'
 import { makeEvent } from './setup'
 import type { FakeEvent } from './setup'
 import { createUser, grantRole, enrolTotp, defineRole } from './helpers/users'
 
 const putRoles = rolesHandler as unknown as (event: unknown) => Promise<unknown>
 const listDefinitions = definitionsListHandler as unknown as (event: unknown) => Promise<{ definitions: { id: string, defaultExpiresAt: number | null }[] }>
-const createDefinition = definitionsCreateHandler as unknown as (event: unknown) => Promise<{ definition: { id: string } }>
-const deleteDefinition = definitionsDeleteHandler as unknown as (event: unknown) => Promise<unknown>
 
 const DAY = 24 * 60 * 60 * 1000
 
@@ -87,45 +83,41 @@ describe('nextCommitteeYearEnd', () => {
   })
 })
 
-describe('role definitions', () => {
-  it('creates, computes defaults, rejects duplicates, and deletes without touching grants', async () => {
-    // committee-year default computes exactly nextCommitteeYearEnd.
-    const { event } = await adminEvent({
-      body: { namespace: 'proscenium', role: 'BOX_OFFICE', description: 'Sell tickets', defaultExpiry: { kind: 'committee-year' } },
-    })
-    const created = await createDefinition(event)
-
-    // days default computes now + n days.
-    const daysEvent = await adminEvent({
-      body: { namespace: 'photos', role: 'UPLOADER', description: 'Upload photos', defaultExpiry: { kind: 'days', days: 30 } },
-    })
-    await createDefinition(daysEvent.event)
+describe('role definitions come from manifests only (ADR-0024)', () => {
+  it('computes the committee-year and days defaults the manifest asked for', async () => {
+    await db.insert(schema.roleDefinitions).values([
+      { namespace: 'proscenium', role: 'BOX_OFFICE', description: 'Sell tickets', defaultExpiryKind: 'committee-year', source: 'manifest' },
+      { namespace: 'photos', role: 'UPLOADER', description: 'Upload photos', defaultExpiryKind: 'days', defaultExpiryDays: 30, source: 'manifest' },
+    ])
 
     const list = await listDefinitions((await adminEvent()).event)
     expect(list.definitions).toHaveLength(2)
-    const committeeYear = list.definitions.find(d => d.id === created.definition.id)!
+
+    const committeeYear = list.definitions.find(d => d.role === 'BOX_OFFICE')!
     expect(committeeYear.defaultExpiresAt).toBe(nextCommitteeYearEnd().getTime())
-    const days = list.definitions.find(d => d.id !== created.definition.id)!
+
+    const days = list.definitions.find(d => d.role === 'UPLOADER')!
     expect(days.defaultExpiresAt).toBeGreaterThan(Date.now() + 29 * DAY)
     expect(days.defaultExpiresAt).toBeLessThanOrEqual(Date.now() + 30 * DAY)
+  })
 
-    // Duplicate rejected.
-    const dupe = await adminEvent({
-      body: { namespace: 'proscenium', role: 'BOX_OFFICE', description: 'Again', defaultExpiry: { kind: 'none' } },
-    })
-    await expect(createDefinition(dupe.event)).rejects.toMatchObject({ statusCode: 409 })
+  it('exposes no write route: a definition is a deploy of the app that owns it', async () => {
+    for (const path of [
+      '../server/api/role-definitions/index.post',
+      '../server/api/role-definitions/[id].put',
+      '../server/api/role-definitions/[id].delete',
+    ]) {
+      await expect(import(path)).rejects.toThrow()
+    }
+  })
 
-    // Bad format rejected by validation.
-    const bad = await adminEvent({
-      body: { namespace: 'Proscenium', role: 'box', description: 'x', defaultExpiry: { kind: 'none' } },
-    })
-    await expect(createDefinition(bad.event)).rejects.toThrow()
-
-    // Deleting a definition leaves grants alone.
+  it('withdrawing a role leaves its grants alone', async () => {
+    await defineRole('proscenium', 'BOX_OFFICE')
     const holder = await createUser({ email: 'holder@example-user.co.uk' })
     await grantRole(holder.id, 'proscenium:BOX_OFFICE')
-    const del = await adminEvent({ params: { id: created.definition.id } })
-    await deleteDefinition(del.event)
+
+    await db.update(schema.roleDefinitions).set({ withdrawnAt: new Date() })
+
     expect(await loadRoles(holder.id)).toEqual(['proscenium:BOX_OFFICE'])
   })
 })

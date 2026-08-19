@@ -92,6 +92,20 @@
       "when": 1787181804148,
       "tag": "0012_flippant_the_liberteens",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1787182187804,
+      "tag": "0013_fancy_exiles",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1787182187805,
+      "tag": "0014_seed_auth_app",
+      "breakpoints": true
     }
   ]
 }

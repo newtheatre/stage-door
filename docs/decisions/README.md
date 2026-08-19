@@ -21,12 +21,13 @@ Why the service is the way it is. One decision per file, numbered, never edited 
 | [0015](0015-account-merge.md) | Account merge: winner absorbs loser, app hooks first, loser erased | Accepted |
 | [0016](0016-estate-secrets-in-secrets-store.md) | Estate-wide secrets live in the Cloudflare Secrets Store, bound per worker | Accepted |
 | [0017](0017-app-registry.md) | The estate's apps live in a database registry, not in code | Accepted |
-| [0018](0018-manifest-declared-roles.md) | Apps declare their own roles; this service polls for them | Accepted |
+| [0018](0018-manifest-declared-roles.md) | Apps declare their own roles; this service polls for them | Accepted, extended by [0024](0024-role-definitions-come-only-from-manifests.md) to this service's own roles, which removed the pin columns it introduced |
 | [0019](0019-training-conditional-grants.md) | Training-conditional grants, from a cached snapshot | Accepted: the snapshot writer now swaps membership in place rather than deleting first, validates rehearsal's answer, and refuses to empty a live snapshot; the decision is unchanged |
 | [0020](0020-what-this-service-caches.md) | What this service caches, and what it must never cache | Accepted |
 | [0021](0021-migrations-apply-in-ci.md) | Migrations apply from CI, and the service reports when they have not | Accepted: the bespoke script it describes was replaced by Proscenium's `nuxt-db migrate` workflow days later, with a Time Travel restore point and a ledger gate; the decision and its reasoning stand |
 | [0022](0022-register-never-seals-a-session.md) | Register never seals a session; claiming needs the emailed link | Accepted |
 | [0023](0023-suspect-grants-reported-not-revoked.md) | Suspect grants are reported to the ITM, never revoked automatically | Accepted |
+| [0024](0024-role-definitions-come-only-from-manifests.md) | Role definitions come only from manifests; this service declares its own | Accepted |
 
 ## Template
 

@@ -8,8 +8,14 @@ import { eq } from 'drizzle-orm'
 import { manifestHash, manifestSchema, MANIFEST_MAX_BYTES, type Manifest } from './manifest'
 import { defaultExpiryColumns } from './validation'
 import { eligibilityModeAllowed } from './roleDefinitions'
+import { APP_MANIFEST, SELF_APP_NAME } from '../../shared/utils/appManifest'
 
 type AppRow = typeof schema.apps.$inferSelect
+
+/** Registered name and namespace both, so no other row can claim to be us. */
+function isSelfApp(app: AppRow): boolean {
+  return app.name === SELF_APP_NAME && app.namespace === APP_MANIFEST.namespace
+}
 
 export interface SyncResult {
   app: string
@@ -49,6 +55,12 @@ async function recordFailure(appId: string, message: string): Promise<void> {
  * change (unreachable, oversized, or a 304).
  */
 async function fetchManifest(app: AppRow): Promise<{ body: string, etag: string | null } | null> {
+  // This service's own manifest is a constant in this bundle. Fetching it over
+  // the network would be a subrequest to ourselves to read our own source.
+  if (isSelfApp(app)) {
+    return { body: JSON.stringify(APP_MANIFEST), etag: null }
+  }
+
   const stored = await db.select().from(schema.appManifests)
     .where(eq(schema.appManifests.appId, app.id)).get()
 
@@ -179,10 +191,8 @@ export async function reconcileManifest(app: AppRow, manifest: Manifest): Promis
 
     await db.update(schema.roleDefinitions).set({
       ...fields,
-      ...(current.defaultExpiryPinned ? {} : expiryFields),
-      ...(current.eligibilityModePinned
-        ? { requiresEligibilityKey: eligibilityFields.requiresEligibilityKey }
-        : eligibilityFields),
+      ...expiryFields,
+      ...eligibilityFields,
     }).where(eq(schema.roleDefinitions.id, current.id))
 
     await linkPermissions(current.id, role.permissions, permissionByKey)
@@ -248,13 +258,13 @@ export async function syncApp(app: AppRow): Promise<SyncResult> {
 
     const manifest = manifestSchema.parse(JSON.parse(fetched.body))
 
-    // A manifest may only speak for its own namespace, and never for this
-    // service's: auth:ADMIN stays a manual definition (ADR-0018).
+    // A manifest may only speak for its own namespace (ADR-0018), and the
+    // auth namespace only for the copy of it in this bundle (ADR-0024).
     if (manifest.namespace !== app.namespace) {
       throw new Error(`Manifest declares namespace '${manifest.namespace}', registered as '${app.namespace}'`)
     }
-    if (manifest.namespace === 'auth') {
-      throw new Error('The auth namespace cannot be manifest-declared')
+    if (manifest.namespace === APP_MANIFEST.namespace && !isSelfApp(app)) {
+      throw new Error('The auth namespace can only be declared by this service')
     }
 
     const counts = await reconcileManifest(app, manifest)
