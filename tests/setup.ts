@@ -5,7 +5,7 @@
 
 import { beforeEach, vi } from 'vitest'
 import { resetDb } from './mocks/nuxthub-db'
-import { passwordSchema, emailSchema, roleSchema, roleGrantSchema, namespaceSchema, roleNameSchema, permissionKeySchema, eligibilityKeySchema, appNameSchema, baseUrlSchema, isUndeliverableEmail, isWorkspaceEmail, assertPasswordAllowed } from '../server/utils/validation'
+import { passwordSchema, emailSchema, roleSchema, roleGrantSchema, MAX_GRANTS_PER_REQUEST, namespaceSchema, roleNameSchema, permissionKeySchema, eligibilityKeySchema, appNameSchema, baseUrlSchema, isUndeliverableEmail, isWorkspaceEmail, assertPasswordAllowed } from '../server/utils/validation'
 import { TOKEN_EXPIRY, generateVerificationToken, hashLoginToken, createEmailVerificationToken, createPasswordResetToken, createMagicLinkToken } from '../server/utils/tokens'
 import { enforceRateLimit, getClientIP, sweepRateLimits, RATE_LIMITS } from '../server/utils/rateLimit'
 import { verifyPasswordGuarded } from '../server/utils/passwordCheck'
@@ -154,6 +154,7 @@ Object.assign(g, {
   emailSchema,
   roleSchema,
   roleGrantSchema,
+  MAX_GRANTS_PER_REQUEST,
   namespaceSchema,
   roleNameSchema,
   permissionKeySchema,

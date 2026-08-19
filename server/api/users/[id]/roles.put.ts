@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm'
 import { z } from 'zod/v4'
 
 const bodySchema = z.object({
-  roles: z.array(roleGrantSchema),
+  roles: z.array(roleGrantSchema).max(MAX_GRANTS_PER_REQUEST),
 })
 
 /**

@@ -267,3 +267,29 @@ describe('an erased account cannot be written back over', () => {
     expect(sentEmails).toHaveLength(0)
   })
 })
+
+describe('request bodies are bounded', () => {
+  it('refuses a grant set past the cap, before any statement is issued', async () => {
+    // Every role is defined, so the cap is the only thing left to reject it.
+    for (let i = 0; i <= MAX_GRANTS_PER_REQUEST; i++) await defineRole('rooms', `ROLE_${i}`)
+    const roles = Array.from({ length: MAX_GRANTS_PER_REQUEST + 1 }, (_, i) => `rooms:ROLE_${i}`)
+
+    const target = await createUser({ email: 'bulk@example.com' })
+    const { event } = await adminEvent({ params: { id: target.id }, body: { roles } })
+    await expect(putRoles(event)).rejects.toThrow()
+
+    // Nothing was written.
+    const granted = await db.select().from(schema.userRoles)
+      .where(eq(schema.userRoles.userId, target.id)).all()
+    expect(granted).toHaveLength(0)
+  })
+
+  it('accepts a grant set exactly at the cap', async () => {
+    for (let i = 0; i < MAX_GRANTS_PER_REQUEST; i++) await defineRole('rooms', `ROLE_${i}`)
+    const roles = Array.from({ length: MAX_GRANTS_PER_REQUEST }, (_, i) => `rooms:ROLE_${i}`)
+
+    const target = await createUser({ email: 'atcap@example.com' })
+    const { event } = await adminEvent({ params: { id: target.id }, body: { roles } })
+    await expect(putRoles(event)).resolves.toBeTruthy()
+  })
+})

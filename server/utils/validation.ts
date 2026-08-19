@@ -55,6 +55,12 @@ export const roleNameSchema = z.string()
   .regex(/^[A-Z][A-Z0-9_]*$/, 'Role names are uppercase, e.g. BOX_OFFICE')
 
 /**
+ * Each grant costs its own D1 statement, so an uncapped array turns request
+ * size into subrequests. Generous: nobody holds this many roles.
+ */
+export const MAX_GRANTS_PER_REQUEST = 100
+
+/**
  * A role grant (ADR-0011): a bare scoped string or an object with expiry and
  * a note. Normalised to the object shape either way.
  */
