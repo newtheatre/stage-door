@@ -1,5 +1,8 @@
-# Test + lint on every push and PR. Deployment is NOT here — Cloudflare's
-# Workers Builds git integration deploys main on its own.
+# Test, lint, typecheck and build on every push and PR. Deployment is NOT
+# here: Cloudflare's Workers Builds git integration deploys main on its own.
+#
+# Build runs because merging to main deploys, so a bundle that does not build
+# is discovered by Workers Builds otherwise (ADR-0021).
 name: CI
 
 on:
@@ -28,3 +31,9 @@ jobs:
 
       - name: Comments
         run: bun run check:comments
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Build
+        run: bun run build
