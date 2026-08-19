@@ -55,7 +55,7 @@ Self-service "Connect NNT Google account" from `/account`: the OAuth flow bound 
 Resend verification email. Enumeration-safe.
 
 ### `POST /api/auth/email/verify` — public
-`{ token }` → sets `email_verified`, consumes token, refreshes session if it belongs to the caller.
+`{ token }` → sets `email_verified`, consumes token, refreshes the session only if it belongs to the caller **and is still live** (not disabled, epoch current). An id match alone would re-stamp the current epoch onto a cookie `force-logout` had revoked.
 
 ### `POST /api/auth/password/forgot` — public [RL]
 `{ email }` → always `{ ok: true }`. Sends reset email iff the account exists (shadow accounts included — this is the account-claiming path advertised in booking confirmations).
