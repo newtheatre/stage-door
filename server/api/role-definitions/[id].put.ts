@@ -4,11 +4,7 @@ import { z } from 'zod/v4'
 
 const bodySchema = z.object({
   description: z.string().min(1).max(500),
-  defaultExpiry: z.discriminatedUnion('kind', [
-    z.object({ kind: z.literal('none') }),
-    z.object({ kind: z.literal('committee-year') }),
-    z.object({ kind: z.literal('days'), days: z.number().int().min(1).max(3650) }),
-  ]),
+  defaultExpiry: defaultExpirySchema,
   eligibilityMode: z.enum(['advisory', 'enforcing']).optional(),
 })
 
@@ -34,8 +30,7 @@ export default defineEventHandler(async (event) => {
   const [definition] = await db.update(schema.roleDefinitions)
     .set({
       description,
-      defaultExpiryKind: defaultExpiry.kind,
-      defaultExpiryDays: defaultExpiry.kind === 'days' ? defaultExpiry.days : null,
+      ...defaultExpiryColumns(defaultExpiry),
       // An admin edit pins the field so a later manifest cannot move it.
       defaultExpiryPinned: true,
       ...(eligibilityMode ? { eligibilityMode, eligibilityModePinned: true } : {}),

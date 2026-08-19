@@ -5,12 +5,12 @@
 
 import { beforeEach, vi } from 'vitest'
 import { resetDb } from './mocks/nuxthub-db'
-import { passwordSchema, emailSchema, roleSchema, roleGrantSchema, MAX_GRANTS_PER_REQUEST, namespaceSchema, roleNameSchema, permissionKeySchema, eligibilityKeySchema, appNameSchema, baseUrlSchema, isUndeliverableEmail, isWorkspaceEmail, assertPasswordAllowed } from '../server/utils/validation'
+import { roleSchema, roleGrantSchema, MAX_GRANTS_PER_REQUEST, defaultExpirySchema, defaultExpiryColumns, namespaceSchema, roleNameSchema, permissionKeySchema, eligibilityKeySchema, appNameSchema, baseUrlSchema, isUndeliverableEmail, isWorkspaceEmail, assertPasswordAllowed, UNDELIVERABLE_SUFFIXES } from '../server/utils/validation'
 import { TOKEN_EXPIRY, generateVerificationToken, hashLoginToken, createEmailVerificationToken, createPasswordResetToken, createMagicLinkToken } from '../server/utils/tokens'
 import { enforceRateLimit, getClientIP, sweepRateLimits, RATE_LIMITS } from '../server/utils/rateLimit'
 import { verifyPasswordGuarded } from '../server/utils/passwordCheck'
 import { loadRoles, loadRoleGrants, loadEffectiveRolesFor, activeRoleCondition, activeGrantExists, effectiveRoleCondition, eligibilitySatisfiedCondition, sealUserSession, sealLoginSession, reSealSession } from '../server/utils/session'
-import { assertGrantsDefined, assertEligibilityModeAllowed } from '../server/utils/roleDefinitions'
+import { assertGrantsDefined, assertEligibilityModeAllowed, eligibilityModeAllowed } from '../server/utils/roleDefinitions'
 import { ROLES_CONFIG, nextCommitteeYearEnd } from '../server/utils/rolesConfig'
 import { findSuspectGrants, explain } from '../server/utils/grantAudit'
 import { writeAudit } from '../server/utils/audit'
@@ -31,6 +31,7 @@ import { exportUser } from '../server/utils/exportUser'
 import { planRetention } from '../server/utils/retentionPlan'
 import { RETENTION_CONFIG } from '../server/utils/retentionConfig'
 import { endOfLondonDay, formatDate, formatDateLong, formatDateTime } from '../shared/utils/formatDate'
+import { passwordSchema, emailSchema } from '../shared/utils/credentials'
 import { base32Encode, base32Decode, generateTotpSecret, totpStep, totpCode, verifyTotp, totpUri } from '../server/utils/totp'
 import { MFA_ATTEMPT_TTL_MS, WEBAUTHN_CHALLENGE_TTL_MS, isMfaRequired, enrolledFactors, sealOrChallenge, createMfaAttempt, consumeMfaAttempt, storeWebauthnChallenge, getWebauthnChallenge, sweepMfaChallenges, regenerateRecoveryCodes, useRecoveryCode, remainingRecoveryCodes, clearAllFactors, listPasskeys } from '../server/utils/mfa'
 
@@ -156,6 +157,8 @@ Object.assign(g, {
   roleSchema,
   roleGrantSchema,
   MAX_GRANTS_PER_REQUEST,
+  defaultExpirySchema,
+  defaultExpiryColumns,
   namespaceSchema,
   roleNameSchema,
   permissionKeySchema,
@@ -163,6 +166,7 @@ Object.assign(g, {
   appNameSchema,
   baseUrlSchema,
   isUndeliverableEmail,
+  UNDELIVERABLE_SUFFIXES,
   isWorkspaceEmail,
   assertPasswordAllowed,
   TOKEN_EXPIRY,
@@ -185,6 +189,7 @@ Object.assign(g, {
   eligibilitySatisfiedCondition,
   assertGrantsDefined,
   assertEligibilityModeAllowed,
+  eligibilityModeAllowed,
   ROLES_CONFIG,
   nextCommitteeYearEnd,
   findSuspectGrants,

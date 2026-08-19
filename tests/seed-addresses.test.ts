@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { isUndeliverableEmail } from '../server/utils/validation'
+import { isUndeliverableEmail, UNDELIVERABLE_SUFFIXES } from '../server/utils/validation'
 
 /**
  * Guards #16: a reserved TLD in the dev seed makes isUndeliverableEmail treat
@@ -34,5 +34,21 @@ describe('integration guide fixture addresses', () => {
 
   it.each(addresses)('%s is deliverable (not a reserved TLD)', (address) => {
     expect(isUndeliverableEmail(address)).toBe(false)
+  })
+})
+
+describe('the undeliverable list has one source', () => {
+  it('drives both the JS guard and the SQL filter', () => {
+    // Adding a domain to one and not the other used to half-apply the policy:
+    // either anonymised rows reappear in admin lists, or a blocked address is
+    // still treated as mailable.
+    for (const suffix of UNDELIVERABLE_SUFFIXES) {
+      expect(isUndeliverableEmail(`someone${suffix.startsWith('@') ? '' : '@host'}${suffix}`)).toBe(true)
+    }
+    expect(isUndeliverableEmail('real@example-user.co.uk')).toBe(false)
+  })
+
+  it('matches case-insensitively, as the anonymised rows arrive', () => {
+    expect(isUndeliverableEmail('Deleted-123@ANONYMISED.INVALID')).toBe(true)
   })
 })

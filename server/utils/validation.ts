@@ -1,18 +1,7 @@
 import { z } from 'zod/v4'
 
-/**
- * Reusable Zod password schema: same policy as Proscenium's:
- * minimum 8 characters, at least one lowercase, one uppercase, one digit.
- */
-export const passwordSchema = z.string()
-  .min(8, 'Password must be at least 8 characters long')
-  .refine(val => /[a-z]/.test(val), { message: 'Password must contain at least one lowercase letter' })
-  .refine(val => /[A-Z]/.test(val), { message: 'Password must contain at least one uppercase letter' })
-  .refine(val => /\d/.test(val), { message: 'Password must contain at least one number' })
-
-/** Email, lowercased on the way in: always (docs/data-model.md). */
-export const emailSchema = z.email('Please enter a valid email address')
-  .transform(val => val.toLowerCase())
+// passwordSchema and emailSchema live in shared/utils/credentials.ts, which
+// is auto-imported on both sides, so the forms and handlers cannot drift.
 
 /** Scoped role string format: `app:ROLE` (docs/api-reference.md). */
 export const roleSchema = z.string()
@@ -53,6 +42,24 @@ export const baseUrlSchema = z.url().max(200).refine(
 /** Role half of a scoped role. */
 export const roleNameSchema = z.string()
   .regex(/^[A-Z][A-Z0-9_]*$/, 'Role names are uppercase, e.g. BOX_OFFICE')
+
+/**
+ * A role definition's default expiry. Declared once: the manifest path and
+ * both admin endpoints write the same two columns from it.
+ */
+export const defaultExpirySchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('none') }),
+  z.object({ kind: z.literal('committee-year') }),
+  z.object({ kind: z.literal('days'), days: z.number().int().min(1).max(3650) }),
+])
+
+/** The two columns `defaultExpirySchema` maps onto. */
+export function defaultExpiryColumns(expiry: z.infer<typeof defaultExpirySchema>) {
+  return {
+    defaultExpiryKind: expiry.kind,
+    defaultExpiryDays: expiry.kind === 'days' ? expiry.days : null,
+  }
+}
 
 /**
  * Each grant costs its own D1 statement, so an uncapped array turns request
@@ -96,9 +103,19 @@ export function assertPasswordAllowed(email: string): void {
 }
 
 /**
+ * The one list. SQL and JavaScript both derive from it, so adding a domain
+ * cannot half-apply across the admin filters and the registration guards.
+ */
+export const UNDELIVERABLE_SUFFIXES = [
+  '.invalid', '.test', '.example', '.localhost',
+  '@example.com', '@example.org', '@example.net',
+] as const
+
+/**
  * Addresses that can never receive mail. They must never be registrable or
  * claimable: claiming needs no email round-trip.
  */
 export function isUndeliverableEmail(email: string): boolean {
-  return /\.invalid$|\.test$|\.example$|\.localhost$|@example\.(com|org|net)$/.test(email)
+  const lower = email.toLowerCase()
+  return UNDELIVERABLE_SUFFIXES.some(suffix => lower.endsWith(suffix))
 }

@@ -6,11 +6,7 @@ const bodySchema = z.object({
   namespace: namespaceSchema,
   role: roleNameSchema,
   description: z.string().min(1).max(500),
-  defaultExpiry: z.discriminatedUnion('kind', [
-    z.object({ kind: z.literal('none') }),
-    z.object({ kind: z.literal('committee-year') }),
-    z.object({ kind: z.literal('days'), days: z.number().int().min(1).max(3650) }),
-  ]),
+  defaultExpiry: defaultExpirySchema,
 })
 
 /** POST /api/role-definitions: create a definition (admin) [AUD]. */
@@ -29,8 +25,7 @@ export default defineEventHandler(async (event) => {
     namespace,
     role,
     description,
-    defaultExpiryKind: defaultExpiry.kind,
-    defaultExpiryDays: defaultExpiry.kind === 'days' ? defaultExpiry.days : null,
+    ...defaultExpiryColumns(defaultExpiry),
   }).returning()
 
   await writeAudit({

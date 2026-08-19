@@ -6,6 +6,8 @@
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 import { manifestHash, manifestSchema, MANIFEST_MAX_BYTES, type Manifest } from './manifest'
+import { defaultExpiryColumns } from './validation'
+import { eligibilityModeAllowed } from './roleDefinitions'
 
 type AppRow = typeof schema.apps.$inferSelect
 
@@ -133,15 +135,14 @@ export async function reconcileManifest(app: AppRow, manifest: Manifest): Promis
       withdrawnAt: null,
       syncedAt: now,
     }
-    const expiryFields = {
-      defaultExpiryKind: expiry.kind,
-      defaultExpiryDays: expiry.kind === 'days' ? expiry.days : null,
-    }
+    const expiryFields = defaultExpiryColumns(expiry)
     // An app may suggest enforcing, but never for its own ADMIN (ADR-0019).
     const suggested = role.requiresEligibility?.suggestedMode ?? 'advisory'
     const eligibilityFields = {
       requiresEligibilityKey: role.requiresEligibility?.key ?? null,
-      eligibilityMode: (role.role === 'ADMIN' && suggested === 'enforcing' ? 'advisory' : suggested) as 'advisory' | 'enforcing',
+      // Same rule assertEligibilityModeAllowed throws for on the admin path;
+      // a manifest is downgraded rather than rejected (ADR-0019).
+      eligibilityMode: eligibilityModeAllowed(app.namespace, role.role, suggested) ? suggested : 'advisory',
     }
 
     if (!current) {

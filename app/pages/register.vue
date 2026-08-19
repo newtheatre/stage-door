@@ -81,12 +81,8 @@ const errorMessage = ref('')
 
 const schema = z.object({
   name: z.string('Name is required').min(1, 'Name is required').max(200),
-  email: z.email('Please enter a valid email address'),
-  password: z.string('Password is required')
-    .min(8, 'Password must be at least 8 characters')
-    .refine(val => /[a-z]/.test(val), { message: 'Password must contain at least one lowercase letter' })
-    .refine(val => /[A-Z]/.test(val), { message: 'Password must contain at least one uppercase letter' })
-    .refine(val => /\d/.test(val), { message: 'Password must contain at least one number' }),
+  email: emailSchema,
+  password: passwordSchema,
 })
 
 type Schema = z.output<typeof schema>
