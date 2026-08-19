@@ -34,6 +34,33 @@ describe('isWorkspaceProfile — CLAUDE.md invariant 5', () => {
   })
 })
 
+describe('resolveGoogleUser — a disabled account is never written to', () => {
+  it('does not consume an admin-directed pending link', async () => {
+    const user = await createUser({ email: 'president@newtheatre.org.uk', name: 'President' })
+    await db.update(schema.users)
+      .set({ disabled: true, pendingGoogleEmail: 'president@newtheatre.org.uk' })
+      .where(eq(schema.users.id, user.id))
+
+    const { user: resolved } = await resolveGoogleUser(profile({ email: 'president@newtheatre.org.uk' }))
+    expect(resolved.disabled).toBe(true)
+
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, user.id)).get()
+    expect(row!.googleSub).toBeNull() // no permanent linkage on a rejected sign-in
+    expect(row!.pendingGoogleEmail).toBe('president@newtheatre.org.uk') // intent survives
+  })
+
+  it('does not link by email or flip verified', async () => {
+    const user = await createUser({ email: 'banned@newtheatre.org.uk', name: 'Banned' })
+    await db.update(schema.users).set({ disabled: true, verified: false }).where(eq(schema.users.id, user.id))
+
+    await resolveGoogleUser(profile({ email: 'banned@newtheatre.org.uk' }))
+
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, user.id)).get()
+    expect(row!.googleSub).toBeNull()
+    expect(row!.verified).toBe(false)
+  })
+})
+
 describe('resolveGoogleUser — match precedence', () => {
   it('creates a new verified, password-less user when nothing matches', async () => {
     const { user, how } = await resolveGoogleUser(profile())

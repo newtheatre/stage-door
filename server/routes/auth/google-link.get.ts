@@ -21,6 +21,16 @@ export default defineOAuthGoogleEventHandler({
     if (!session.user) {
       return sendRedirect(event, '/login?redirect=/account', 302)
     }
+
+    // A browser flow, so this redirects where requireAccountUser would 401.
+    // Same liveness triple: without it a revoked cookie still links an identity.
+    const account = await db.select().from(schema.users)
+      .where(eq(schema.users.id, session.user.id)).get()
+    if (!account || account.disabled || (session.epoch ?? -1) !== account.sessionEpoch) {
+      await clearUserSession(event)
+      return sendRedirect(event, '/login?redirect=/account', 302)
+    }
+
     if (Date.now() - (session.loggedInAt ?? 0) > FRESH_SESSION_MS) {
       // Not fresh enough for a credential change — log in again first.
       return sendRedirect(event, '/account?error=stale-session', 302)
@@ -39,10 +49,10 @@ export default defineOAuthGoogleEventHandler({
 
     const [user] = await db.update(schema.users)
       .set({ googleSub: googleProfile.sub, pendingGoogleEmail: null })
-      .where(eq(schema.users.id, session.user.id))
+      .where(eq(schema.users.id, account.id))
       .returning()
 
-    if (!user || user.disabled) {
+    if (!user) {
       return sendRedirect(event, '/google-rejected', 302)
     }
 
