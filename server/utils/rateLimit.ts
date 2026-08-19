@@ -22,6 +22,7 @@ export const RATE_LIMITS = {
   'login:ip': { limit: 20, windowMs: 15 * 60_000 },
   'login:acct': { limit: 10, windowMs: 15 * 60_000 },
   'register:ip': { limit: 10, windowMs: 60 * 60_000 },
+  'register:acct': { limit: 5, windowMs: 60 * 60_000 },
   'forgot:ip': { limit: 10, windowMs: 60 * 60_000 },
   'forgot:acct': { limit: 3, windowMs: 60 * 60_000 },
   'reset:ip': { limit: 10, windowMs: 60 * 60_000 },

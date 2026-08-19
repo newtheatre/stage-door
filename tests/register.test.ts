@@ -8,7 +8,7 @@ import { createUser } from './helpers/users'
 const register = registerHandler as unknown as (event: unknown) => Promise<{ ok: boolean }>
 
 describe('POST /api/auth/register', () => {
-  it('creates a user, sends a verification email, and seals a session', async () => {
+  it('creates a user and sends a verification email, without sealing a session', async () => {
     const event = makeEvent({ body: { email: 'New@Example-USER.co.UK', name: 'New Person', password: 'Passw0rd' } })
     const result = await register(event)
 
@@ -24,22 +24,57 @@ describe('POST /api/auth/register', () => {
       { kind: 'verification', to: 'new@example-user.co.uk', token: expect.any(String) },
     ])
 
-    const session = sealedSession(event)!
-    expect(session.user).toMatchObject({ id: user!.id, guest: false, roles: [] })
+    // ADR-0022: the mailbox is the proof, so registering never signs anyone in.
+    expect(sealedSession(event)).toBeUndefined()
   })
 
-  it('claims a shadow account in place, keeping its id', async () => {
+  it('emails a set-password link for a shadow account instead of claiming it', async () => {
     const shadow = await createUser({ email: 'booker@example-user.co.uk', name: 'Old Booking Name' })
 
     const event = makeEvent({ body: { email: 'booker@example-user.co.uk', name: 'Real Name', password: 'Passw0rd' } })
     await register(event)
 
-    const claimed = await db.select().from(schema.users).where(eq(schema.users.email, 'booker@example-user.co.uk')).get()
-    expect(claimed!.id).toBe(shadow.id) // history stays attached
-    expect(claimed!.password).toBe('fake$Passw0rd')
-    expect(claimed!.name).toBe('Real Name')
+    const untouched = await db.select().from(schema.users).where(eq(schema.users.id, shadow.id)).get()
+    expect(untouched!.password).toBeNull() // no credential written without the round-trip
+    expect(untouched!.name).toBe('Old Booking Name')
 
-    expect(sealedSession(event)?.user).toMatchObject({ id: shadow.id, guest: false })
+    expect(sentEmails).toEqual([{ kind: 'reset', to: 'booker@example-user.co.uk', token: expect.any(String) }])
+    expect(sealedSession(event)).toBeUndefined()
+  })
+
+  it('will not hand over an admin-created account that already holds roles', async () => {
+    const invited = await createUser({ email: 'newcommittee@example-user.co.uk', name: 'Invited' })
+    await db.insert(schema.userRoles).values({
+      userId: invited.id,
+      role: 'proscenium:ADMIN',
+      expiresAt: null,
+      note: null,
+      grantedBy: null,
+      grantedAt: new Date(),
+    })
+
+    const event = makeEvent({ body: { email: 'newcommittee@example-user.co.uk', name: 'Imposter', password: 'Attack3r' } })
+    await register(event)
+
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, invited.id)).get()
+    expect(row!.password).toBeNull()
+    // The roles only ever reach whoever opens the emailed link.
+    expect(sealedSession(event)).toBeUndefined()
+  })
+
+  it('will not claim a disabled account, and emails nothing', async () => {
+    const banned = await createUser({ email: 'banned@example-user.co.uk', name: 'Banned' })
+    await db.update(schema.users).set({ disabled: true }).where(eq(schema.users.id, banned.id))
+
+    const event = makeEvent({ body: { email: 'banned@example-user.co.uk', name: 'Banned', password: 'Passw0rd' } })
+    const result = await register(event)
+
+    expect(result).toEqual({ ok: true })
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, banned.id)).get()
+    expect(row!.password).toBeNull()
+    expect(row!.disabled).toBe(true)
+    expect(sealedSession(event)).toBeUndefined()
+    expect(sentEmails).toHaveLength(0)
   })
 
   it('is enumeration-safe when the email already has a full account', async () => {
@@ -48,15 +83,23 @@ describe('POST /api/auth/register', () => {
     const event = makeEvent({ body: { email: 'taken@example-user.co.uk', name: 'Imposter', password: 'Attack3r' } })
     const result = await register(event)
 
-    // Same response shape as success…
     expect(result).toEqual({ ok: true })
-    // …but nothing was changed, no session sealed, and the only email is the
-    // "you already have an account" notice.
     const untouched = await db.select().from(schema.users).where(eq(schema.users.id, existing.id)).get()
     expect(untouched!.password).toBe('fake$Original0')
     expect(untouched!.name).toBe('Original')
     expect(sealedSession(event)).toBeUndefined()
     expect(sentEmails).toEqual([{ kind: 'account-exists', to: 'taken@example-user.co.uk' }])
+  })
+
+  it('seals no session on any path, so Set-Cookie cannot enumerate', async () => {
+    await createUser({ email: 'full@example-user.co.uk', plainPassword: 'Original0' })
+    await createUser({ email: 'shadow@example-user.co.uk' })
+
+    for (const email of ['fresh@example-user.co.uk', 'full@example-user.co.uk', 'shadow@example-user.co.uk']) {
+      const event = makeEvent({ body: { email, name: 'Someone', password: 'Passw0rd' } })
+      expect(await register(event)).toEqual({ ok: true })
+      expect(sealedSession(event)).toBeUndefined()
+    }
   })
 
   it('treats an SSO-only account (no password, has google_sub) as full, not shadow', async () => {
@@ -91,6 +134,17 @@ describe('POST /api/auth/register', () => {
     const all = await db.select().from(schema.users).all()
     expect(all).toHaveLength(2)
     expect(sentEmails).toHaveLength(0)
+  })
+
+  it('rate-limits per account, not only per IP', async () => {
+    // makeEvent hands every event a distinct cf-connecting-ip, so the IP rule
+    // never trips here — only the account rule can.
+    const body = { email: 'victim@example-user.co.uk', name: 'V', password: 'Passw0rd' }
+    for (let i = 0; i < 5; i++) {
+      await register(makeEvent({ body }))
+    }
+
+    await expect(register(makeEvent({ body }))).rejects.toThrow()
   })
 
   it('rejects weak passwords', async () => {

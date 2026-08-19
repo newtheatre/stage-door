@@ -53,7 +53,7 @@ bun run test:e2e       # optional: playwright against the dev server
 High-value suites (keep these green and comprehensive — they encode the security posture):
 
 - **Login**: success, wrong password, unknown user, guest account, disabled account — the last four must produce byte-identical responses.
-- **Registration**: new user; shadow-claim path; existing-full-account enumeration safety.
+- **Registration**: new user; claimable-row path emails a link rather than claiming; admin-invited account holding grants is not handed over; disabled account is not claimable; no path seals a session (ADR-0022); per-account rate limit.
 - **Google handler**: `hd` missing / wrong / correct; `email_verified` false; `google_sub` linking vs email matching precedence.
 - **Refresh**: fresh session passes; stale epoch rejected; disabled user rejected; roles re-read.
 - **Redirect allowlist**: table-driven — subdomains pass; apex passes; `evil-newtheatre.org.uk`, `newtheatre.org.uk.evil.com`, `javascript:`, `//` all fall back to apex.
