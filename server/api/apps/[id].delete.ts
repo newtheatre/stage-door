@@ -9,16 +9,18 @@ export default defineEventHandler(async (event) => {
   const app = await db.select().from(schema.apps).where(eq(schema.apps.id, id)).get()
   if (!app) throw createError({ statusCode: 404, statusMessage: 'App not found' })
 
-  // SQLite cannot add ON DELETE to an existing table, so clear the link first
-  // or the foreign key blocks the delete.
-  await db.update(schema.serviceTokens).set({ appId: null }).where(eq(schema.serviceTokens.appId, id))
+  // Deleted, not orphaned: requireServiceToken never consults app_id, so a
+  // surviving token would still authenticate a decommissioned app inbound.
+  const revoked = await db.delete(schema.serviceTokens)
+    .where(eq(schema.serviceTokens.appId, id))
+    .returning({ id: schema.serviceTokens.id })
   await db.delete(schema.apps).where(eq(schema.apps.id, id))
 
   await writeAudit({
     actorUserId: admin.id,
     action: 'app.deregistered',
     target: id,
-    detail: { name: app.name, namespace: app.namespace },
+    detail: { name: app.name, namespace: app.namespace, tokensRevoked: revoked.length },
   })
 
   return { ok: true }

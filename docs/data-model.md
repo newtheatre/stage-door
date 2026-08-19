@@ -108,8 +108,8 @@ The permission vocabulary an app declares, and which role definition carries whi
 
 | Column | Notes |
 |---|---|
-| `id` · `name` (e.g. `proscenium`) · `token_hash` (SHA-256 of the bearer token) · `created_at` · `last_used_at` | Plaintext token shown once at creation (`nnt_svc_` prefix + 32 random bytes, base64url). Compare in constant time. Issue/rotate via [operations.md](operations.md#service-tokens). |
-| `app_id` | Nullable link to `apps.id`, for queryability. **The `name` join remains the authority** for `hookBearer`, so a missed backfill cannot break hooks. No `ON DELETE` clause: SQLite cannot add one to an existing table, so `DELETE /api/apps/:id` clears the link first. |
+| `id` · `name` (e.g. `proscenium`) · `token_hash` (SHA-256 of the bearer token) · `created_at` · `last_used_at` | Plaintext token shown once at creation (`nnt_svc_` prefix + 32 random bytes, base64url). Compare in constant time. Issue/rotate via [operations.md](operations.md#service-tokens). `name` is **not unique**: overlap rotation means an app briefly holds two, `requireServiceToken` accepts either, and `hookBearer` sends the newest by `created_at`. |
+| `app_id` | Nullable link to `apps.id`, for queryability. **The `name` join remains the authority** for `hookBearer`, so a missed backfill cannot break hooks. No `ON DELETE` clause: SQLite cannot add one to an existing table, so `DELETE /api/apps/:id` deletes the app's tokens before removing the row. Orphaning them would leave a credential that still authenticates, because `requireServiceToken` never consults `app_id`. |
 
 ### `audit_log`
 

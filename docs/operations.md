@@ -99,7 +99,7 @@ while Proscenium was still broken.
 
 ## Service tokens
 
-Issue (new app or rotation): admin UI → Service Tokens → New. The plaintext `nnt_svc_…` value is shown **once**; put it straight into the password manager and the app's worker secret. Revoke the old row after the app redeploys. Tokens have no expiry — rotate at handover and on any suspicion. `last_used_at` going stale for an active app is a sign something's misconfigured.
+Issue (new app or rotation): admin UI → Service Tokens → New. The plaintext `nnt_svc_…` value is shown **once**; put it straight into the password manager and the app's worker secret. Revoke the old row after the app redeploys — this genuinely overlaps: `service_tokens.name` is not unique, `requireServiceToken` accepts any matching row, and `hookBearer` sends the **newest**, so the app is reachable throughout. Deregistering an app revokes its tokens with it. Tokens have no expiry — rotate at handover and on any suspicion. `last_used_at` going stale for an active app is a sign something's misconfigured.
 
 Historical note: the `proscenium` and `rooms` tokens issued at cutover (2026-08-11/12) were minted straight into the DB + worker secrets without the plaintext ever being displayed — so they are **not in the password manager**. That's fine operationally (nothing needs the plaintext again), but rotate them via the admin UI at the next convenient moment so the password manager holds a copy per the table above.
 
