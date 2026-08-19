@@ -1,13 +1,11 @@
-# Applies pending D1 migrations to production on push to main.
+# Apply pending database migrations to production.
 #
-# Workers Builds only builds and deploys — nothing in that path runs a
-# migration, which is how live code once reached tables that did not exist
-# (docs/decisions/0021). This job is the thing that makes
-# "merging to main applies migrations" true.
+# Workers Builds deploys the Worker when main moves; it does not apply
+# migrations, and nothing else did until stage-door shipped code against a
+# schema six migrations behind and took the estate down (stage-door ADR-0021).
 #
-# It runs first and takes seconds, where a Workers build takes minutes, so
-# additive migrations land before the code that needs them. Uses the same
-# CLOUDFLARE_API_TOKEN repo secret as backup.yml (needs D1:Edit).
+# This does NOT deploy, and cannot sequence itself against the deploy. Same
+# pattern as proscenium, which learned it first.
 name: Migrate
 
 on:
@@ -15,11 +13,12 @@ on:
     branches: [main]
     paths:
       - 'server/db/migrations/**'
-      - 'scripts/migrate-remote.mjs'
       - '.github/workflows/migrate.yml'
+      - '.github/scripts/pending-migrations.sh'
   workflow_dispatch:
 
-# Never let two migration runs overlap.
+# One migration at a time. cancel-in-progress: false because cancelling a
+# half-applied migration is worse than queueing behind it.
 concurrency:
   group: migrate-production
   cancel-in-progress: false
@@ -28,16 +27,87 @@ jobs:
   migrate:
     runs-on: ubuntu-latest
     env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      # nuxt-db reads the NUXT_HUB_* triplet; wrangler reads CLOUDFLARE_*.
+      # Same credentials, two naming conventions.
+      NUXT_HUB_CLOUDFLARE_ACCOUNT_ID: 3d250a94794003bd921b7f0379de7f00
+      NUXT_HUB_CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      # Not a secret: the same id is committed in nuxt.config.ts.
+      NUXT_HUB_CLOUDFLARE_DATABASE_ID: 6b5be553-53e1-4eb2-b027-6fc11f9fe8f4
       CLOUDFLARE_ACCOUNT_ID: 3d250a94794003bd921b7f0379de7f00
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
     steps:
       - uses: actions/checkout@v4
 
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # postinstall runs nuxt prepare, which generates the drizzle config that
+      # nuxt-db migrate reads. No full build is needed.
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Fail fast if credentials are missing
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN must be set as a repository secret (needs D1:Edit)."
+            exit 1
+          fi
+
       - name: Show what is pending
-        run: node scripts/migrate-remote.mjs --dry-run
+        continue-on-error: true
+        run: |
+          pending=$(./.github/scripts/pending-migrations.sh)
+          if [ -z "$pending" ]; then
+            echo "Nothing pending."
+          else
+            echo "Pending:"; echo "$pending" | sed 's/^/  /'
+          fi
 
-      - name: Apply
-        run: node scripts/migrate-remote.mjs
+      # Captured before anything is applied, so a bad migration always has a
+      # recorded restore point in this run's output.
+      - name: Record a Time Travel restore point
+        id: bookmark
+        run: |
+          set -o pipefail
+          out=$(bunx wrangler d1 time-travel info auth 2>&1 | tee /dev/stderr)
+          mark=$(echo "$out" | grep -oE "[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{32}" | head -1)
+          if [ -z "$mark" ]; then
+            echo "::error::Could not read a Time Travel bookmark — refusing to migrate without a restore point."
+            exit 1
+          fi
+          echo "bookmark=$mark" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Database restore point"
+            echo
+            echo "Taken before this run applied anything."
+            echo
+            echo '```bash'
+            echo "bunx wrangler d1 time-travel restore auth --bookmark=$mark"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Confirm nothing is left pending
-        run: node scripts/migrate-remote.mjs --dry-run
+      # nuxt-db, not nuxt db. The nuxt db proxy swallows the exit code, so a
+      # failed migration still exits 0 (verified on 0.10.6 and 0.10.8).
+      - name: Apply migrations
+        run: NODE_ENV=production ./node_modules/.bin/nuxt-db migrate --verbose
+
+      # The real gate: whatever the CLI claimed, the ledger is the truth.
+      - name: Verify nothing is still pending
+        run: |
+          if ! pending=$(./.github/scripts/pending-migrations.sh); then
+            echo "::error::Could not read the migration ledger to confirm the result. Check production by hand."
+            exit 1
+          fi
+          if [ -n "$pending" ]; then
+            echo "::error::Migrations are still pending after the apply step — it failed silently:"
+            echo "$pending" | sed 's/^/  /'
+            exit 1
+          fi
+          echo "Ledger confirms nothing is pending."
+
+      - name: Report the restore point on failure
+        if: failure() && steps.bookmark.outputs.bookmark != ''
+        run: |
+          echo "::error::Migration failed or did not land. Restore with: bunx wrangler d1 time-travel restore auth --bookmark=${{ steps.bookmark.outputs.bookmark }}"

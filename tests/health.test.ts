@@ -13,7 +13,7 @@ import { makeEvent } from './setup'
 interface Health { ok: boolean, version: string, pendingMigrations?: string[] }
 const health = healthHandler as unknown as (event: unknown) => Promise<Health>
 
-const ALL = journal.entries.map(e => `${e.tag}.sql`)
+const ALL = journal.entries.map(e => e.tag)
 
 function ledger(applied: string[]) {
   db.run(sql`create table if not exists _hub_migrations (id integer primary key autoincrement, name text unique, applied_at text default '')`)
@@ -39,6 +39,13 @@ describe('GET /api/health', () => {
 
     expect(result.ok).toBe(false)
     expect(result.pendingMigrations).toEqual(ALL.slice(5))
+  })
+
+  it('accepts either ledger spelling, since production carries both', async () => {
+    // nuxt-db migrate records the bare tag; wrangler records it with .sql.
+    ledger(ALL.map((tag, i) => (i % 2 ? `${tag}.sql` : tag)))
+
+    expect((await health(makeEvent({ method: 'GET', path: '/api/health' }))).ok).toBe(true)
   })
 
   it('treats a missing ledger as nothing applied rather than throwing', async () => {
