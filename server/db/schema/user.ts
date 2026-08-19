@@ -75,8 +75,8 @@ export const roleDefinitions = sqliteTable('role_definitions', {
   defaultExpiryDays: integer('default_expiry_days'), // only when kind = 'days'
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
 
-  // Manifest provenance (ADR-0018). 'manual' with a null app_id is a
-  // definition made by hand, which is how auth:ADMIN and ticketing:* survive.
+  // Manifest provenance (ADR-0018, ADR-0024). 'manual' with a null app_id is
+  // now only the frozen `ticketing:*` history: nothing can create one.
   appId: text('app_id'),
   source: text('source', { enum: ['manifest', 'manual'] }).notNull().default('manual'),
   manifestVersion: text('manifest_version'),
@@ -88,11 +88,6 @@ export const roleDefinitions = sqliteTable('role_definitions', {
   // discretion (ADR-0019). Inert until Phase 5 sets a key.
   requiresEligibilityKey: text('requires_eligibility_key'),
   eligibilityMode: text('eligibility_mode', { enum: ['advisory', 'enforcing'] }).notNull().default('advisory'),
-
-  // An admin edit pins the field, after which a manifest cannot move it: an
-  // app must not be able to lock people out of itself with a deploy.
-  defaultExpiryPinned: integer('default_expiry_pinned', { mode: 'boolean' }).notNull().default(false),
-  eligibilityModePinned: integer('eligibility_mode_pinned', { mode: 'boolean' }).notNull().default(false),
 
   // The joined form user_roles.role stores, so a grant can be matched to its
   // definition inside SQL rather than by concatenating in JavaScript.

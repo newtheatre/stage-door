@@ -117,7 +117,11 @@ Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/service-tokens` (names + 
 
 ## Role definitions (ADR-0011)
 
-Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/role-definitions` (each with computed `defaultExpiresAt`, what a grant made now would default to, and `holders`, the count of active grants on real accounts, matching what `GET /api/users?role=` lists), `POST { namespace, role, description, defaultExpiry: {kind:'none'|'committee-year'} | {kind:'days',days} }` (409 on duplicate), `PUT /api/role-definitions/:id` (description/default; identity immutable), `DELETE` (grants untouched). The daily `roles:expiry-warn` task emails holders 14 days before a grant lapses and digests to the ITM.
+Session + `auth:ADMIN`: `GET /api/role-definitions` only (each with computed `defaultExpiresAt`, what a grant made now would default to, and `holders`, the count of active grants on real accounts, matching what `GET /api/users?role=` lists).
+
+**There are no write routes** ([ADR-0024](decisions/0024-role-definitions-come-only-from-manifests.md)): a definition comes from its app's manifest, so adding or changing a role is a deploy of the app that owns it. This service declares its own `auth:*` roles the same way, at `GET /api/_hooks/auth/manifest`, and the sync reads that one in-process rather than fetching itself. `ticketing:*` remains frozen `source: 'manual'` history ([ADR-0010](decisions/0010-legacy-roles-dormant-namespace.md)); nothing can create another.
+
+The daily `roles:expiry-warn` task emails holders 14 days before a grant lapses and digests to the ITM.
 
 ## App registry (ADR-0017)
 
@@ -131,7 +135,7 @@ Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/apps` (each with `hasToke
 
 ## Training-conditional grants (ADR-0019)
 
-A role definition may name one of rehearsal's eligibility rule keys and pick `advisory` or `enforcing` (`PUT /api/role-definitions/:id`). An **enforcing** prerequisite makes a grant inert when the holder is not in the snapshot: the grant row is untouched and recovers by itself when they re-qualify. **Enforcing is refused on any `ADMIN` role**: an outage would lock out the people who fix it.
+A role definition may name one of rehearsal's eligibility rule keys and pick `advisory` or `enforcing`, both declared in the owning app's manifest. An **enforcing** prerequisite makes a grant inert when the holder is not in the snapshot: the grant row is untouched and recovers by itself when they re-qualify. **Enforcing is refused on any `ADMIN` role**: an outage would lock out the people who fix it.
 
 `POST /api/users/:id/eligibility-override { role, until, note? }`: session + `auth:ADMIN` **[AUD]**. Lifts an enforcing prerequisite for one grant, for at most 90 days; `until: null` clears it. For a wrong snapshot, or training earned during an outage.
 

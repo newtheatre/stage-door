@@ -9,6 +9,7 @@ import { join } from 'node:path'
 import { createClient } from '@libsql/client'
 import { drizzle } from 'drizzle-orm/libsql'
 import { inArray } from 'drizzle-orm'
+import { APP_MANIFEST } from '../shared/utils/appManifest'
 import { Hash } from '@adonisjs/hash'
 import { Scrypt } from '@adonisjs/hash/drivers/scrypt'
 import { users, userRoles, roleDefinitions } from '../server/db/schema/user'
@@ -78,7 +79,8 @@ for (const seedUser of seedUsers) {
 
 // Role definitions so the admin grant dropdown isn't empty in dev.
 const seedDefinitions = [
-  { namespace: 'auth', role: 'ADMIN', description: 'Auth service admin (ITM + continuity holder)', defaultExpiryKind: 'none' as const },
+  // auth:ADMIN now comes from this service's own manifest (ADR-0024), which
+  // the seed syncs below rather than declaring here.
   { namespace: 'proscenium', role: 'ADMIN', description: 'Full site + box office admin', defaultExpiryKind: 'committee-year' as const },
   { namespace: 'proscenium', role: 'MANAGER', description: 'Theatre manager tools', defaultExpiryKind: 'committee-year' as const },
   { namespace: 'proscenium', role: 'BOX_OFFICE', description: 'Sell and collect tickets', defaultExpiryKind: 'committee-year' as const },
@@ -87,6 +89,19 @@ const seedDefinitions = [
 for (const definition of seedDefinitions) {
   await db.insert(roleDefinitions).values(definition).onConflictDoNothing()
 }
-console.info(`\nSeeded ${seedDefinitions.length} role definitions.`)
+
+// This service's own roles, from its own manifest, so the dropdown matches
+// production without waiting for the daily sync (ADR-0024).
+for (const role of APP_MANIFEST.roles) {
+  await db.insert(roleDefinitions).values({
+    namespace: APP_MANIFEST.namespace,
+    role: role.role,
+    description: role.description,
+    defaultExpiryKind: role.defaultExpiry.kind,
+    source: 'manifest' as const,
+    manifestVersion: APP_MANIFEST.version,
+  }).onConflictDoNothing()
+}
+console.info(`\nSeeded ${seedDefinitions.length + APP_MANIFEST.roles.length} role definitions.`)
 
 console.info('\nLog in at http://localhost:3000/login')

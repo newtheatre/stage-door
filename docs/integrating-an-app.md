@@ -203,7 +203,7 @@ Server-side, reject stale role-holding sessions with a 401 carrying `data: { sta
 
 Pick a short lowercase namespace (usually the repo name) and declare your roles in
 `shared/utils/appManifest.ts`, then serve it at `GET /api/_hooks/auth/manifest` behind the same
-`requireHookAuth` your GDPR hooks use. The auth service polls it and turns it into role definitions,
+`requireHookAuth` your GDPR hooks use. The auth service polls it and turns it into role definitions, which is the **only** way one is created ([ADR-0024](decisions/0024-role-definitions-come-only-from-manifests.md)): there is no by-hand editing, and the admin page is read-only. The auth service holds itself to the same rule, declaring its own `auth:*` roles in `shared/utils/appManifest.ts`.
 so **shipping a role is what makes it grantable**: nobody types it in, and nothing can drift
 (ADR-0018).
 

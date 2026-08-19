@@ -43,10 +43,9 @@ Most rows now come from their app's manifest ([ADR-0018](decisions/0018-manifest
 
 | Column | Notes |
 |---|---|
-| `app_id` · `source` · `manifest_version` · `synced_at` | `source` is `manifest` or `manual`. A `manual` row with a null `app_id` is hand-made, which is how `auth:ADMIN` and the dormant `ticketing:*` namespace exist with no app behind them. |
+| `app_id` · `source` · `manifest_version` · `synced_at` | `source` is `manifest` or `manual`. Every live definition is `manifest`, including this service's own `auth:*` roles ([ADR-0024](decisions/0024-role-definitions-come-only-from-manifests.md)). `manual` is frozen history only: the dormant `ticketing:*` namespace, which has no app behind it. No code path creates one. |
 | `withdrawn_at` | Set when the owning manifest stops declaring the role. **Grants are untouched and the row is never deleted.** It leaves the grant picker and shows struck through with its holder count. Re-declaring clears it. |
 | `requires_eligibility_key` · `eligibility_mode` | A training prerequisite (`advisory` or `enforcing`), named by the app and enforced at this service's discretion ([ADR-0019](decisions/0019-training-conditional-grants.md)). |
-| `default_expiry_pinned` · `eligibility_mode_pinned` | An admin edit pins the field, after which a manifest cannot move it. An app must not be able to lock people out of itself with a deploy. |
 | `role_key` | **Generated, virtual**: `namespace \|\| ':' \|\| role`. The joined form `user_roles.role` stores, so a grant can be matched to its definition inside SQL rather than by concatenating in JavaScript. Indexed. |
 
 ### `email_verifications` / `password_resets` / `magic_links`

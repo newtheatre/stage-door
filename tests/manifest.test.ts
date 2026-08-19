@@ -4,9 +4,11 @@
  */
 
 import { describe, expect, it } from 'vitest'
+import { eq } from 'drizzle-orm'
 import { db, schema } from '@nuxthub/db'
 import { manifestSchema } from '../server/utils/manifest'
 import { syncApp } from '../server/utils/manifestSync'
+import { APP_MANIFEST } from '../shared/utils/appManifest'
 import { assertGrantsDefined } from '../server/utils/roleDefinitions'
 import { rawFetchMock } from './setup'
 import { createUser, grantRole, registerApp } from './helpers/users'
@@ -132,17 +134,18 @@ describe('reconciliation', () => {
     expect(grants[0]!.role).toBe('rooms:ADMIN')
   })
 
-  it('respects a pinned default expiry, so an app cannot move committee policy', async () => {
+  it('lets the manifest move a default expiry back, because it is the source', async () => {
+    // ADR-0024: nothing edits a definition by hand, so there is no pin to
+    // respect and a later deploy is authoritative.
     const app = await roomsApp()
     serve(manifestBody())
     await syncApp(app)
-    await db.update(schema.roleDefinitions)
-      .set({ defaultExpiryKind: 'none', defaultExpiryPinned: true })
+    await db.update(schema.roleDefinitions).set({ defaultExpiryKind: 'none' })
 
     serve(manifestBody({ version: '2' }))
     await syncApp(app)
 
-    expect((await db.select().from(schema.roleDefinitions).get())!.defaultExpiryKind).toBe('none')
+    expect((await db.select().from(schema.roleDefinitions).get())!.defaultExpiryKind).toBe('committee-year')
   })
 })
 
@@ -270,5 +273,47 @@ describe('the manifest size guard measures bytes', () => {
     expect(result.ok).toBe(false)
     const stored = await db.select().from(schema.appManifests).get()
     expect(stored!.lastError).toContain('bytes')
+  })
+})
+
+describe('this service declares its own roles (ADR-0024)', () => {
+  it('serves a manifest that parses on the same contract as any app', () => {
+    const parsed = manifestSchema.safeParse(APP_MANIFEST)
+    expect(parsed.success).toBe(true)
+    expect(APP_MANIFEST.namespace).toBe('auth')
+    expect(APP_MANIFEST.roles.map(r => r.role)).toContain('ADMIN')
+  })
+
+  it('reconciles auth:ADMIN in-process, without fetching itself', async () => {
+    const app = await registerApp('stage-door', { namespace: 'auth', manifestEnabled: true })
+    // No service token and no mocked response: a network fetch would fail.
+    rawFetchMock.mockRejectedValue(new Error('should not be called'))
+
+    const result = await syncApp(app)
+
+    expect(result.ok).toBe(true)
+    const definition = await db.select().from(schema.roleDefinitions)
+      .where(eq(schema.roleDefinitions.namespace, 'auth')).get()
+    expect(definition!.role).toBe('ADMIN')
+    expect(definition!.source).toBe('manifest')
+    expect(definition!.defaultExpiryKind).toBe('none')
+  })
+})
+
+describe('the auth namespace cannot be claimed by another app', () => {
+  it('refuses an app registered under the auth namespace with our own name', async () => {
+    // Same namespace, different registered name: must not take the
+    // in-process short-circuit, and must not be allowed to declare auth:*.
+    const app = await registerApp('evil', { namespace: 'auth', manifestEnabled: true })
+    await db.insert(schema.serviceTokens).values({ name: 'evil', tokenHash: 'hash-e' })
+    serve({ ...APP_MANIFEST })
+
+    const result = await syncApp(app)
+
+    expect(result.ok).toBe(false)
+    expect(result.error).toContain('auth namespace')
+    const leaked = await db.select().from(schema.roleDefinitions)
+      .where(eq(schema.roleDefinitions.namespace, 'auth')).all()
+    expect(leaked).toHaveLength(0)
   })
 })
