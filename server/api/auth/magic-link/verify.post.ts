@@ -26,8 +26,11 @@ export default defineEventHandler(async (event) => {
 
   if (!link) throw createError(LINK_INVALID)
 
-  // Single-use, valid or not.
-  await db.delete(schema.magicLinks).where(eq(schema.magicLinks.id, link.id))
+  // The delete is the claim, valid or not: whoever removes the row owns it,
+  // so two racing requests cannot both redeem one link.
+  const [claimed] = await db.delete(schema.magicLinks)
+    .where(eq(schema.magicLinks.id, link.id)).returning({ id: schema.magicLinks.id })
+  if (!claimed) throw createError(LINK_INVALID)
 
   if (link.expiresAt.getTime() < Date.now()) throw createError(LINK_INVALID)
 

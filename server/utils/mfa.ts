@@ -76,15 +76,16 @@ export async function createMfaAttempt(userId: string): Promise<string> {
   return id
 }
 
-/** Consume a pending login. Single-use: the row is deleted on success. */
+/**
+ * Consume a pending login. The delete is the claim, so two racing requests
+ * cannot both act on one attempt.
+ */
 export async function consumeMfaAttempt(attemptId: string): Promise<UserRow | null> {
-  const attempt = await db.select().from(schema.mfaChallenges)
+  const [attempt] = await db.delete(schema.mfaChallenges)
     .where(and(eq(schema.mfaChallenges.id, attemptId), eq(schema.mfaChallenges.kind, 'login')))
-    .get()
+    .returning()
 
   if (!attempt?.userId || attempt.expiresAt.getTime() < Date.now()) return null
-
-  await db.delete(schema.mfaChallenges).where(eq(schema.mfaChallenges.id, attemptId))
 
   const user = await db.select().from(schema.users).where(eq(schema.users.id, attempt.userId)).get()
   return user && !user.disabled ? user : null
@@ -116,11 +117,10 @@ export async function getWebauthnChallenge(
   kind: WebauthnChallengeKind,
   userId: string | null = null,
 ): Promise<string> {
-  const row = await db.select().from(schema.mfaChallenges)
-    .where(eq(schema.mfaChallenges.id, attemptId)).get()
-
-  // Single-use, whether or not it turns out to match.
-  if (row) await db.delete(schema.mfaChallenges).where(eq(schema.mfaChallenges.id, attemptId))
+  // Deleted as it is read, whether or not it turns out to match: the delete
+  // is what makes it single-use.
+  const [row] = await db.delete(schema.mfaChallenges)
+    .where(eq(schema.mfaChallenges.id, attemptId)).returning()
 
   if (!row?.challenge
     || row.kind !== kind
@@ -181,10 +181,13 @@ export async function useRecoveryCode(userId: string, submitted: string): Promis
   for (const row of rows) {
     const stored = Buffer.from(row.codeHash)
     if (stored.length === candidate.length && timingSafeEqual(stored, candidate)) {
-      await db.update(schema.mfaRecoveryCodes)
+      // is-null in the predicate, and the row count is the answer: a bare
+      // id match lets two racing requests spend the same code.
+      const claimed = await db.update(schema.mfaRecoveryCodes)
         .set({ usedAt: new Date() })
-        .where(eq(schema.mfaRecoveryCodes.id, row.id))
-      return true
+        .where(and(eq(schema.mfaRecoveryCodes.id, row.id), isNull(schema.mfaRecoveryCodes.usedAt)))
+        .returning({ id: schema.mfaRecoveryCodes.id })
+      return claimed.length > 0
     }
   }
   return false

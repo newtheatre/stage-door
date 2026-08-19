@@ -426,3 +426,32 @@ describe('removing a factor counts credentials, not kinds', () => {
     await expect(removeFactor(event)).resolves.toMatchObject({ ok: true })
   })
 })
+
+describe('single-use secrets are claimed by the write, not the read', () => {
+  it('spends a recovery code once even when two requests race', async () => {
+    const user = await createUser({ email: 'race@example.com', plainPassword: 'Passw0rd' })
+    const codes = await regenerateRecoveryCodes(user.id)
+    const code = codes[0]!
+
+    // Both see used_at IS NULL before either writes.
+    const [a, b] = await Promise.all([
+      useRecoveryCode(user.id, code),
+      useRecoveryCode(user.id, code),
+    ])
+
+    expect([a, b].filter(Boolean)).toHaveLength(1)
+    expect(await remainingRecoveryCodes(user.id)).toBe(codes.length - 1)
+  })
+
+  it('lets a pending login attempt be consumed only once', async () => {
+    const user = await createUser({ email: 'attempt@example.com', plainPassword: 'Passw0rd' })
+    const attemptId = await createMfaAttempt(user.id)
+
+    const [first, second] = await Promise.all([
+      consumeMfaAttempt(attemptId),
+      consumeMfaAttempt(attemptId),
+    ])
+
+    expect([first, second].filter(Boolean)).toHaveLength(1)
+  })
+})
