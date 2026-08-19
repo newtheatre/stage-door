@@ -146,3 +146,36 @@ describe('exportUser — the subject-access bundle', () => {
     expect(JSON.stringify(bundle.apps.rooms)).toContain('export unavailable')
   })
 })
+
+describe('the subject-access bundle does not carry other people\'s data', () => {
+  it('strips detail from rows the subject only acted on', async () => {
+    const admin = await createUser({ email: 'admin-x@example.com', name: 'Admin' })
+    const other = await createUser({ email: 'victim@example.com', name: 'Victim' })
+
+    // An admin editing someone else's email: actor = admin, target = other.
+    await writeAudit({
+      actorUserId: admin.id,
+      action: 'user.updated',
+      target: other.id,
+      detail: { email: { from: 'old@example.com', to: 'new@example.com' } },
+    })
+    // Something done to the admin themselves keeps its detail.
+    await writeAudit({
+      actorUserId: other.id,
+      action: 'user.force-logout',
+      target: admin.id,
+      detail: { reason: 'test' },
+    })
+
+    const bundle = await exportUser(admin.id) as { auditEntries: { action: string, detail: unknown }[] }
+
+    const acted = bundle.auditEntries.find(e => e.action === 'user.updated')
+    expect(acted).toBeTruthy()
+    expect(acted!.detail).toBeNull() // the other person's addresses are gone
+
+    const targeted = bundle.auditEntries.find(e => e.action === 'user.force-logout')
+    expect(targeted!.detail).not.toBeNull()
+
+    expect(JSON.stringify(bundle)).not.toContain('old@example.com')
+  })
+})
