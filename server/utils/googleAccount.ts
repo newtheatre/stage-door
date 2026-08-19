@@ -27,8 +27,8 @@ export function isWorkspaceProfile(profile: GoogleProfile): boolean {
 type UserRow = typeof schema.users.$inferSelect
 
 /**
- * Never writes `users.email` when attaching to an existing account: one
- * account with two sign-in methods and two addresses is supported.
+ * Never writes `users.email` when attaching to an existing account, and
+ * commits nothing at all for a disabled one (docs/api-reference.md).
  */
 export async function resolveGoogleUser(profile: GoogleProfile): Promise<{ user: UserRow, how: 'sub' | 'pending' | 'email' | 'created' }> {
   const googleEmail = profile.email.toLowerCase()
@@ -43,6 +43,10 @@ export async function resolveGoogleUser(profile: GoogleProfile): Promise<{ user:
   const byPending = await db.select().from(schema.users)
     .where(eq(schema.users.pendingGoogleEmail, googleEmail)).get()
   if (byPending) {
+    // Refusing after the write would leave the link committed and the admin's
+    // pending intent consumed on a sign-in that is about to be rejected.
+    if (byPending.disabled) return { user: byPending, how: 'pending' }
+
     const [user] = await db.update(schema.users)
       .set({ googleSub: profile.sub, pendingGoogleEmail: null })
       .where(eq(schema.users.id, byPending.id))
@@ -61,6 +65,8 @@ export async function resolveGoogleUser(profile: GoogleProfile): Promise<{ user:
   const byEmail = await db.select().from(schema.users)
     .where(eq(schema.users.email, googleEmail)).get()
   if (byEmail) {
+    if (byEmail.disabled) return { user: byEmail, how: 'email' }
+
     const [user] = await db.update(schema.users)
       .set({ googleSub: profile.sub, verified: true })
       .where(eq(schema.users.id, byEmail.id))
