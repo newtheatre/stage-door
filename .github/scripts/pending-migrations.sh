@@ -11,10 +11,12 @@
 # the ledger afterwards is the only version-independent proof that the work
 # actually landed.
 #
-# Both ledger spellings are folded together: `nuxt db migrate` records
-# `0016_lying_maverick` and `wrangler d1 migrations apply` records
-# `0016_lying_maverick.sql`, and production carries both for every migration so
-# far. See docs/08-operations.md §5.
+# Both ledger spellings are folded together: `nuxt-db migrate` records
+# `0011_mighty_argent`, `wrangler d1 migrations apply` records
+# `0011_mighty_argent.sql`, and production carries a mix of the two. Which
+# spelling a row has says nothing about whether that migration ran, so folding
+# them is what makes this gate correct. It is also why this gate can read green
+# while the apply step re-runs from 0000: see docs/operations.md#deployments.
 #
 # Exit codes: 0 = ledger read (output may be empty), 2 = could not read it.
 set -euo pipefail

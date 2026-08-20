@@ -20,6 +20,20 @@ npx wrangler d1 migrations apply auth --remote -c wrangler.d1.jsonc   # apply du
 
 Rollback = redeploy the previous commit. **Migrations don't roll back**, D1/SQLite rebuilds tables; if a migration is bad, write a forward migration that fixes it. Before any migration touching `users`: `npx wrangler d1 export auth --remote --output backup-$(date +%F).sql` and keep it until verified. (Cutover lesson, 2026-08-12: verify a target DB's *actual* schema before applying a migration written against the schema files, the live Proscenium DB turned out to be a copy that had missed one earlier migration, and the batch failed wholesale on a DROP of a column it never had.)
 
+### The `_hub_migrations` ledger holds two spellings
+
+`wrangler d1 migrations apply` records a migration as `0011_mighty_argent.sql`; `nuxt-db migrate` records and *matches on* `0011_mighty_argent`, with no extension. Production's ledger carries a mix, because the pre-cutover migrations were applied with wrangler and everything since has gone through `nuxt-db`.
+
+This bites in a specific, confusing way: `nuxt-db migrate` reads the ledger, matches none of the `.sql` rows against its own convention, decides nothing has been applied, and starts again from `0000`, which fails on `table audit_log already exists`. Meanwhile `.github/scripts/pending-migrations.sh` folds both spellings, so the workflow's own gate reports the correct pending list. **A red apply step with a sane-looking pending list is this mismatch**, not a bad migration.
+
+Fix: give the ledger the extensionless spelling for the migrations it is missing, then re-run the workflow. Take a Time Travel bookmark first (`wrangler d1 time-travel info auth`), since this runs outside the step that records one.
+
+```bash
+npx wrangler d1 execute auth --remote --command "INSERT OR IGNORE INTO _hub_migrations (name) VALUES ('0000_little_cassandra_nova')"
+```
+
+`name` is `TEXT UNIQUE` and the two spellings are distinct strings, so this is additive and reversible by deleting the rows. `nuxt-db mark-as-migrated <tag>` does the same thing where `NUXT_HUB_CLOUDFLARE_API_TOKEN` is available; it is a repo secret, so the wrangler form is what works from a laptop. Done for `0000`-`0010` on 2026-08-20.
+
 ## Backups
 
 Weekly `wrangler d1 export` of the `auth` DB to the `nnt-db-backups` R2 bucket (`.github/workflows/backup.yml`, Mondays 04:00 UTC; first Monday of the month also writes a `monthly/` copy, this workflow is the one thing that still needs the `CLOUDFLARE_API_TOKEN` repo secret: D1:Edit + R2:Edit). Retention is enforced by R2 lifecycle rules on the bucket, `weekly/` expires at 70 days, `monthly/` at 400 (they contain personal data, retention policy applies to backups too). Restore drill: import into a fresh local SQLite, run the app against it, log the result in the estate tracker annually at handover.
