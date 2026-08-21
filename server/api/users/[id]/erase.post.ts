@@ -1,4 +1,4 @@
-import { z } from 'zod/v4'
+import { z } from 'zod'
 
 const bodySchema = z.object({
   // Typed confirmation: the admin must send the account's current email.

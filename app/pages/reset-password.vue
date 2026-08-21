@@ -57,7 +57,7 @@
 </template>
 
 <script lang="ts" setup>
-import z from 'zod/v4'
+import z from 'zod'
 import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
 
 const route = useRoute()

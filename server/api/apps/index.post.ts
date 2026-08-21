@@ -1,6 +1,6 @@
 import { db, schema } from '@nuxthub/db'
 import { eq, or } from 'drizzle-orm'
-import { z } from 'zod/v4'
+import { z } from 'zod'
 
 const bodySchema = z.object({
   name: appNameSchema,

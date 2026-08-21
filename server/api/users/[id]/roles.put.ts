@@ -1,6 +1,6 @@
 import { db, schema } from '@nuxthub/db'
 import { and, eq } from 'drizzle-orm'
-import { z } from 'zod/v4'
+import { z } from 'zod'
 
 const bodySchema = z.object({
   roles: z.array(roleGrantSchema).max(MAX_GRANTS_PER_REQUEST),

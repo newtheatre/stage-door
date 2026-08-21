@@ -1,4 +1,4 @@
-import { z } from 'zod/v4'
+import { z } from 'zod'
 
 // passwordSchema and emailSchema live in shared/utils/credentials.ts, which
 // is auto-imported on both sides, so the forms and handlers cannot drift.
