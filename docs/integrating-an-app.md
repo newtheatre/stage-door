@@ -19,16 +19,30 @@ From the ITM (or via [operations.md](operations.md) if that's you):
 bun add nuxt-auth-utils
 ```
 
-Then copy the session contract into your app. `packages/auth-types/index.ts` in this repo is the
-source of truth; it is **not** published to a registry, so each consumer app carries a verbatim copy:
+Then install the session contract. `packages/auth-types/index.ts` in this repo is the source of
+truth, published as `@newtheatre/auth-types` on GitHub Packages ([ADR-0025](decisions/0025-publish-auth-types-as-a-package.md)):
 
 ```bash
-cp ../stage-door/packages/auth-types/index.ts shared/utils/nntAuth.ts
+bun add @newtheatre/auth-types
 ```
 
-Head the copy "DO NOT EDIT HERE: change it in stage-door and re-copy", as Proscenium, rooms and
-rehearsal all do. `shared/utils/` is a Nuxt auto-import directory, so `hasRole` and `hasAnyRole`
-need no import.
+This needs `@newtheatre` pointed at the GitHub Packages registry, and a `read:packages` token, in
+your app's `bunfig.toml` and each contributor's own environment; copy the block from any consumer
+app's `bunfig.toml` rather than writing it by hand.
+
+Add `shared/types/auth.d.ts`:
+
+```ts
+// The session shape is declared once, in @newtheatre/auth-types. This import
+// applies the '#auth-utils' augmentation project-wide.
+import '@newtheatre/auth-types'
+
+export {}
+```
+
+Without this file the package is installed but its `#auth-utils` augmentation never applies:
+`hasRole`/`hasAnyRole` still import fine, but `session.user` types as `unknown`. Every existing
+consumer carries this exact file for exactly this reason.
 
 `nuxt.config.ts`, the session block must match [session-contract.md](session-contract.md) exactly. The cookie domain is **production-only** (localhost has no subdomains, a domain'd cookie breaks local dev), so split it with `$production`:
 

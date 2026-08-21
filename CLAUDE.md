@@ -44,7 +44,7 @@ npx wrangler d1 ...    # production D1 — read docs/operations.md before touchi
 - Drizzle schema in `server/db/schema/`, one file per domain area; migrations generated, then hand-reviewed — D1 is SQLite, no `ALTER COLUMN`.
 - Zod for every request body/query (`server/utils/validation.ts`), same style as Proscenium.
 - Server handlers: one route = one file under `server/api/` (Nitro conventions). Auth pages under `app/pages/`, `@nuxt/ui` components.
-- Shared session types + `hasRole`/`hasAnyRole` helpers are defined in `packages/auth-types` and **copied** into each consumer app as `shared/utils/nntAuth.ts` (the package is not published). Change the source and re-copy to all three in the same PR; never redeclare them inline.
+- Shared session types + `hasRole`/`hasAnyRole` helpers are defined in `packages/auth-types` and published as `@newtheatre/auth-types` on GitHub Packages ([ADR-0025](docs/decisions/0025-publish-auth-types-as-a-package.md)). This app consumes its own package via `workspace:*`; the three consumer apps install the published version. Change the source, bump its version, merge: the publish workflow does the rest. Never redeclare the contract inline in a consumer.
 - Errors: `createError({ statusCode, statusMessage })`; no stack traces or internal detail in responses.
 - Tests: every auth-flow change needs a test that fails without the change (login, refresh staleness, epoch bump, redirect allowlist, hd rejection are the high-value suites).
 - British English in UI copy and docs.

@@ -1,6 +1,6 @@
 /**
- * The NNT session contract, v1.0: source of truth. Copied into each consumer
- * app; change it here and re-copy. See docs/session-contract.md.
+ * The NNT session contract, v1.0: source of truth for the estate, published
+ * as @newtheatre/auth-types (ADR-0025). See docs/session-contract.md.
  */
 
 declare module '#auth-utils' {

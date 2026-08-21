@@ -1,0 +1,52 @@
+# Publishes @newtheatre/auth-types to GitHub Packages when it changes on main.
+# The three consumer apps install it from there (ADR-0025).
+name: Publish auth-types
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/auth-types/**'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://npm.pkg.github.com
+          scope: '@newtheatre'
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+        working-directory: packages/auth-types
+
+      - name: Skip if this version is already published
+        id: check
+        working-directory: packages/auth-types
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          PUBLISHED=$(npm view "@newtheatre/auth-types@$VERSION" version 2>/dev/null || true)
+          echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish
+        if: steps.check.outputs.published == ''
+        working-directory: packages/auth-types
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
