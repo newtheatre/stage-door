@@ -1,4 +1,4 @@
-import { z } from 'zod/v4'
+import { z } from 'zod'
 
 const bodySchema = z.object({
   name: z.string().regex(/^[a-z][a-z0-9-]*$/, 'Lowercase app name, e.g. proscenium'),

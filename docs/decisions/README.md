@@ -28,6 +28,7 @@ Why the service is the way it is. One decision per file, numbered, never edited 
 | [0022](0022-register-never-seals-a-session.md) | Register never seals a session; claiming needs the emailed link | Accepted |
 | [0023](0023-suspect-grants-reported-not-revoked.md) | Suspect grants are reported to the ITM, never revoked automatically | Accepted |
 | [0024](0024-role-definitions-come-only-from-manifests.md) | Role definitions come only from manifests; this service declares its own | Accepted |
+| [0025](0025-publish-auth-types-as-a-package.md) | Publish auth-types as a package, on GitHub Packages | Accepted |
 
 ## Template
 

@@ -1,4 +1,4 @@
-import { z } from 'zod/v4'
+import { z } from 'zod'
 
 const bodySchema = z.object({
   action: z.string().min(1).max(100),

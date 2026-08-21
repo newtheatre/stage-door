@@ -1,6 +1,6 @@
 import { db, schema } from '@nuxthub/db'
 import { and, eq, inArray, isNull, isNotNull, like, or, sql, desc } from 'drizzle-orm'
-import { z } from 'zod/v4'
+import { z } from 'zod'
 import type { RoleGrant } from '~~/server/utils/session'
 
 const querySchema = z.object({

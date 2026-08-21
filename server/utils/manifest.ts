@@ -3,7 +3,7 @@
  * turning it into role definitions. Reasoning: ADR-0018.
  */
 
-import { z } from 'zod/v4'
+import { z } from 'zod'
 import { defaultExpirySchema, namespaceSchema, roleNameSchema, permissionKeySchema, eligibilityKeySchema } from './validation'
 
 /** Refuse anything larger before parsing: a manifest is a few kilobytes. */

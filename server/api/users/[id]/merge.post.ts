@@ -1,4 +1,4 @@
-import { z } from 'zod/v4'
+import { z } from 'zod'
 
 const bodySchema = z.object({
   loserId: z.string().min(1),

@@ -1,6 +1,6 @@
 import { db, schema } from '@nuxthub/db'
 import { eq, sql } from 'drizzle-orm'
-import { z } from 'zod/v4'
+import { z } from 'zod'
 
 /** useWebAuthn() only lets a caller shape `user`, so the label rides there. */
 const labelSchema = z.object({
