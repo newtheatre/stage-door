@@ -18,7 +18,8 @@
     "registry": "https://npm.pkg.github.com"
   },
   "scripts": {
-    "build": "unbuild"
+    "build": "unbuild",
+    "postinstall": "unbuild"
   },
   "devDependencies": {
     "unbuild": "^3.6.1"
