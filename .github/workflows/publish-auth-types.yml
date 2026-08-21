@@ -7,6 +7,7 @@ on:
     branches: [main]
     paths:
       - 'packages/auth-types/**'
+  workflow_dispatch:
 
 jobs:
   publish:
@@ -27,8 +28,10 @@ jobs:
           registry-url: https://npm.pkg.github.com
           scope: '@newtheatre'
 
+      # --ignore-scripts: only packages/auth-types matters here, built explicitly
+      # below. The workspace's own postinstall would compile better-sqlite3 for nothing.
       - name: Install
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Build
         run: bun run build
