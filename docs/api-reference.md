@@ -183,6 +183,15 @@ Reconciliation is described in full in [ADR-0018](decisions/0018-manifest-declar
 ### `POST /api/users/shadow`: service [AUD]
 `{ email, name }` → match on lowercased email or create `{ password: NULL, email_verified: false }`. Returns `{ id, existing: boolean, guest: boolean }`. Used by Proscenium's guest checkout. Idempotent by email. If the email belongs to a full account, returns that account's id (`existing: true, guest: false`): the booking attaches to their history.
 
+### `GET /api/role-holders?roles=A,B`: service [AUD]
+Who currently holds these roles, so a consumer app can offer a picker of its own people instead of making staff type an exact email. Returns `{ namespace, holders: [{ id, name }] }`.
+
+**Roles are bare names and the namespace is the caller's own**, taken from the app its service token is bound to: a token for Proscenium asking for `COMMITTEE` is answered about `proscenium:COMMITTEE`, and no app can ask who holds another app's roles. A token with no app is `403`.
+
+Holders are **effective**, not merely granted: an expired grant, or one whose enforcing training prerequisite is unmet, is not a holder ([ADR-0011](decisions/0011-role-definitions-and-expiry.md), [ADR-0019](decisions/0019-training-conditional-grants.md)). Disabled and anonymised accounts are excluded. At most 10 roles per question and 200 holders per answer, so the bound parameter count is fixed.
+
+**Id and name only.** A picker needs no more, and the less that crosses an app boundary the better. Consumers resolve the id against their own user mirror.
+
 ### `GET /api/health`: public
 `{ ok: true, version }` for uptime checks. Returns **503** with `{ ok: false, version, pendingMigrations: [] }` when the migration journal compiled into the build is ahead of `_hub_migrations`: the deployed code was built against a schema this database does not have ([ADR-0021](decisions/0021-migrations-apply-in-ci.md)).
 
