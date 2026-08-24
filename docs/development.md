@@ -46,7 +46,7 @@ A separate "NNT Auth (dev)" OAuth client exists in the Workspace Google Cloud pr
 ## Testing
 
 ```bash
-bun run test           # vitest: unit + integration (h3 app, in-memory SQLite)
+bun run test           # bun test: unit + integration (h3 app, in-memory SQLite)
 bun run test:e2e       # optional: playwright against the dev server
 ```
 

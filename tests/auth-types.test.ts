@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, afterEach } from 'vitest'
+import { describe, expect, it, vi, afterEach } from 'bun:test'
 import { hasRole, hasAnyRole, isStale, ROLE_STALENESS_MS } from '../packages/auth-types'
 
 describe('role helpers', () => {

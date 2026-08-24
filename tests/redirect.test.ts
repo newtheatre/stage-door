@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { validateRedirect } from '../shared/utils/validateRedirect'
 
 const APEX = 'https://newtheatre.org.uk'

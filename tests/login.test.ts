@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 import loginHandler from '../server/api/auth/login.post'

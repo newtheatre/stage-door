@@ -3,7 +3,7 @@
  * outage or a never-answered rule leaves the grant alone.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { db, schema } from '@nuxthub/db'
 import { and, eq } from 'drizzle-orm'
 import { loadRoles, effectiveRoleCondition } from '../server/utils/session'

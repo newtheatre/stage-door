@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { db, schema } from '@nuxthub/db'
 import { eq, sql } from 'drizzle-orm'
 import refreshGetHandler from '../server/api/session/refresh.get'

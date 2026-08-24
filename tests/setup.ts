@@ -3,7 +3,7 @@
  * fakes. Handlers under test are the real files from server/api.
  */
 
-import { beforeEach, vi } from 'vitest'
+import { beforeEach, vi } from 'bun:test'
 import { resetDb } from './mocks/nuxthub-db'
 import { roleSchema, roleGrantSchema, MAX_GRANTS_PER_REQUEST, defaultExpirySchema, defaultExpiryColumns, namespaceSchema, roleNameSchema, permissionKeySchema, eligibilityKeySchema, appNameSchema, baseUrlSchema, isUndeliverableEmail, isWorkspaceEmail, assertPasswordAllowed, UNDELIVERABLE_SUFFIXES } from '../server/utils/validation'
 import { TOKEN_EXPIRY, generateVerificationToken, hashLoginToken, createEmailVerificationToken, createPasswordResetToken, createMagicLinkToken } from '../server/utils/tokens'

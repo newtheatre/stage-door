@@ -14,8 +14,8 @@
     "db:generate": "nuxt db generate",
     "db:migrate": "NODE_ENV=development nuxt db migrate",
     "db:seed": "bun run scripts/seed.ts",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
     "lint": "eslint .",
     "check:comments": "node scripts/check-comments.mjs",
     "typecheck": "nuxt typecheck"
@@ -42,11 +42,9 @@
   "devDependencies": {
     "@adonisjs/hash": "^9.1.1",
     "@libsql/client": "^0.17.4",
-    "better-sqlite3": "^12.11.1",
     "drizzle-kit": "^0.31.10",
     "eslint": "^10.8.1",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.7",
     "vue-tsc": "^3.3.10",
     "wrangler": "^4.124.0"
   }

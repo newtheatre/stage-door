@@ -3,7 +3,7 @@
  * matters: `ticketing:*` has no definition on purpose, `app:ROLE` by accident.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 import { findSuspectGrants } from '../server/utils/grantAudit'

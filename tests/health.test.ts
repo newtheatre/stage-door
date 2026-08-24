@@ -3,7 +3,7 @@
  * when live code met a schema six migrations behind (ADR-0021).
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { db } from '@nuxthub/db'
 import { sql } from 'drizzle-orm'
 import healthHandler from '../server/api/health.get'
