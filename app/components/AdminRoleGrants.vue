@@ -213,7 +213,8 @@ const toast = useToast()
 interface Row {
   role: string
   expiresAt: number | null
-  note: string | null
+  // Empty, not null: the input binds to it and the save maps '' back to null.
+  note: string
   expired: boolean
   grantedAt: number | null
   status: 'unchanged' | 'added' | 'edited' | 'removed'
@@ -225,7 +226,7 @@ function reset() {
   rows.value = props.grants.map(g => ({
     role: g.role,
     expiresAt: g.expiresAt,
-    note: g.note,
+    note: g.note ?? '',
     expired: g.expired,
     grantedAt: g.grantedAt,
     status: 'unchanged',
@@ -347,7 +348,7 @@ function appendRole(role: string, expiresAt: number | null) {
   if (removed !== -1) return undoRemove(removed)
   if (rows.value.some(r => r.role === role)) return
 
-  rows.value.push({ role, expiresAt, note: null, expired: false, grantedAt: null, status: 'added' })
+  rows.value.push({ role, expiresAt, note: '', expired: false, grantedAt: null, status: 'added' })
 }
 
 function addFromDefinition(picked: { value: string } | undefined) {
