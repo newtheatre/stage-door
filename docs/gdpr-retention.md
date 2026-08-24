@@ -13,6 +13,8 @@ Framing, honestly: software is never "GDPR compliant" by itself: compliance is m
 | Reservations, attendance history | Proscenium DB | Contract; financial records → legal obligation (6 y) |
 | Room bookings | rooms DB | Contract |
 | Mirror rows (id, email, name) | each app DB | Same basis as the app's data |
+| Access needs (nine Access Card symbols) | Proscenium DB `access_profiles` | **Special category, Article 9.** Explicit consent, Article 9(2)(a), timestamped when the profile is created |
+| Backstage messages (free text) | Proscenium DB | Legitimate interest (running the show). Preset transitions are performance history, free text is not |
 
 Data minimisation is a design rule: no DOB, no address, no phone, no analytics identifiers in the auth DB. Adding any new personal-data column requires updating this table and, if it changes the basis, the committee policy.
 
@@ -25,6 +27,25 @@ Data minimisation is a design rule: no DOB, no address, no phone, no analytics i
 3. `session_epoch` bumped (live sessions die), action audit-logged (the audit entry references the anonymous id only).
 
 Bookings and reservations survive as anonymous rows: attendance counts, revenue, and room-usage statistics are intact; the person is gone. Retention exception (document per request, don't build): records genuinely needed for legal claims or financial audit may be retained per the policy.
+
+### Two exceptions, both deliberate
+
+**Access profiles are deleted, not anonymised.** Special category data under Article 9 is held on
+explicit consent, and consent withdrawn has to mean the data is gone, not rewritten. An anonymised
+access profile would still say somebody in that performance needed a particular provision, which is
+the thing the person asked us to stop holding. Proscenium's
+[ADR-0022](https://github.com/newtheatre/proscenium/blob/main/docs/decisions/0022-access-needs-are-special-category-data.md)
+sets out the reasoning. Read this as an exception that was argued for, not as an oversight in an
+app that forgot the anonymise rule.
+
+Withdrawal is unconditional and immediate, at the person's request, with nothing asked in return.
+Profiles also expire on their own: card expiry where there is a card, otherwise three years to match
+the Access Card's own cycle, and expired or withdrawn profiles are swept on the guest-account cycle.
+
+**Backstage free text is deleted after 30 days.** The comms board records both preset transitions
+(clearance, house open, show start, interval, end) and whatever anyone typed. The presets are the
+theatre's curtain-up record and are kept as performance history. The free text is chatter: 30 days
+is long enough to settle who called clearance, and then it goes.
 
 **Erasure is irreversible**, and the code enforces it: `assertNotAnonymised` refuses `PUT /api/users/:id`, `POST /api/users/:id/enable` and `POST /api/users/:id/reset-password` on an erased row, so its identity cannot be written back while every app's mirror row stays scrubbed. The admin UI requires typed confirmation, and [operations.md](operations.md#user-operations-admin-ui-admin) covers verifying the requester's identity first.
 
