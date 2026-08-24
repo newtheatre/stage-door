@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'bun:test'
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 import sweepTask from '../server/tasks/retention/sweep'
@@ -77,7 +77,7 @@ describe('retention sweep: a failed erasure is not silently lost', () => {
   })
 })
 
-// better-sqlite3 allows ~32k bound parameters, so this cannot reproduce D1's
+// bun:sqlite allows far more bound parameters than D1, so this cannot reproduce D1's
 // cap of 100. It pins the behaviour; the chunking is what enforces the limit.
 describe('retention sweep: D1 bound-parameter cap', () => {
   it('clears more than 100 notices without one oversized statement', async () => {

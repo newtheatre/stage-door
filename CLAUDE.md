@@ -14,7 +14,7 @@ bun run dev            # local dev server on :3000
 bun run db:migrate     # apply Drizzle migrations locally
 bun run db:generate    # generate a migration from schema changes (review the SQL!)
 bun run db:seed        # dev-only seed; prints generated credentials, commits none
-bun run test           # unit + integration (vitest)
+bun run test           # unit + integration (bun test)
 bun run lint           # eslint (matches Proscenium's config)
 bun run typecheck      # nuxi typecheck
 npx wrangler d1 ...    # production D1 — read docs/operations.md before touching

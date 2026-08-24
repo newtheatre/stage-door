@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { db, schema } from '@nuxthub/db'
 import { createServiceToken, hashServiceToken, requireServiceToken } from '../server/utils/serviceToken'
 import shadowHandler from '../server/api/users/shadow.post'

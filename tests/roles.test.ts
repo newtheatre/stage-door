@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { db, schema } from '@nuxthub/db'
 import { and, eq } from 'drizzle-orm'
 import { loadRoles, loadRoleGrants } from '../server/utils/session'

@@ -1,12 +1,12 @@
 /**
  * Stand-in for the `@nuxthub/db` virtual module: the same schema on in-memory
- * sqlite, with the real migration applied.
+ * sqlite, with the real migration applied. bun:sqlite needs no native build.
  */
 
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import Database from 'better-sqlite3'
-import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { Database } from 'bun:sqlite'
+import { drizzle } from 'drizzle-orm/bun-sqlite'
 import * as userSchema from '../../server/db/schema/user'
 import * as legacySchema from '../../server/db/schema/legacy'
 import * as serviceSchema from '../../server/db/schema/service'
@@ -28,7 +28,7 @@ export const schema = {
 }
 
 const sqlite = new Database(':memory:')
-sqlite.pragma('foreign_keys = ON')
+sqlite.exec('PRAGMA foreign_keys = ON')
 
 const migrationsDir = join(__dirname, '../../server/db/migrations/sqlite')
 for (const file of readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort()) {

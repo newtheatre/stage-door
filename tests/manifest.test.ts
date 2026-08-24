@@ -3,7 +3,7 @@
  * ever withdrawn except as a consequence of a document that parsed.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { eq } from 'drizzle-orm'
 import { db, schema } from '@nuxthub/db'
 import { manifestSchema } from '../server/utils/manifest'

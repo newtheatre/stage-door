@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { base32Encode, base32Decode, totpCode, totpStep, verifyTotp, generateTotpSecret, totpUri } from '../server/utils/totp'
 
 const b32 = (ascii: string) => base32Encode(new TextEncoder().encode(ascii))

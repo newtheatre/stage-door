@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, afterEach } from 'vitest'
+import { describe, expect, it, vi, afterEach, setSystemTime } from 'bun:test'
 import { db, schema } from '@nuxthub/db'
 import { enforceRateLimit, sweepRateLimits, RATE_LIMITS } from '../server/utils/rateLimit'
 
@@ -30,7 +30,7 @@ describe('fixed-window rate limiter (ADR-0009)', () => {
 
   it('resets the counter when the window rolls over', async () => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-08-11T12:00:00Z'))
+    setSystemTime(new Date('2026-08-11T12:00:00Z'))
 
     const { limit, windowMs } = RATE_LIMITS['forgot:acct']
     for (let i = 0; i < limit; i++) {
@@ -39,17 +39,17 @@ describe('fixed-window rate limiter (ADR-0009)', () => {
     await expect(enforceRateLimit('forgot:acct', 'a@example.com'))
       .rejects.toMatchObject({ statusCode: 429 })
 
-    vi.setSystemTime(new Date(Date.now() + windowMs + 1000))
+    setSystemTime(new Date(Date.now() + windowMs + 1000))
 
     await expect(enforceRateLimit('forgot:acct', 'a@example.com')).resolves.toBeUndefined()
   })
 
   it('sweep removes only long-lapsed counters', async () => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-08-11T12:00:00Z'))
+    setSystemTime(new Date('2026-08-11T12:00:00Z'))
     await enforceRateLimit('forgot:acct', 'old@example.com')
 
-    vi.setSystemTime(new Date('2026-08-13T12:00:00Z')) // two days later
+    setSystemTime(new Date('2026-08-13T12:00:00Z')) // two days later
     await enforceRateLimit('forgot:acct', 'fresh@example.com')
 
     const removed = await sweepRateLimits()
