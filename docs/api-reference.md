@@ -186,7 +186,7 @@ Reconciliation is described in full in [ADR-0018](decisions/0018-manifest-declar
 ### `GET /api/role-holders?roles=A,B`: service [AUD]
 Who currently holds these roles, so a consumer app can offer a picker of its own people instead of making staff type an exact email. Returns `{ namespace, holders: [{ id, name }] }`.
 
-**Roles are bare names and the namespace is the caller's own**, taken from the app its service token is bound to: a token for Proscenium asking for `COMMITTEE` is answered about `proscenium:COMMITTEE`, and no app can ask who holds another app's roles. A token with no app is `403`.
+**Roles are bare names and the namespace is the caller's own**, taken from the registered app whose `name` matches the service token's: a token named `proscenium` asking for `COMMITTEE` is answered about `proscenium:COMMITTEE`, and no app can ask who holds another app's roles. A token whose name matches no registered app is `403`. The `name` join is deliberate: `service_tokens.app_id` is a reporting column that a rotated token does not carry ([ADR-0017](decisions/0017-app-registry.md)).
 
 Holders are **effective**, not merely granted: an expired grant, or one whose enforcing training prerequisite is unmet, is not a holder ([ADR-0011](decisions/0011-role-definitions-and-expiry.md), [ADR-0019](decisions/0019-training-conditional-grants.md)). Disabled and anonymised accounts are excluded. At most 10 roles per question and 200 holders per answer, so the bound parameter count is fixed.
 

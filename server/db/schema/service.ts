@@ -9,8 +9,8 @@ export const serviceTokens = sqliteTable('service_tokens', {
   // Not unique: overlap rotation issues the new token before revoking the
   // old, so an app briefly has two. hookBearer sends the newest.
   name: text('name').notNull(), // e.g. 'proscenium'
-  // No ON DELETE: SQLite cannot add one to an existing table, so deleting an
-  // app clears its tokens' app_id in the handler (ADR-0017).
+  // Reporting only: the name join is the authority (ADR-0017), and there is no
+  // ON DELETE, so the delete handler revokes an app's tokens by name.
   appId: text('app_id').references(() => apps.id),
   tokenHash: text('token_hash').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),

@@ -94,6 +94,32 @@ describe('app registry (ADR-0017)', () => {
     expect(await db.select().from(schema.serviceTokens).all()).toHaveLength(0)
   })
 
+  it('revokes a token issued after registration, which carries no app_id link', async () => {
+    // The documented order: register, then issue. app_id is a reporting column
+    // and the revoke must not depend on it (ADR-0017).
+    const app = await registerApp('photos')
+    await createServiceToken('photos')
+
+    const audited = await adminEvent({ params: { id: app.id } })
+    await deleteApp(audited)
+
+    expect(await db.select().from(schema.serviceTokens).all()).toHaveLength(0)
+    const entry = await db.select().from(schema.auditLog)
+      .where(eq(schema.auditLog.action, 'app.deregistered')).get()
+    expect(JSON.parse(entry!.detail!).tokensRevoked).toBe(1)
+  })
+
+  it('revokes a rotated token whose link was dropped with the row that carried it', async () => {
+    const app = await registerApp('photos')
+    await db.insert(schema.serviceTokens).values({ name: 'photos', tokenHash: 'hash-old', appId: app.id })
+    await db.delete(schema.serviceTokens).where(eq(schema.serviceTokens.tokenHash, 'hash-old'))
+    await db.insert(schema.serviceTokens).values({ name: 'photos', tokenHash: 'hash-new' })
+
+    await deleteApp(await adminEvent({ params: { id: app.id } }))
+
+    expect(await db.select().from(schema.serviceTokens).all()).toHaveLength(0)
+  })
+
   it('leaves an unlinked token alone when a different app is deregistered', async () => {
     const app = await registerApp('photos')
     await db.insert(schema.serviceTokens).values({ name: 'rooms', tokenHash: 'hash-r' })

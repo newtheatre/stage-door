@@ -20,15 +20,13 @@ export default defineEventHandler(async (event) => {
   const serviceToken = await requireServiceToken(event)
   const { roles } = await getValidatedQuery(event, querySchema.parse)
 
-  if (!serviceToken.appId) {
-    throw createError({ statusCode: 403, statusMessage: 'This token is not bound to an app.' })
-  }
-
+  // Resolved by name, which is the authority: app_id is a convenience column
+  // and a rotated token has none (ADR-0017).
   const app = await db.select({ namespace: schema.apps.namespace })
-    .from(schema.apps).where(eq(schema.apps.id, serviceToken.appId)).get()
+    .from(schema.apps).where(eq(schema.apps.name, serviceToken.name)).get()
 
   if (!app) {
-    throw createError({ statusCode: 403, statusMessage: 'This token is not bound to an app.' })
+    throw createError({ statusCode: 403, statusMessage: 'No registered app carries this token\'s name.' })
   }
 
   const wanted = [...new Set(roles.split(',').map(role => role.trim()).filter(Boolean))]
