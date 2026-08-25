@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
     actorUserId: admin.id,
     action: 'app.registered',
     target: app!.id,
-    detail: { name: body.name, namespace: body.namespace, baseUrl: body.baseUrl, hooksEnabled: body.hooksEnabled },
+    detail: { name: body.name, namespace: body.namespace, baseUrl: body.baseUrl, hooksEnabled: body.hooksEnabled, manifestEnabled: body.manifestEnabled },
   })
 
   return { app }
