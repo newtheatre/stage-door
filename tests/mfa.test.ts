@@ -354,12 +354,31 @@ describe('managing your own factors', () => {
     expect(await enrolledFactors(user.id)).toEqual(['totp'])
   })
 
-  it('lets an ordinary account opt back out', async () => {
+  it('lets an ordinary account opt back out, and the recovery codes go with it', async () => {
     const user = await createUser({ email: 'optout@example.com', plainPassword: 'Passw0rd' })
     await enrolTotp(user.id, SECRET)
+    await regenerateRecoveryCodes(user.id)
 
     await removeFactor(await sessionEvent(user, { params: { id: 'totp' } }))
     expect(await enrolledFactors(user.id)).toEqual([])
+    // Leaving them would hand a re-enrolment eight codes the member may have
+    // removed the factor to escape, and suppress the fresh set.
+    expect(await remainingRecoveryCodes(user.id)).toBe(0)
+  })
+
+  it('re-enrolling after that removal issues a fresh set of codes', async () => {
+    const user = await createUser({ email: 'again@example.com', plainPassword: 'Passw0rd' })
+    await enrolTotp(user.id, SECRET)
+    const [leaked] = await regenerateRecoveryCodes(user.id)
+    await removeFactor(await sessionEvent(user, { params: { id: 'totp' } }))
+
+    const setup = await startTotp(await sessionEvent(user))
+    const { recoveryCodes } = await confirmTotp(
+      await sessionEvent(user, { body: { code: await totpCode(setup.secret) } }),
+    )
+
+    expect(recoveryCodes).toHaveLength(8)
+    expect(await useRecoveryCode(user.id, leaked!)).toBe(false)
   })
 })
 

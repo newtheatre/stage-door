@@ -18,6 +18,10 @@ export default defineEventHandler(async (event) => {
       .where(eq(schema.webauthnCredentials.userId, user.id)).all(),
   ])
 
+  if (id !== 'totp' && !passkeys.some(p => p.id === id)) {
+    throw createError({ statusCode: 404, statusMessage: 'Passkey not found' })
+  }
+
   const remaining = id === 'totp'
     ? passkeys.length
     : (totp ? 1 : 0) + passkeys.filter(p => p.id !== id).length
@@ -29,14 +33,24 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // Removing the last factor takes the recovery codes with it, the way
+  // clearAllFactors does: they are a factor, and re-enrolment issues fresh ones.
+  const alsoCodes = remaining === 0
+    ? [db.delete(schema.mfaRecoveryCodes).where(eq(schema.mfaRecoveryCodes.userId, user.id))]
+    : []
+
   if (id === 'totp') {
-    await db.delete(schema.totpSecrets).where(eq(schema.totpSecrets.userId, user.id))
+    await db.batch([
+      db.delete(schema.totpSecrets).where(eq(schema.totpSecrets.userId, user.id)),
+      ...alsoCodes,
+    ])
   }
   else {
-    const [removed] = await db.delete(schema.webauthnCredentials)
-      .where(and(eq(schema.webauthnCredentials.id, id), eq(schema.webauthnCredentials.userId, user.id)))
-      .returning()
-    if (!removed) throw createError({ statusCode: 404, statusMessage: 'Passkey not found' })
+    await db.batch([
+      db.delete(schema.webauthnCredentials)
+        .where(and(eq(schema.webauthnCredentials.id, id), eq(schema.webauthnCredentials.userId, user.id))),
+      ...alsoCodes,
+    ])
   }
 
   await writeAudit({
