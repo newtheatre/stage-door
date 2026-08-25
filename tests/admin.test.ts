@@ -324,6 +324,32 @@ describe('the last auth:ADMIN cannot be removed or dated', () => {
     await expect(putRoles(event)).rejects.toMatchObject({ statusCode: 400 })
   })
 
+  it('refuses when the only other holder is a disabled account', async () => {
+    await defineRole('auth', 'ADMIN')
+    const { event, adminId } = await adminEvent({ body: { roles: [] } })
+    // The outgoing manager: disabled, but disable leaves the grant row behind.
+    const gone = await createUser({ email: 'left-admin@example.com', disabled: true })
+    await grantRole(gone.id, 'auth:ADMIN')
+    event.params = { id: adminId }
+
+    await expect(putRoles(event)).rejects.toMatchObject({ statusCode: 400 })
+
+    const still = await db.select().from(schema.userRoles)
+      .where(eq(schema.userRoles.userId, adminId)).all()
+    expect(still.map(r => r.role)).toContain('auth:ADMIN')
+  })
+
+  it('refuses to let the last usable auth:ADMIN close their own account past a disabled holder', async () => {
+    await defineRole('auth', 'ADMIN')
+    const { event, adminId } = await adminEvent()
+    const gone = await createUser({ email: 'left-admin2@example.com', disabled: true })
+    await grantRole(gone.id, 'auth:ADMIN')
+    const admin = await db.select().from(schema.users).where(eq(schema.users.id, adminId)).get()
+    event.body = { confirmEmail: admin!.email, password: 'Passw0rd' }
+
+    await expect(selfErase(event)).rejects.toMatchObject({ statusCode: 400 })
+  })
+
   it('allows it once someone else holds auth:ADMIN', async () => {
     await defineRole('auth', 'ADMIN')
     const { event, adminId } = await adminEvent({ body: { roles: [] } })

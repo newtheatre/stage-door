@@ -62,11 +62,15 @@ export async function loadUserOr404(
  * every admin route including this one. Recovery means hand-editing D1.
  */
 export async function assertNotLastAuthAdmin(userId: string, what: string): Promise<void> {
+  // Disabled holders are excluded: a grant nobody can sign in to use is not a
+  // fallback, and counting one would let the last usable admin drop their own.
   const others = await db.select({ userId: schema.userRoles.userId })
     .from(schema.userRoles)
+    .innerJoin(schema.users, eq(schema.users.id, schema.userRoles.userId))
     .where(and(
       eq(schema.userRoles.role, 'auth:ADMIN'),
       sql`${schema.userRoles.userId} <> ${userId}`,
+      eq(schema.users.disabled, false),
       activeRoleCondition(new Date()),
     ))
     .all()
@@ -79,13 +83,15 @@ export async function assertNotLastAuthAdmin(userId: string, what: string): Prom
   }
 }
 
-/** Whether this user currently holds a live auth:ADMIN grant. */
+/** Whether this user holds an auth:ADMIN grant they could actually use. */
 export async function holdsAuthAdmin(userId: string): Promise<boolean> {
   const row = await db.select({ userId: schema.userRoles.userId })
     .from(schema.userRoles)
+    .innerJoin(schema.users, eq(schema.users.id, schema.userRoles.userId))
     .where(and(
       eq(schema.userRoles.userId, userId),
       eq(schema.userRoles.role, 'auth:ADMIN'),
+      eq(schema.users.disabled, false),
       activeRoleCondition(new Date()),
     ))
     .get()
