@@ -28,14 +28,18 @@ export function hashLoginToken(token: string): string {
 }
 
 /**
- * Returns the token; the hash is what gets stored.
+ * Bound to the address it is mailed to, not just the account: an outstanding
+ * token must not verify whatever address the row is pointed at later.
  */
-export async function createEmailVerificationToken(userId: string): Promise<string> {
+export async function createEmailVerificationToken(userId: string, email: string): Promise<string> {
   const token = generateVerificationToken()
   const expiresAt = new Date(Date.now() + TOKEN_EXPIRY.EMAIL_VERIFICATION)
 
+  await db.delete(schema.emailVerifications).where(eq(schema.emailVerifications.userId, userId))
+
   await db.insert(schema.emailVerifications).values({
     userId,
+    email,
     token: hashLoginToken(token),
     expiresAt,
   })

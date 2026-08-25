@@ -48,6 +48,12 @@ export default defineEventHandler(async (event) => {
 
   const user = await loadUserOr404(verification.userId)
 
+  // The token proves one address. Once the row points somewhere else it proves
+  // nothing, and rows minted before the column carry no address at all.
+  if (verification.email !== user.email) {
+    throw createError(TOKEN_INVALID)
+  }
+
   const [verified] = user.verified
     ? [user]
     : await db.update(schema.users)

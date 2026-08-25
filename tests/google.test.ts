@@ -119,6 +119,38 @@ describe('resolveGoogleUser: match precedence', () => {
     expect(user.id).toBe(directed.id)
   })
 
+  it('clears a pending marker the sub match has made unreachable', async () => {
+    const linked = await createUser({ email: 'person@newtheatre.org.uk', googleSub: 'google-sub-1' })
+    const stranded = await createUser({
+      email: 'other@example.com',
+      plainPassword: 'Passw0rd',
+      pendingGoogleEmail: 'person@newtheatre.org.uk',
+    })
+
+    const { user, how } = await resolveGoogleUser(profile())
+    expect(how).toBe('sub')
+    expect(user.id).toBe(linked.id)
+
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, stranded.id)).get()
+    expect(row!.pendingGoogleEmail).toBeNull()
+  })
+
+  it('leaves the marker alone when the linked account is disabled', async () => {
+    const linked = await createUser({ email: 'person@newtheatre.org.uk', googleSub: 'google-sub-1' })
+    await db.update(schema.users).set({ disabled: true }).where(eq(schema.users.id, linked.id))
+    const other = await createUser({
+      email: 'other@example.com',
+      plainPassword: 'Passw0rd',
+      pendingGoogleEmail: 'person@newtheatre.org.uk',
+    })
+
+    await resolveGoogleUser(profile())
+
+    // A rejected sign-in leaves no trace anywhere (docs/api-reference.md).
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, other.id)).get()
+    expect(row!.pendingGoogleEmail).toBe('person@newtheatre.org.uk')
+  })
+
   it('email match links and verifies: including claiming a shadow account', async () => {
     const shadow = await createUser({ email: 'person@newtheatre.org.uk' }) // password NULL
 

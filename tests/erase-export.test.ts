@@ -321,6 +321,24 @@ describe('erasure reports completeness honestly', () => {
     const result = await eraseUser(user.id, { id: 'admin-1', via: 'admin' })
 
     expect(result.complete).toBe(false)
+    // The admin page lists the apps to chase by filtering on this.
+    expect(result.hooks).toEqual([{ app: 'rooms', ok: false }])
+
+    const audit = await db.select().from(schema.auditLog)
+      .where(eq(schema.auditLog.target, user.id)).all()
+    expect(JSON.parse(audit[0]!.detail!).hooks).toEqual([{ app: 'rooms', ok: false }])
+  })
+
+  it('reports an app that answered with no body at all as done', async () => {
+    await registerApp('rooms')
+    await db.insert(schema.serviceTokens).values({ name: 'rooms', tokenHash: 'hash-r' })
+    fetchMock.mockResolvedValue(undefined)
+
+    const user = await createUser({ email: 'quiet@example-user.co.uk' })
+    const result = await eraseUser(user.id, { id: 'admin-1', via: 'admin' })
+
+    expect(result.complete).toBe(true)
+    expect(result.hooks).toEqual([{ app: 'rooms', ok: true }])
   })
 
   it('never returns an upstream error message to the caller', async () => {

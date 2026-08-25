@@ -29,6 +29,9 @@ export const users = sqliteTable('users', {
   lastLogin: integer('last_login', { mode: 'timestamp_ms' }),
 }, table => [
   index('users_email_idx').on(table.email),
+  // Unique so two admins cannot point one address at two accounts, and so
+  // resolveGoogleUser's per-sign-in lookup is not a table scan.
+  uniqueIndex('users_pending_google_email_unique').on(table.pendingGoogleEmail),
 ])
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -105,10 +108,13 @@ export const userRolesRelations = relations(userRoles, ({ one }) => ({
   }),
 }))
 
-// Verification tokens live 24h; single-use.
+// Verification tokens live 24h; single-use; issuing a new one deletes
+// outstanding ones for that user. `email` is the address it proves, not the row.
 export const emailVerifications = sqliteTable('email_verifications', {
   id: text('id').primaryKey().$defaultFn(() => nanoid()),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // Nullable only for rows minted before the column existed; those verify nothing.
+  email: text('email'),
   token: text('token').notNull().unique(),
   expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),

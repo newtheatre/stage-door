@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "98b081af-f129-4f60-82f2-07efac9eade9",
-  "prevId": "aae37bbf-3d02-4300-8382-bd1afa8907dc",
+  "id": "09ea2682-5462-456d-9619-0583128a1af8",
+  "prevId": "c4f15c36-2ea0-4847-8e8e-c0f148139960",
   "tables": {
     "app_manifests": {
       "name": "app_manifests",
@@ -467,6 +467,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "token": {
@@ -1550,6 +1557,13 @@
             "email"
           ],
           "isUnique": false
+        },
+        "users_pending_google_email_unique": {
+          "name": "users_pending_google_email_unique",
+          "columns": [
+            "pending_google_email"
+          ],
+          "isUnique": true
         }
       },
       "foreignKeys": {},

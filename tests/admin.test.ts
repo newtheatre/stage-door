@@ -216,6 +216,29 @@ describe('admin user operations', () => {
     await expect(putPendingGoogle(clash.event)).rejects.toMatchObject({ statusCode: 409 })
   })
 
+  it('pending-google refuses an address another account owns but has not linked', async () => {
+    // The ADR-0012 rollout cohort: owns the address, google_sub still NULL. A
+    // marker elsewhere would divert their first sign-in onto the wrong account.
+    await createUser({ email: 'alice@newtheatre.org.uk', plainPassword: 'Passw0rd' })
+    const duplicate = await createUser({ email: 'alice.duplicate@example.com', plainPassword: 'Passw0rd' })
+
+    const { event } = await adminEvent({ params: { id: duplicate.id }, body: { email: 'alice@newtheatre.org.uk' } })
+    await expect(putPendingGoogle(event)).rejects.toMatchObject({ statusCode: 409 })
+
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, duplicate.id)).get()
+    expect(row!.pendingGoogleEmail).toBeNull()
+  })
+
+  it('pending-google still allows the address the account already holds', async () => {
+    const target = await createUser({ email: 'alice@newtheatre.org.uk', plainPassword: 'Passw0rd' })
+
+    const { event } = await adminEvent({ params: { id: target.id }, body: { email: 'alice@newtheatre.org.uk' } })
+    await putPendingGoogle(event)
+
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, target.id)).get()
+    expect(row!.pendingGoogleEmail).toBe('alice@newtheatre.org.uk')
+  })
+
   it('refuses to unlink Google when it is the only login method', async () => {
     const ssoOnly = await createUser({ email: 'sso@example.com', googleSub: 'sub-1' })
     const { event } = await adminEvent({ params: { id: ssoOnly.id } })

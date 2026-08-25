@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
     target: id,
     detail: {
       name: before.name,
-      from: { baseUrl: before.baseUrl, hooksEnabled: before.hooksEnabled, displayName: before.displayName },
+      from: { baseUrl: before.baseUrl, hooksEnabled: before.hooksEnabled, manifestEnabled: before.manifestEnabled, displayName: before.displayName },
       to: body,
     },
   })

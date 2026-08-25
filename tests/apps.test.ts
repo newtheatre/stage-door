@@ -139,6 +139,43 @@ describe('app registry (ADR-0017)', () => {
     expect(await db.select().from(schema.serviceTokens).all()).toHaveLength(0)
   })
 
+  it('records the manifest switch on both sides, so turning it off is recoverable', async () => {
+    // Nothing else records it: ADR-0024 leaves no other way for an app's new
+    // roles to appear, so the flip has to be traceable to a person.
+    const created = await adminEvent({
+      body: { name: 'photos', namespace: 'photos', displayName: 'Photos', baseUrl: 'https://photos.newtheatre.org.uk', hooksEnabled: true, manifestEnabled: true },
+    })
+    const { app } = await createApp(created)
+
+    const registered = await db.select().from(schema.auditLog)
+      .where(eq(schema.auditLog.action, 'app.registered')).get()
+    expect(JSON.parse(registered!.detail!).manifestEnabled).toBe(true)
+
+    await updateApp(await adminEvent({
+      params: { id: app.id },
+      body: { displayName: 'Photos', baseUrl: 'https://photos.newtheatre.org.uk', hooksEnabled: true, manifestEnabled: false },
+    }))
+
+    const updated = await db.select().from(schema.auditLog)
+      .where(eq(schema.auditLog.action, 'app.updated')).get()
+    const detail = JSON.parse(updated!.detail!)
+    expect(detail.from.manifestEnabled).toBe(true)
+    expect(detail.to.manifestEnabled).toBe(false)
+  })
+
+  it('refuses an update that omits the manifest switch rather than defaulting it off', async () => {
+    // The update is a full replace, so a default would silently stop role sync.
+    const app = await registerApp('photos', { manifestEnabled: true })
+
+    await expect(updateApp(await adminEvent({
+      params: { id: app.id },
+      body: { displayName: 'Photos', baseUrl: 'https://photos.newtheatre.org.uk', hooksEnabled: true },
+    }))).rejects.toThrow()
+
+    const row = await db.select().from(schema.apps).where(eq(schema.apps.id, app.id)).get()
+    expect(row!.manifestEnabled).toBe(true)
+  })
+
   it('leaves an unlinked token alone when a different app is deregistered', async () => {
     const app = await registerApp('photos')
     await db.insert(schema.serviceTokens).values({ name: 'rooms', tokenHash: 'hash-r' })

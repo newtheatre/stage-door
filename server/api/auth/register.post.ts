@@ -56,7 +56,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Failed to create user' })
   }
 
-  const verificationToken = await createEmailVerificationToken(user.id)
+  const verificationToken = await createEmailVerificationToken(user.id, email)
   await sendVerificationEmail(email, verificationToken)
 
   return { ok: true }
