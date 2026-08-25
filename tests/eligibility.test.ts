@@ -6,12 +6,16 @@
 import { describe, expect, it } from 'bun:test'
 import { db, schema } from '@nuxthub/db'
 import { and, eq } from 'drizzle-orm'
-import { loadRoles, effectiveRoleCondition } from '../server/utils/session'
-import { createUser, grantRole, defineRole, registerApp } from './helpers/users'
+import { loadRoles, loadRoleGrants, effectiveRoleCondition } from '../server/utils/session'
+import { createUser, grantRole, defineRole, registerApp, enrolTotp } from './helpers/users'
+import definitionsListHandler from '../server/api/role-definitions/index.get'
 import { snapshotRule, referencedRuleKeys, staleRules, SNAPSHOT_STALE_MS } from '../server/utils/eligibility'
 import snapshotTask from '../server/tasks/eligibility/snapshot'
 import { assertEligibilityModeAllowed } from '../server/utils/roleDefinitions'
-import { fetchMock, runtimeConfig, sentEmails } from './setup'
+import { fetchMock, makeEvent, runtimeConfig, sentEmails } from './setup'
+
+type DefinitionRow = { role: string, requiresEligibilityKey: string | null, eligibilityMode: string }
+const listDefinitions = definitionsListHandler as unknown as (event: unknown) => Promise<{ definitions: DefinitionRow[] }>
 
 const DAY = 24 * 60 * 60 * 1000
 
@@ -92,6 +96,45 @@ describe('an enforcing prerequisite', () => {
 
     await db.update(schema.userRoles).set({ eligibilityOverrideUntil: new Date(Date.now() - DAY) })
     expect(await loadRoles(user.id)).toEqual([])
+  })
+})
+
+describe('the admin surfaces can explain an inert grant', () => {
+  it('reports inert and overrideUntil on the grant, so it is not silently absent', async () => {
+    const user = await createUser({ email: 'inert@example.com', plainPassword: 'Passw0rd' })
+    await conditionalRole('enforcing')
+    await grantRole(user.id, 'proscenium:DUTY_MANAGER')
+    await ruleAnswered('duty-manager', [])
+
+    const [grant] = await loadRoleGrants(user.id)
+    expect(grant).toMatchObject({ role: 'proscenium:DUTY_MANAGER', expired: false, inert: true, overrideUntil: null })
+
+    const until = new Date(Date.now() + 30 * DAY)
+    await db.update(schema.userRoles).set({ eligibilityOverrideUntil: until })
+      .where(eq(schema.userRoles.userId, user.id))
+
+    const [lifted] = await loadRoleGrants(user.id)
+    expect(lifted).toMatchObject({ inert: false, overrideUntil: until.getTime() })
+  })
+
+  it('names the prerequisite on the role-definitions list', async () => {
+    await conditionalRole('enforcing')
+
+    const admin = await createUser({ email: 'defs-admin@example.com', plainPassword: 'Passw0rd', verified: true })
+    await grantRole(admin.id, 'auth:ADMIN')
+    await enrolTotp(admin.id)
+    const event = makeEvent()
+    await (globalThis as never as { setUserSession: (e: unknown, s: unknown) => Promise<unknown> })
+      .setUserSession(event, {
+        user: { id: admin.id, email: admin.email, name: admin.name, verified: true, guest: false, roles: ['auth:ADMIN'] },
+        loggedInAt: Date.now(),
+        refreshedAt: Date.now(),
+        epoch: 0,
+      })
+
+    const { definitions } = await listDefinitions(event)
+    expect(definitions.find(d => d.role === 'DUTY_MANAGER'))
+      .toMatchObject({ requiresEligibilityKey: 'duty-manager', eligibilityMode: 'enforcing' })
   })
 })
 

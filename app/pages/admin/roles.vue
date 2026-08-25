@@ -93,6 +93,15 @@
             class="text-muted"
             :aria-label="`Declared by its app, manifest ${row.original.definition.manifestVersion}`"
           />
+          <UBadge
+            v-if="row.original.definition.requiresEligibilityKey"
+            :color="row.original.definition.eligibilityMode === 'enforcing' ? 'warning' : 'neutral'"
+            variant="subtle"
+            size="sm"
+            :title="`Training rule ${row.original.definition.requiresEligibilityKey}`"
+          >
+            {{ row.original.definition.eligibilityMode }} training
+          </UBadge>
         </div>
       </template>
 
@@ -144,6 +153,8 @@ interface Definition {
   source: 'manifest' | 'manual'
   withdrawnAt: number | null
   manifestVersion: string | null
+  requiresEligibilityKey: string | null
+  eligibilityMode: 'advisory' | 'enforcing'
 }
 
 const { data, pending } = await useFetch<{ definitions: Definition[] }>('/api/role-definitions')

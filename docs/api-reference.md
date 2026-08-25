@@ -120,7 +120,7 @@ Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/service-tokens` (names + 
 
 ## Role definitions (ADR-0011)
 
-Session + `auth:ADMIN`: `GET /api/role-definitions` only (each with computed `defaultExpiresAt`, what a grant made now would default to, and `holders`, the count of active grants on real accounts, matching what `GET /api/users?role=` lists).
+Session + `auth:ADMIN`: `GET /api/role-definitions` only (each with computed `defaultExpiresAt`, what a grant made now would default to, `holders`, the count of active grants on real accounts, matching what `GET /api/users?role=` lists, and `requiresEligibilityKey`/`eligibilityMode`, so the page can say which roles carry a training prerequisite and which of those actually bite).
 
 **There are no write routes** ([ADR-0024](decisions/0024-role-definitions-come-only-from-manifests.md)): a definition comes from its app's manifest, so adding or changing a role is a deploy of the app that owns it. This service declares its own `auth:*` roles the same way, at `GET /api/_hooks/auth/manifest`, and the sync reads that one in-process rather than fetching itself. `ticketing:*` remains frozen `source: 'manual'` history ([ADR-0010](decisions/0010-legacy-roles-dormant-namespace.md)); nothing can create another.
 

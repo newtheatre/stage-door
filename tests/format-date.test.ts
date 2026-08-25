@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { endOfLondonDay, formatDate, formatDateLong, formatDateTime } from '../shared/utils/formatDate'
+import { endOfLondonDay, formatDate, formatDateLong, formatDateTime, londonDay } from '../shared/utils/formatDate'
 import { nextCommitteeYearEnd } from '../server/utils/rolesConfig'
 
 // The last instant of 31 July 2026 in London. 31 July is inside BST, so the
@@ -43,6 +43,15 @@ describe('dates are pinned to Europe/London', () => {
   it('is what nextCommitteeYearEnd hands out', () => {
     const end = nextCommitteeYearEnd(new Date(Date.UTC(2026, 0, 15)))
     expect(formatDate(end)).toBe('31 Jul 2026')
+  })
+
+  it('round-trips a BST expiry through the London day the picker shows', () => {
+    // What the admin picked, and what the date field must read back.
+    expect(londonDay(COMMITTEE_YEAR_END)).toEqual({ year: 2026, month: 7, day: 31 })
+    expect(endOfLondonDay(2026, 7, 31).getTime()).toBe(COMMITTEE_YEAR_END)
+
+    // A naive Date.UTC end-of-day is the NEXT London day inside BST.
+    expect(londonDay(Date.UTC(2026, 6, 31, 23, 59, 59, 999))).toEqual({ year: 2026, month: 8, day: 1 })
   })
 
   it('accepts epoch ms, ISO strings and Date objects alike', () => {

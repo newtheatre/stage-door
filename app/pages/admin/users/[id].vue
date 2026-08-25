@@ -387,7 +387,7 @@ interface AdminUserDetail {
   createdAt: number
   lastLogin: number | null
   roles: string[]
-  grants: { role: string, expiresAt: number | null, grantedAt: number | null, grantedBy: string | null, note: string | null, expired: boolean }[]
+  grants: { role: string, expiresAt: number | null, grantedAt: number | null, grantedBy: string | null, note: string | null, expired: boolean, inert: boolean, overrideUntil: number | null }[]
   legacyIds: { source: string, legacyId: string }[]
   mfa: { required: boolean, factors: string[], passkeys: number, recoveryCodesRemaining: number }
 }
