@@ -5,7 +5,6 @@
 
 import { db, schema } from '@nuxthub/db'
 import { eq, sql } from 'drizzle-orm'
-import type { HookResult } from './appHooks'
 
 export interface EraseResult {
   userId: string
@@ -55,14 +54,18 @@ export async function eraseUser(userId: string, actor: { id: string | null, via:
 
   // App hooks are idempotent, so call them on every run: that is what retries
   // a hook that failed before.
-  let hooks: HookResult<{ ok: boolean }>[] = []
+  let outcomes: { app: string, ok: boolean }[] = []
   let complete = false
   try {
-    hooks = await callAllAppHooks<{ ok: boolean }>('anonymise', { userId })
+    const hooks = await callAllAppHooks<{ ok: boolean }>('anonymise', { userId })
+
+    // `ok` on a hook result is only the transport: any 2xx sets it. An app
+    // answering 200 { ok: false } refused, and must not be reported green.
+    outcomes = hooks.map(h => ({ app: h.app, ok: h.ok && h.data?.ok !== false }))
 
     // every() is vacuously true on an empty list, which would report an erasure
-    // nobody was told about as done. An app answering 200 { ok: false } refused.
-    complete = hooks.length > 0 && hooks.every(h => h.ok && h.data?.ok !== false)
+    // nobody was told about as done.
+    complete = outcomes.length > 0 && outcomes.every(o => o.ok)
   }
   finally {
     // The scrub is already committed, so the audit row must be written either
@@ -74,11 +77,11 @@ export async function eraseUser(userId: string, actor: { id: string | null, via:
       target: userId,
       detail: {
         via: actor.via,
-        hooks: hooks.map(h => ({ app: h.app, ok: h.ok })),
+        hooks: outcomes,
       },
     })
   }
 
   // No upstream error text: this is returned to the member by /api/account/erase.
-  return { userId, alreadyErased, complete, hooks: hooks.map(({ app, ok }) => ({ app, ok })) }
+  return { userId, alreadyErased, complete, hooks: outcomes }
 }
