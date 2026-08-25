@@ -41,6 +41,30 @@
       </template>
     </UAlert>
 
+    <UAlert
+      v-if="staleRules.length"
+      color="error"
+      icon="i-lucide-clock-alert"
+      title="Eligibility answers are out of date"
+    >
+      <template #description>
+        <p class="mb-2">
+          Nobody's access has changed: the last good answer stays in force, and
+          a rule never answered enforces nothing. Check rehearsal and the
+          training API token, then re-run the eligibility snapshot.
+        </p>
+        <ul class="flex flex-col gap-1">
+          <li
+            v-for="rule in staleRules"
+            :key="rule.ruleKey"
+          >
+            <code>{{ rule.ruleKey }}</code>:
+            {{ rule.lastSuccessAt ? `last answered ${formatDateTime(rule.lastSuccessAt)}` : 'never answered' }}<span v-if="rule.lastError">. {{ rule.lastError }}</span>
+          </li>
+        </ul>
+      </template>
+    </UAlert>
+
     <UTable
       :data="tableRows"
       :columns="columns"
@@ -127,6 +151,9 @@ const { data, pending } = await useFetch<{ definitions: Definition[] }>('/api/ro
 // Dormant namespaces are excluded server-side, so anything here is a mistake.
 const { data: auditData } = await useFetch('/api/role-audit')
 const suspects = computed(() => auditData.value?.suspects ?? [])
+
+const { data: syncData } = await useFetch('/api/eligibility-syncs')
+const staleRules = computed(() => (syncData.value?.syncs ?? []).filter(s => s.stale))
 
 const columns = [
   { accessorKey: 'role', header: 'Role' },

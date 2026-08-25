@@ -91,6 +91,7 @@ All require session + `auth:ADMIN` unless noted. All mutations **[AUD]** (enforc
 | `PUT /api/users/:id/pending-google` | Set/clear `pending_google_email`: admin-directed link: the next Google sign-in with that address attaches to this account. Validated `@newtheatre.org.uk`; refuses addresses already linked or pending elsewhere |
 | `GET /api/users/:id/export` | Subject-access bundle: auth record + each app's hook contribution ([gdpr-retention.md](gdpr-retention.md)) |
 | `POST /api/users/:id/erase` | Anonymise everywhere (auth + app hooks + epoch bump). Requires `{ confirmEmail }` matching the account; cannot target self; returns per-hook status and is idempotent: re-POST to retry failed hooks. Also self-service from `/account` (password-confirmed). |
+| `GET /api/eligibility-syncs` | Eligibility rule sync status: `{ syncs: [{ ruleKey, lastAttemptAt, lastSuccessAt, userCount, lastError, stale }] }`, one row per rule a role definition references. `stale` means never answered, or last answered over a day ago, which is what the Role definitions banner shows ([ADR-0019](decisions/0019-training-conditional-grants.md)) |
 | `GET /api/audit?actor=&action=&page=` | Audit log query |
 
 Self-service (session, own account only: all verify the account live: exists, not disabled, epoch current):

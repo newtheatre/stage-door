@@ -9,6 +9,15 @@ export default defineTask({
   },
   async run() {
     const results = await snapshotAllRules()
-    return { result: { rules: results.length, failed: results.filter(r => !r.ok).map(r => r.ruleKey) } }
+    const failed = results.filter(r => !r.ok).map(r => r.ruleKey)
+
+    // Enforcement keeps honouring the last good answer, so nobody notices a
+    // stale rule unless something says so (ADR-0019).
+    const stale = await staleRules()
+    if (stale.length) {
+      await sendEligibilityStaleEmail(ROLES_CONFIG.digestEmail, stale)
+    }
+
+    return { result: { rules: results.length, failed, stale: stale.map(s => s.ruleKey) } }
   },
 })

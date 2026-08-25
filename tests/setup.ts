@@ -23,7 +23,7 @@ import { loadUserOr404, adminUserView, isAnonymisedRow, isRealRow, assertNotAnon
 import { isWorkspaceProfile, resolveGoogleUser, WORKSPACE_DOMAIN } from '../server/utils/googleAccount'
 import { callAppHook, callAllAppHooks, loadHookApps } from '../server/utils/appHooks'
 import { manifestSchema, manifestHash, MANIFEST_MAX_BYTES } from '../server/utils/manifest'
-import { snapshotRule, snapshotAllRules, referencedRuleKeys, trainingApp } from '../server/utils/eligibility'
+import { snapshotRule, snapshotAllRules, referencedRuleKeys, staleRules, trainingApp, SNAPSHOT_STALE_MS } from '../server/utils/eligibility'
 import { syncApp, syncAllApps, reconcileManifest } from '../server/utils/manifestSync'
 import { eraseUser } from '../server/utils/erase'
 import { mergeUsers } from '../server/utils/mergeUsers'
@@ -152,6 +152,9 @@ g.sendRetentionWarningEmail = async (to: string) => {
 g.sendRetentionDigestEmail = async (to: string) => {
   sentEmails.push({ kind: 'retention-digest', to })
 }
+g.sendEligibilityStaleEmail = async (to: string, rules: { ruleKey: string }[]) => {
+  sentEmails.push({ kind: 'eligibility-stale', to, token: rules.map(r => r.ruleKey).join(',') })
+}
 
 // ── Real server utils, exposed the way auto-imports would ───────────────────
 
@@ -235,7 +238,9 @@ Object.assign(g, {
   snapshotRule,
   snapshotAllRules,
   referencedRuleKeys,
+  staleRules,
   trainingApp,
+  SNAPSHOT_STALE_MS,
   eraseUser,
   mergeUsers,
   exportUser,

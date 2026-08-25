@@ -8,9 +8,10 @@ import { db, schema } from '@nuxthub/db'
 import { and, eq } from 'drizzle-orm'
 import { loadRoles, effectiveRoleCondition } from '../server/utils/session'
 import { createUser, grantRole, defineRole, registerApp } from './helpers/users'
-import { snapshotRule, referencedRuleKeys } from '../server/utils/eligibility'
+import { snapshotRule, referencedRuleKeys, staleRules, SNAPSHOT_STALE_MS } from '../server/utils/eligibility'
+import snapshotTask from '../server/tasks/eligibility/snapshot'
 import { assertEligibilityModeAllowed } from '../server/utils/roleDefinitions'
-import { fetchMock, runtimeConfig } from './setup'
+import { fetchMock, runtimeConfig, sentEmails } from './setup'
 
 const DAY = 24 * 60 * 60 * 1000
 
@@ -122,13 +123,13 @@ describe('grants without a definition are unaffected', () => {
   })
 })
 
-describe('the snapshot writer', () => {
-  async function trainingRegistered() {
-    runtimeConfig.trainingApiToken = 'nnt_trn_test'
-    await registerApp('rehearsal', { namespace: 'training', baseUrl: 'https://training.newtheatre.org.uk' })
-    await conditionalRole('enforcing')
-  }
+async function trainingRegistered() {
+  runtimeConfig.trainingApiToken = 'nnt_trn_test'
+  await registerApp('rehearsal', { namespace: 'training', baseUrl: 'https://training.newtheatre.org.uk' })
+  await conditionalRole('enforcing')
+}
 
+describe('the snapshot writer', () => {
   it('replaces the snapshot without exceeding D1 bound parameters', async () => {
     await trainingRegistered()
     // 250 eligible people: unchunked this would bind 750 parameters and D1
@@ -215,5 +216,58 @@ describe('an enforcing prerequisite is refused on an ADMIN role', () => {
     // Advisory is fine, and so is enforcing on any non-ADMIN role.
     expect(() => assertEligibilityModeAllowed('training', 'ADMIN', 'advisory')).not.toThrow()
     expect(() => assertEligibilityModeAllowed('proscenium', 'DUTY_MANAGER', 'enforcing')).not.toThrow()
+  })
+})
+
+describe('a failing snapshot is visible outside the sync table', () => {
+  it('audits the failure, so enforcement on a frozen answer leaves a trail', async () => {
+    await trainingRegistered()
+    fetchMock.mockRejectedValue(new Error('401 Unauthorized'))
+
+    await snapshotRule('duty-manager')
+
+    const audit = await db.select().from(schema.auditLog)
+      .where(eq(schema.auditLog.action, 'eligibility.snapshot-failed')).all()
+    expect(audit).toHaveLength(1)
+    expect(audit[0]!.target).toBe('duty-manager')
+    expect(audit[0]!.detail).toContain('401 Unauthorized')
+  })
+
+  it('emails the digest address when a rule has not been answered in a day', async () => {
+    await trainingRegistered()
+    fetchMock.mockRejectedValue(new Error('401 Unauthorized'))
+
+    const task = snapshotTask as unknown as { run: () => Promise<{ result: { failed: string[], stale: string[] } }> }
+    const result = await task.run()
+
+    expect(result.result.failed).toEqual(['duty-manager'])
+    expect(result.result.stale).toEqual(['duty-manager'])
+    expect(sentEmails).toEqual([{ kind: 'eligibility-stale', to: ROLES_CONFIG.digestEmail, token: 'duty-manager' }])
+  })
+
+  it('says nothing while every referenced rule was answered today', async () => {
+    await trainingRegistered()
+    fetchMock.mockResolvedValue({ key: 'duty-manager', userIds: ['keeper'] })
+
+    const task = snapshotTask as unknown as { run: () => Promise<{ result: { stale: string[] } }> }
+    const result = await task.run()
+
+    expect(result.result.stale).toEqual([])
+    expect(sentEmails).toHaveLength(0)
+  })
+
+  it('reports a rule whose last good answer has gone stale, failure or not', async () => {
+    await conditionalRole('enforcing')
+    await db.insert(schema.eligibilitySyncs).values({
+      ruleKey: 'duty-manager',
+      lastAttemptAt: new Date(Date.now() - 2 * DAY),
+      lastSuccessAt: new Date(Date.now() - 2 * DAY),
+      userCount: 3,
+    })
+
+    const stale = await staleRules()
+
+    expect(stale.map(r => r.ruleKey)).toEqual(['duty-manager'])
+    expect(Date.now() - stale[0]!.lastSuccessAt!).toBeGreaterThan(SNAPSHOT_STALE_MS)
   })
 })
