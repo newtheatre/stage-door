@@ -6,7 +6,7 @@ import { describe, expect, it } from 'bun:test'
  * docs/api-reference.md states "All mutations [AUD]". Nothing enforced it, so
  * the audit log quietly lost a mutation whenever someone forgot the call.
  */
-const ROOTS = ['server/api/account', 'server/api/users']
+const ROOTS = ['server/api/account', 'server/api/users', 'server/api/auth']
 
 /** Helpers that write the entry themselves, so the handler need not. */
 const AUDITS_VIA = ['eraseUser', 'mergeUsers']
@@ -18,6 +18,22 @@ const AUDITS_VIA = ['eraseUser', 'mergeUsers']
 const EXEMPT: Record<string, string> = {
   'server/api/account/mfa/totp.post.ts':
     'starts an unconfirmed enrolment that gates nothing; totp-confirm audits the act',
+  'server/api/auth/login.post.ts':
+    'an ordinary login is last_login, not an audit row (docs/data-model.md)',
+  'server/api/auth/logout.post.ts':
+    'clears this cookie only; logout-everywhere is the one that changes the account',
+  'server/api/auth/register.post.ts':
+    'creates the actor, so there is nobody to attribute it to; the row itself is the record',
+  'server/api/auth/email/request.post.ts':
+    'resends a verification link and changes nothing on the account',
+  'server/api/auth/email/verify.post.ts':
+    'the address holder proving their own address; no privilege moves',
+  'server/api/auth/magic-link/request.post.ts':
+    'mints and emails a link; redemption is a login, and logins are last_login',
+  'server/api/auth/magic-link/verify.post.ts':
+    'a login by another name (docs/data-model.md)',
+  'server/api/auth/password/forgot.post.ts':
+    'mints and emails a token; the reset that spends it is what audits',
 }
 
 function routeFiles(dir: string): string[] {

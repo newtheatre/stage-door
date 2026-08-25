@@ -130,6 +130,32 @@ describe('POST /api/auth/password/reset', () => {
     await expect(reset(event)).rejects.toMatchObject({ statusCode: 400 })
     expect(sealedSession(event)).toBeUndefined()
   })
+
+  it('audits the change, so a link-based takeover leaves a trace', async () => {
+    const user = await createUser({ email: 'alice@example-user.co.uk', plainPassword: 'OldPassw0rd' })
+    const token = await issueToken(user.id)
+
+    await reset(makeEvent({ body: { token, password: 'NewPassw0rd' } }))
+
+    const entry = await db.select().from(schema.auditLog)
+      .where(eq(schema.auditLog.action, 'user.password-changed')).get()
+    expect(entry).toMatchObject({ actorUserId: user.id, target: user.id })
+    expect(JSON.parse(entry!.detail!)).toEqual({ via: 'reset-token' })
+  })
+
+  it('audits a reset on a disabled account, which is the case most worth having', async () => {
+    const user = await createUser({ email: 'off@example-user.co.uk', plainPassword: 'OldPassw0rd', disabled: true })
+    const token = await issueToken(user.id)
+
+    await expect(reset(makeEvent({ body: { token, password: 'NewPassw0rd' } })))
+      .rejects.toMatchObject({ statusCode: 400 })
+
+    // The password write lands before the refusal, so the entry must too.
+    const entries = await db.select().from(schema.auditLog)
+      .where(eq(schema.auditLog.action, 'user.password-changed')).all()
+    expect(entries).toHaveLength(1)
+    expect(entries[0]).toMatchObject({ target: user.id })
+  })
 })
 
 describe('a reset token is claimed by the delete, not the read', () => {

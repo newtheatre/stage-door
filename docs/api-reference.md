@@ -60,10 +60,10 @@ Resend verification email. Enumeration-safe.
 ### `POST /api/auth/password/forgot`: public [RL]
 `{ email }` → always `{ ok: true }`. Sends reset email iff the account exists (shadow accounts included: this is the account-claiming path advertised in booking confirmations).
 
-### `POST /api/auth/password/reset`: public [RL]
+### `POST /api/auth/password/reset`: public [RL] [AUD]
 Refuses a Workspace address with 403 (`assertPasswordAllowed`, ADR-0012), as do `PUT /api/account/password`, `POST /api/users/:id/reset-password` and `POST /api/users`. The rule lives at the write boundary: the login-side checks alone could not stop an admin-minted token from restoring a password.
 
-`{ token, password }` → **claims the token by deleting it first**, valid or not, so two requests carrying one token cannot both redeem it ([security.md](security.md) §single-use); then sets password, bumps `session_epoch` (invalidate old sessions), then **the same MFA seam as login** (ADR-0013): no factors → seals a fresh session, `{ ok: true }`; enrolled → `{ mfaRequired, attemptId, methods }` and no session: the password changed but the factor still gates. Mailbox control alone no longer logs in an enrolled account.
+`{ token, password }` → **claims the token by deleting it first**, valid or not, so two requests carrying one token cannot both redeem it ([security.md](security.md) §single-use); then sets password, bumps `session_epoch` (invalidate old sessions), then **the same MFA seam as login** (ADR-0013): no factors → seals a fresh session, `{ ok: true }`; enrolled → `{ mfaRequired, attemptId, methods }` and no session: the password changed but the factor still gates. Mailbox control alone no longer logs in an enrolled account. Writes `user.password-changed` with `detail: { via: 'reset-token' }`, matching the self-service change, and writes it above the disabled-account refusal because the password write lands either way.
 
 ## Session maintenance
 
