@@ -33,7 +33,7 @@ import { RETENTION_CONFIG } from '../server/utils/retentionConfig'
 import { endOfLondonDay, formatDate, formatDateLong, formatDateTime } from '../shared/utils/formatDate'
 import { passwordSchema, emailSchema } from '../shared/utils/credentials'
 import { base32Encode, base32Decode, generateTotpSecret, totpStep, totpCode, verifyTotp, totpUri } from '../server/utils/totp'
-import { MFA_ATTEMPT_TTL_MS, WEBAUTHN_CHALLENGE_TTL_MS, isMfaRequired, enrolledFactors, sealOrChallenge, createMfaAttempt, consumeMfaAttempt, storeWebauthnChallenge, getWebauthnChallenge, sweepMfaChallenges, regenerateRecoveryCodes, useRecoveryCode, remainingRecoveryCodes, clearAllFactors, factorClearStatements, listPasskeys } from '../server/utils/mfa'
+import { MFA_ATTEMPT_TTL_MS, WEBAUTHN_CHALLENGE_TTL_MS, isMfaRequired, enrolledFactors, sealOrChallenge, createMfaAttempt, consumeMfaAttempt, storeWebauthnChallenge, getWebauthnChallenge, sweepMfaChallenges, newRecoveryCodes, recoveryCodeStatements, regenerateRecoveryCodes, useRecoveryCode, remainingRecoveryCodes, clearAllFactors, factorClearStatements, listPasskeys } from '../server/utils/mfa'
 
 // ── H3 fakes ────────────────────────────────────────────────────────────────
 
@@ -268,6 +268,8 @@ Object.assign(g, {
   storeWebauthnChallenge,
   getWebauthnChallenge,
   sweepMfaChallenges,
+  newRecoveryCodes,
+  recoveryCodeStatements,
   regenerateRecoveryCodes,
   useRecoveryCode,
   remainingRecoveryCodes,

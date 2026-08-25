@@ -19,6 +19,8 @@ import {
   storeWebauthnChallenge,
   getWebauthnChallenge,
   sweepMfaChallenges,
+  newRecoveryCodes,
+  recoveryCodeStatements,
   regenerateRecoveryCodes,
   useRecoveryCode,
   remainingRecoveryCodes,
@@ -255,6 +257,22 @@ describe('recovery codes', () => {
 
     expect(await useRecoveryCode(user.id, old!)).toBe(false)
     expect(await remainingRecoveryCodes(user.id)).toBe(8)
+  })
+
+  it('survive a batch that fails: the delete never lands without its replacements', async () => {
+    const user = await createUser({ email: 'atomic@example.com' })
+    const [held] = await regenerateRecoveryCodes(user.id)
+
+    // A batch shaped like regeneration, with a statement that cannot commit.
+    const [clear, store] = recoveryCodeStatements(user.id, newRecoveryCodes())
+    await expect(db.batch([
+      clear,
+      store,
+      db.insert(schema.mfaRecoveryCodes).values({ userId: 'no-such-user', codeHash: 'x' }),
+    ])).rejects.toThrow()
+
+    expect(await remainingRecoveryCodes(user.id)).toBe(8)
+    expect(await useRecoveryCode(user.id, held!)).toBe(true)
   })
 
   it('belong to one account only', async () => {

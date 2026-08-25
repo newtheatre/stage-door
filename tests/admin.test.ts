@@ -168,6 +168,35 @@ describe('admin user operations', () => {
     expect(users).toHaveLength(0)
   })
 
+  it('admin-create refuses a Workspace address before writing anything (ADR-0012)', async () => {
+    await defineRole('proscenium', 'ADMIN')
+    const { event } = await adminEvent({
+      body: { email: 'president@newtheatre.org.uk', name: 'The President', roles: ['proscenium:ADMIN'] },
+    })
+
+    await expect(adminCreate(event)).rejects.toMatchObject({ statusCode: 403 })
+
+    // No orphan row, no grants it would have carried, no email.
+    const users = await db.select().from(schema.users)
+      .where(eq(schema.users.email, 'president@newtheatre.org.uk')).all()
+    expect(users).toHaveLength(0)
+    expect(await db.select().from(schema.userRoles).all()).toHaveLength(1) // the admin's own
+    expect(sentEmails).toHaveLength(0)
+  })
+
+  it('admin-create refuses duplicate roles rather than failing on the unique index', async () => {
+    await defineRole('rooms', 'ADMIN')
+    const { event } = await adminEvent({
+      body: { email: 'twice@example.com', name: 'Two Ice', roles: ['rooms:ADMIN', 'rooms:ADMIN'] },
+    })
+
+    await expect(adminCreate(event)).rejects.toMatchObject({ statusCode: 400 })
+
+    const users = await db.select().from(schema.users)
+      .where(eq(schema.users.email, 'twice@example.com')).all()
+    expect(users).toHaveLength(0)
+  })
+
   it('pending-google validates domain and uniqueness', async () => {
     const target = await createUser({ email: 'personal@example.com', plainPassword: 'Passw0rd' })
 

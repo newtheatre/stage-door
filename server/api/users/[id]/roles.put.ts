@@ -1,5 +1,6 @@
 import { db, schema } from '@nuxthub/db'
 import { and, eq } from 'drizzle-orm'
+import type { BatchItem } from 'drizzle-orm/batch'
 import { z } from 'zod'
 
 const bodySchema = z.object({
@@ -38,24 +39,22 @@ export default defineEventHandler(async (event) => {
 
   // Removals: anything not in the wanted set (expired rows included: the
   // admin deleting an expired grant removes its history deliberately).
-  for (const row of existing) {
-    if (!wanted.has(row.role)) {
-      await db.delete(schema.userRoles)
-        .where(and(eq(schema.userRoles.userId, user.id), eq(schema.userRoles.role, row.role)))
-    }
-  }
+  const statements: BatchItem<'sqlite'>[] = existing
+    .filter(row => !wanted.has(row.role))
+    .map(row => db.delete(schema.userRoles)
+      .where(and(eq(schema.userRoles.userId, user.id), eq(schema.userRoles.role, row.role))))
 
   for (const grant of roles) {
     const current = existingByRole.get(grant.role)
     if (!current) {
-      await db.insert(schema.userRoles).values({
+      statements.push(db.insert(schema.userRoles).values({
         userId: user.id,
         role: grant.role,
         expiresAt: grant.expiresAt === null ? null : new Date(grant.expiresAt),
         note: grant.note,
         grantedBy: admin.id,
         grantedAt: new Date(),
-      })
+      }))
       continue
     }
 
@@ -64,7 +63,7 @@ export default defineEventHandler(async (event) => {
     const noteChanged = (current.note ?? null) !== grant.note
 
     if (expiryChanged || noteChanged) {
-      await db.update(schema.userRoles)
+      statements.push(db.update(schema.userRoles)
         .set({
           expiresAt: grant.expiresAt === null ? null : new Date(grant.expiresAt),
           note: grant.note,
@@ -74,9 +73,14 @@ export default defineEventHandler(async (event) => {
             ? { grantedBy: admin.id, grantedAt: new Date(), expiryWarnedAt: null }
             : {}),
         })
-        .where(and(eq(schema.userRoles.userId, user.id), eq(schema.userRoles.role, grant.role)))
+        .where(and(eq(schema.userRoles.userId, user.id), eq(schema.userRoles.role, grant.role))))
     }
   }
+
+  // One batch: removals commit before the additions otherwise, so a failure
+  // part-way leaves the holder stripped of what the admin meant to keep.
+  const [first, ...rest] = statements
+  if (first) await db.batch([first, ...rest])
 
   await writeAudit({
     actorUserId: admin.id,
