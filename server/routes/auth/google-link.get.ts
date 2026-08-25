@@ -6,9 +6,6 @@ import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 import type { GoogleProfile } from '../../utils/googleAccount'
 
-/** How recent the login must be for account-linking to proceed. */
-const FRESH_SESSION_MS = 10 * 60_000
-
 export default defineOAuthGoogleEventHandler({
   config: {
     authorizationParams: {

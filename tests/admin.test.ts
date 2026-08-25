@@ -458,6 +458,25 @@ describe('the last auth:ADMIN cannot be removed or dated', () => {
 
     await expect(selfErase(event)).resolves.toBeTruthy()
   })
+
+  it('refuses a stale session, password or no password', async () => {
+    for (const [label, plainPassword] of [['with-password', 'Passw0rd'], ['google-only', undefined]] as const) {
+      const member = await createUser({ email: `stale-${label}@example.com`, plainPassword, verified: true })
+      const event = makeEvent({ body: { confirmEmail: member.email, password: plainPassword } })
+      await (globalThis as never as { setUserSession: (e: unknown, s: unknown) => Promise<unknown> })
+        .setUserSession(event, {
+          user: { id: member.id, email: member.email, name: member.name, verified: true, guest: false, roles: [] },
+          loggedInAt: Date.now() - FRESH_SESSION_MS - 1000,
+          refreshedAt: Date.now(),
+          epoch: 0,
+        })
+
+      await expect(selfErase(event)).rejects.toMatchObject({ statusCode: 401 })
+
+      const still = await db.select().from(schema.users).where(eq(schema.users.id, member.id)).get()
+      expect(still!.email).toBe(member.email)
+    }
+  })
 })
 
 describe('admin routes state whether they may be aimed at yourself', () => {

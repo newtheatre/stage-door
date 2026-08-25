@@ -9,7 +9,7 @@ import { roleSchema, roleGrantSchema, MAX_GRANTS_PER_REQUEST, defaultExpirySchem
 import { TOKEN_EXPIRY, generateVerificationToken, hashLoginToken, createEmailVerificationToken, createPasswordResetToken, createMagicLinkToken } from '../server/utils/tokens'
 import { enforceRateLimit, getClientIP, sweepRateLimits, RATE_LIMITS } from '../server/utils/rateLimit'
 import { verifyPasswordGuarded } from '../server/utils/passwordCheck'
-import { loadRoles, loadRoleGrants, loadEffectiveRolesFor, activeRoleCondition, activeGrantExists, effectiveRoleCondition, eligibilitySatisfiedCondition, sealUserSession, sealLoginSession, reSealSession } from '../server/utils/session'
+import { FRESH_SESSION_MS, loadRoles, loadRoleGrants, loadEffectiveRolesFor, activeRoleCondition, activeGrantExists, effectiveRoleCondition, eligibilitySatisfiedCondition, sealUserSession, sealLoginSession, reSealSession } from '../server/utils/session'
 import { assertGrantsDefined, assertEligibilityModeAllowed, eligibilityModeAllowed } from '../server/utils/roleDefinitions'
 import { ROLES_CONFIG, nextCommitteeYearEnd } from '../server/utils/rolesConfig'
 import { findSuspectGrants, explain } from '../server/utils/grantAudit'
@@ -199,6 +199,7 @@ Object.assign(g, {
   eligibilityModeAllowed,
   ROLES_CONFIG,
   nextCommitteeYearEnd,
+  FRESH_SESSION_MS,
   findSuspectGrants,
   explain,
   sealUserSession,

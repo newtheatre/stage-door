@@ -246,6 +246,10 @@
     >
       <template #body>
         <div class="flex flex-col gap-4">
+          <p class="text-sm text-muted">
+            This needs a recent login. If you signed in more than ten minutes ago,
+            log out and back in first.
+          </p>
           <UFormField
             label="Type your email address to confirm"
             name="confirmEmail"
