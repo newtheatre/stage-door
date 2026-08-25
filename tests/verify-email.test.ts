@@ -3,6 +3,7 @@ import { db, schema } from '@nuxthub/db'
 import { hashLoginToken } from '../server/utils/tokens'
 import { eq } from 'drizzle-orm'
 import verifyHandler from '../server/api/auth/email/verify.post'
+import { RATE_LIMITS } from '../server/utils/rateLimit'
 import { makeEvent, sealedSession, sentEmails } from './setup'
 import { createUser } from './helpers/users'
 
@@ -100,19 +101,42 @@ describe('POST /api/auth/email/verify', () => {
     expect(sealedSession(event)!.user).toMatchObject({ verified: false })
   })
 
-  it('auto-resends on an expired token and reports 400', async () => {
+  it('consumes an expired token, reports 400, and sends nothing', async () => {
     const user = await createUser({ email: 'alice@example.com', plainPassword: 'Passw0rd' })
     const token = await issueToken(user.id, -1000)
 
     await expect(verify(makeEvent({ body: { token } })))
       .rejects.toMatchObject({ statusCode: 400 })
 
-    // Expired token consumed, replacement issued and emailed.
-    expect(sentEmails).toEqual([{ kind: 'verification', to: 'alice@example.com', token: expect.any(String) }])
+    // An unauthenticated caller must not be able to spend the mail budget.
+    expect(sentEmails).toHaveLength(0)
     const records = await db.select().from(schema.emailVerifications)
       .where(eq(schema.emailVerifications.userId, user.id)).all()
-    expect(records).toHaveLength(1)
-    expect(records[0]!.token).not.toBe(hashLoginToken(token))
+    expect(records).toHaveLength(0)
+  })
+
+  it('lets only one of two requests carrying the same token redeem it', async () => {
+    const user = await createUser({ email: 'race@example.com', plainPassword: 'Passw0rd' })
+    const token = await issueToken(user.id)
+
+    const results = await Promise.allSettled([
+      verify(makeEvent({ body: { token } })),
+      verify(makeEvent({ body: { token } })),
+    ])
+
+    expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1)
+    expect(results.filter(r => r.status === 'rejected')).toHaveLength(1)
+  })
+
+  it('counts attempts per IP, so a sweep is visible and bounded', async () => {
+    const ip = '10.9.9.9'
+    for (let i = 0; i < RATE_LIMITS['verify:ip'].limit; i++) {
+      await expect(verify(makeEvent({ body: { token: 'no-such-token' }, headers: { 'cf-connecting-ip': ip } })))
+        .rejects.toMatchObject({ statusCode: 400 })
+    }
+
+    await expect(verify(makeEvent({ body: { token: 'no-such-token' }, headers: { 'cf-connecting-ip': ip } })))
+      .rejects.toMatchObject({ statusCode: 429 })
   })
 
   it('rejects an unknown token', async () => {

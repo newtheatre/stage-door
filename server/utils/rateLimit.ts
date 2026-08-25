@@ -28,6 +28,9 @@ export const RATE_LIMITS = {
   'reset:ip': { limit: 10, windowMs: 60 * 60_000 },
   'verify-request:ip': { limit: 5, windowMs: 60 * 60_000 },
   'verify-request:acct': { limit: 3, windowMs: 60 * 60_000 },
+  // Redeeming a link, not asking for one: the page POSTs on every load, and
+  // most members share one university NAT, so this budget is separate.
+  'verify:ip': { limit: 20, windowMs: 60 * 60_000 },
   // Second-factor attempts. Tight per-account: this is where a stolen
   // password meets a 6-digit code, and recovery codes share the endpoint.
   'magic:ip': { limit: 10, windowMs: 60 * 60_000 },

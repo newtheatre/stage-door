@@ -54,8 +54,8 @@ Self-service "Connect NNT Google account" from `/account`: the OAuth flow bound 
 ### `POST /api/auth/email/request`: live session [RL]
 Resend verification email. Enumeration-safe.
 
-### `POST /api/auth/email/verify`: public
-`{ token }` → sets `email_verified`, consumes token, refreshes the session only if it belongs to the caller **and is still live** (not disabled, epoch current). An id match alone would re-stamp the current epoch onto a cookie `force-logout` had revoked.
+### `POST /api/auth/email/verify`: public [RL]
+`{ token }` → sets `email_verified`, refreshes the session only if it belongs to the caller **and is still live** (not disabled, epoch current). An id match alone would re-stamp the current epoch onto a cookie `force-logout` had revoked. **Claims the token by deleting it first**, valid or not, like the reset and magic-link routes: without that, requests carrying one token all pass the expiry check together. An expired token is consumed and 400s, and **no mail is sent**: a new link comes from `POST /api/auth/email/request`, which is limited per account, so nothing unauthenticated can spend the mail budget. `verify:ip` is a budget of its own (20/hour) rather than the resend one: `/verify-email` POSTs from `onMounted`, so a refresh, a back-navigation or a mail scanner is another request, and most members share one university NAT.
 
 ### `POST /api/auth/password/forgot`: public [RL]
 `{ email }` → always `{ ok: true }`. Sends reset email iff the account exists (shadow accounts included: this is the account-claiming path advertised in booking confirmations).

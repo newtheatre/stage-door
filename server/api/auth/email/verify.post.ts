@@ -6,12 +6,19 @@ const bodySchema = z.object({
   token: z.string().min(1, 'Verification token is required'),
 })
 
+const TOKEN_INVALID = {
+  statusCode: 400,
+  statusMessage: 'Invalid or expired verification token',
+} as const
+
 /**
- * Verify an email address with a token. Single-use; an expired token triggers
- * an automatic resend.
+ * Verify an email address with a token. Single-use, and sends no mail: a new
+ * link comes from POST /api/auth/email/request, which is limited per account.
  */
 export default defineEventHandler(async (event) => {
   const { token } = await readValidatedBody(event, bodySchema.parse)
+
+  await enforceRateLimit('verify:ip', getClientIP(event))
 
   const verification = await db.select()
     .from(schema.emailVerifications)
@@ -19,24 +26,23 @@ export default defineEventHandler(async (event) => {
     .get()
 
   if (!verification) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Invalid or expired verification token',
-    })
+    throw createError(TOKEN_INVALID)
+  }
+
+  // The delete is the claim, valid or not: whoever removes the row owns it, so
+  // two racing requests cannot both redeem one token.
+  const [claimed] = await db.delete(schema.emailVerifications)
+    .where(eq(schema.emailVerifications.id, verification.id))
+    .returning({ id: schema.emailVerifications.id })
+
+  if (!claimed) {
+    throw createError(TOKEN_INVALID)
   }
 
   if (verification.expiresAt.getTime() < Date.now()) {
-    await db.delete(schema.emailVerifications).where(eq(schema.emailVerifications.id, verification.id))
-
-    const user = await db.select().from(schema.users).where(eq(schema.users.id, verification.userId)).get()
-    if (user && !user.verified && !user.disabled) {
-      const newToken = await createEmailVerificationToken(user.id)
-      await sendVerificationEmail(user.email, newToken)
-    }
-
     throw createError({
       statusCode: 400,
-      statusMessage: 'Verification token has expired. A new one has been sent to your email.',
+      statusMessage: 'That verification link has expired: request a new one.',
     })
   }
 
@@ -48,8 +54,6 @@ export default defineEventHandler(async (event) => {
         .set({ verified: true })
         .where(eq(schema.users.id, user.id))
         .returning()
-
-  await db.delete(schema.emailVerifications).where(eq(schema.emailVerifications.id, verification.id))
 
   // Re-seal the caller's session with the fresh flag (single-writer rule:
   // this service is the only place that may do this).
