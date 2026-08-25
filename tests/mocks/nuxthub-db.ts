@@ -42,10 +42,24 @@ type Statement = { execute: () => unknown }
 
 export const db = drizzle(sqlite, { schema })
 
-// D1 wraps a batch in an implicit transaction; the bun-sqlite driver has no
-// batch at all, so run the statements inside one here (server/utils/erase.ts).
-const runBatch = sqlite.transaction((statements: Statement[]) => statements.map(s => s.execute()))
-Object.assign(db, { batch: async (statements: Statement[]) => runBatch(statements) })
+/**
+ * D1 runs a batch in order inside one transaction and returns each result. The
+ * bun-sqlite driver has no batch, and a delete's execute() settles late.
+ */
+async function runBatch(statements: Statement[]): Promise<unknown[]> {
+  sqlite.exec('BEGIN')
+  try {
+    const results: unknown[] = []
+    for (const statement of statements) results.push(await statement.execute())
+    sqlite.exec('COMMIT')
+    return results
+  }
+  catch (error) {
+    sqlite.exec('ROLLBACK')
+    throw error
+  }
+}
+Object.assign(db, { batch: runBatch })
 
 /** Wipe all rows between tests (schema stays). */
 export function resetDb(): void {

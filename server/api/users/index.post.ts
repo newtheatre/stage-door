@@ -1,5 +1,6 @@
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
+import { nanoid } from 'nanoid'
 import { z } from 'zod'
 
 const bodySchema = z.object({
@@ -21,32 +22,35 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 409, statusMessage: 'A user with this email already exists' })
   }
 
+  // Every refusal belongs above the first write: this route mints a
+  // set-password token, so the ADR-0012 rule applies to it.
+  assertPasswordAllowed(email)
+
+  if (new Set(roles.map(g => g.role)).size !== roles.length) {
+    throw createError({ statusCode: 400, statusMessage: 'Duplicate roles in request' })
+  }
+
   // A new user holds nothing, so every requested grant must be defined.
   await assertGrantsDefined(roles, new Set())
 
-  const [user] = await db.insert(schema.users).values({
-    email,
-    name,
-    password: null,
-    verified: false,
-  }).returning()
-
-  if (!user) {
-    throw createError({ statusCode: 500, statusMessage: 'Failed to create user' })
-  }
-
-  for (const grant of roles) {
-    await db.insert(schema.userRoles).values({
-      userId: user.id,
+  // The id is generated here rather than read back, so the row and its grants
+  // are one batch: a user with half their roles and no audit entry is worse.
+  const id = nanoid()
+  const [[user]] = await db.batch([
+    db.insert(schema.users).values({ id, email, name, password: null, verified: false }).returning(),
+    ...roles.map(grant => db.insert(schema.userRoles).values({
+      userId: id,
       role: grant.role,
       expiresAt: grant.expiresAt === null ? null : new Date(grant.expiresAt),
       note: grant.note,
       grantedBy: admin.id,
       grantedAt: new Date(),
-    })
-  }
+    })),
+  ])
 
-  assertPasswordAllowed(user.email)
+  if (!user) {
+    throw createError({ statusCode: 500, statusMessage: 'Failed to create user' })
+  }
 
   const token = await createPasswordResetToken(user.id, TOKEN_EXPIRY.ADMIN_PASSWORD_RESET)
   await sendPasswordResetEmail(user.email, token)

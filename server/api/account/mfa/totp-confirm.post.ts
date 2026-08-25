@@ -30,18 +30,22 @@ export default defineEventHandler(async (event) => {
 
   const firstEnrolment = secret.confirmedAt === null
 
-  await db.update(schema.totpSecrets)
-    .set({ confirmedAt: new Date(), lastUsedStep: result.step })
-    .where(eq(schema.totpSecrets.userId, user.id))
-
   const recoveryCodes = firstEnrolment && await remainingRecoveryCodes(user.id) === 0
-    ? await regenerateRecoveryCodes(user.id)
+    ? newRecoveryCodes()
     : null
 
-  const [updated] = await db.update(schema.users)
-    .set({ sessionEpoch: sql`${schema.users.sessionEpoch} + 1` })
-    .where(eq(schema.users.id, user.id))
-    .returning()
+  // One batch: a half-landed confirmation would arm the factor with codes
+  // nobody has seen, and firstEnrolment is then false so no retry re-issues.
+  const [[updated]] = await db.batch([
+    db.update(schema.users)
+      .set({ sessionEpoch: sql`${schema.users.sessionEpoch} + 1` })
+      .where(eq(schema.users.id, user.id))
+      .returning(),
+    db.update(schema.totpSecrets)
+      .set({ confirmedAt: new Date(), lastUsedStep: result.step })
+      .where(eq(schema.totpSecrets.userId, user.id)),
+    ...(recoveryCodes ? recoveryCodeStatements(user.id, recoveryCodes) : []),
+  ])
 
   // Keep this session alive; only the others die.
   await reSealSession(event, updated!, loggedInAt)

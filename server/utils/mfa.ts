@@ -156,17 +156,32 @@ function generateRecoveryCode(): string {
   return `${chars.slice(0, 4)}-${chars.slice(4, 8)}-${chars.slice(8, 12)}`
 }
 
+/** A fresh set in plaintext. Store them only via recoveryCodeStatements. */
+export function newRecoveryCodes(): string[] {
+  return Array.from({ length: RECOVERY_CODE_COUNT }, generateRecoveryCode)
+}
+
+/**
+ * Replace the stored set, for a caller's own batch. One multi-row insert, so
+ * the bound parameters do not grow past RECOVERY_CODE_COUNT * 2.
+ */
+export function recoveryCodeStatements(userId: string, codes: string[]) {
+  return [
+    db.delete(schema.mfaRecoveryCodes).where(eq(schema.mfaRecoveryCodes.userId, userId)),
+    db.insert(schema.mfaRecoveryCodes).values(codes.map(code => ({ userId, codeHash: hashRecoveryCode(code) }))),
+  ] as const
+}
+
 /**
  * Plaintext returned once, never stored. SHA-256 rather than scrypt: these
  * are high-entropy, and 8 verifications per attempt would be costly.
  */
 export async function regenerateRecoveryCodes(userId: string): Promise<string[]> {
-  await db.delete(schema.mfaRecoveryCodes).where(eq(schema.mfaRecoveryCodes.userId, userId))
-
-  const codes = Array.from({ length: RECOVERY_CODE_COUNT }, generateRecoveryCode)
-  for (const code of codes) {
-    await db.insert(schema.mfaRecoveryCodes).values({ userId, codeHash: hashRecoveryCode(code) })
-  }
+  const codes = newRecoveryCodes()
+  // The delete destroys codes the member is holding, so it must not land
+  // without the replacements.
+  const [clear, store] = recoveryCodeStatements(userId, codes)
+  await db.batch([clear, store])
   return codes
 }
 

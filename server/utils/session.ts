@@ -11,6 +11,12 @@ import { and, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm'
 type UserRow = typeof schema.users.$inferSelect
 
 /**
+ * How recent the login must be for an irreversible or credential-changing act.
+ * One number so linking Google and closing an account cannot drift apart.
+ */
+export const FRESH_SESSION_MS = 10 * 60_000
+
+/**
  * A grant is active when unexpired (ADR-0011). Reused everywhere roles gate
  * behaviour.
  */

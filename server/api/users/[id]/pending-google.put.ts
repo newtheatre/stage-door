@@ -14,6 +14,7 @@ const bodySchema = z.object({
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)
   const user = await loadUserOr404(getRouterParam(event, 'id'))
+  assertNotAnonymised(user)
   const { email } = await readValidatedBody(event, bodySchema.parse)
 
   if (email !== null) {

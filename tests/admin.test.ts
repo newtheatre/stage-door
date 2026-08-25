@@ -168,6 +168,35 @@ describe('admin user operations', () => {
     expect(users).toHaveLength(0)
   })
 
+  it('admin-create refuses a Workspace address before writing anything (ADR-0012)', async () => {
+    await defineRole('proscenium', 'ADMIN')
+    const { event } = await adminEvent({
+      body: { email: 'president@newtheatre.org.uk', name: 'The President', roles: ['proscenium:ADMIN'] },
+    })
+
+    await expect(adminCreate(event)).rejects.toMatchObject({ statusCode: 403 })
+
+    // No orphan row, no grants it would have carried, no email.
+    const users = await db.select().from(schema.users)
+      .where(eq(schema.users.email, 'president@newtheatre.org.uk')).all()
+    expect(users).toHaveLength(0)
+    expect(await db.select().from(schema.userRoles).all()).toHaveLength(1) // the admin's own
+    expect(sentEmails).toHaveLength(0)
+  })
+
+  it('admin-create refuses duplicate roles rather than failing on the unique index', async () => {
+    await defineRole('rooms', 'ADMIN')
+    const { event } = await adminEvent({
+      body: { email: 'twice@example.com', name: 'Two Ice', roles: ['rooms:ADMIN', 'rooms:ADMIN'] },
+    })
+
+    await expect(adminCreate(event)).rejects.toMatchObject({ statusCode: 400 })
+
+    const users = await db.select().from(schema.users)
+      .where(eq(schema.users.email, 'twice@example.com')).all()
+    expect(users).toHaveLength(0)
+  })
+
   it('pending-google validates domain and uniqueness', async () => {
     const target = await createUser({ email: 'personal@example.com', plainPassword: 'Passw0rd' })
 
@@ -272,6 +301,34 @@ describe('an erased account cannot be written back over', () => {
 
     await expect(adminResetPassword(event)).rejects.toMatchObject({ statusCode: 400 })
     expect(sentEmails).toHaveLength(0)
+  })
+
+  it('refuses to grant it roles, notes and all', async () => {
+    const target = await erasedUser()
+    await defineRole('rooms', 'ADMIN')
+    const { event } = await adminEvent({
+      params: { id: target.id },
+      body: { roles: [{ role: 'rooms:ADMIN', expiresAt: null, note: 'Reinstated by request' }] },
+    })
+
+    await expect(putRoles(event)).rejects.toMatchObject({ statusCode: 400 })
+
+    const granted = await db.select().from(schema.userRoles)
+      .where(eq(schema.userRoles.userId, target.id)).all()
+    expect(granted).toHaveLength(0)
+  })
+
+  it('refuses to point a real address at it as a pending Google link', async () => {
+    const target = await erasedUser()
+    const { event } = await adminEvent({
+      params: { id: target.id },
+      body: { email: 'alice@newtheatre.org.uk' },
+    })
+
+    await expect(putPendingGoogle(event)).rejects.toMatchObject({ statusCode: 400 })
+
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, target.id)).get()
+    expect(row!.pendingGoogleEmail).toBeNull()
   })
 })
 
@@ -400,6 +457,25 @@ describe('the last auth:ADMIN cannot be removed or dated', () => {
       })
 
     await expect(selfErase(event)).resolves.toBeTruthy()
+  })
+
+  it('refuses a stale session, password or no password', async () => {
+    for (const [label, plainPassword] of [['with-password', 'Passw0rd'], ['google-only', undefined]] as const) {
+      const member = await createUser({ email: `stale-${label}@example.com`, plainPassword, verified: true })
+      const event = makeEvent({ body: { confirmEmail: member.email, password: plainPassword } })
+      await (globalThis as never as { setUserSession: (e: unknown, s: unknown) => Promise<unknown> })
+        .setUserSession(event, {
+          user: { id: member.id, email: member.email, name: member.name, verified: true, guest: false, roles: [] },
+          loggedInAt: Date.now() - FRESH_SESSION_MS - 1000,
+          refreshedAt: Date.now(),
+          epoch: 0,
+        })
+
+      await expect(selfErase(event)).rejects.toMatchObject({ statusCode: 401 })
+
+      const still = await db.select().from(schema.users).where(eq(schema.users.id, member.id)).get()
+      expect(still!.email).toBe(member.email)
+    }
   })
 })
 

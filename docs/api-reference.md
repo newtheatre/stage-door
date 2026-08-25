@@ -24,6 +24,13 @@ Three auth levels:
 ### `POST /api/webauthn/register`: session [AUD]
 Two-leg passkey enrolment (nuxt-auth-utils' route shape): `{ user: { userName, label? }, verify: false }` returns `{ creationOptions, attemptId }`; `{ …, verify: true, attemptId, response }` verifies and stores the credential. The account is always taken from the session, never from the body. Requires a discoverable credential with user verification (PIN/biometric): a presence-only tap is refused. Enrolling a first factor bumps `session_epoch` and re-seals the caller's session.
 
+**Unlike TOTP confirmation, this route mints no recovery codes.** The module discards whatever
+`onSuccess` returns and answers with the verification result, so a code minted here could never be
+shown, and a code the member never sees is worse than none. `/account` therefore chains straight
+into `POST /api/account/mfa/recovery-codes` after a first passkey. A non-browser caller that enrols
+a passkey and does not call it holds no recovery codes; `GET /api/account/mfa` says so, and the
+account page offers the button.
+
 ### `POST /api/webauthn/authenticate`: public [RL]
 Same two legs, no `userName`: passkey sign-in is usernameless, so nothing here reveals whether an address has a passkey. On success it seals a full login session: a passkey with user verification is possession plus a factor already, and is phishing-resistant, so it is not treated as a second step after a password.
 
@@ -49,21 +56,21 @@ Clears the session cookie (domain-wide), returns `{ ok: true }` whether or not a
 Google OAuth via `defineOAuthGoogleEventHandler`. The redirect target rides the round-trip in the OAuth `state` query param (`/auth/google?state=<url>`, validated against the allowlist on return, the login page builds this link). Success handler asserts `hd === 'newtheatre.org.uk'` and `email_verified === true` server-side; on failure 302s to the "not an NNT Google account" page (no session). Disabled accounts get the same rejection page, and **nothing is written for one**: identity resolution commits no `google_sub`, consumes no `pending_google_email` and flips no `email_verified` unless the account is eligible, so a rejected sign-in leaves no trace. Match precedence: existing `google_sub` → account with matching `pending_google_email` (attach + clear it, audit-logged) → lowercased email match (including shadow accounts, claiming them; sets `email_verified` since Google verified that exact address) → create a new verified user. The Google address is **not** written to `users.email` when attaching to an existing account, the person keeps their password-login address unless they change it themselves.
 
 ### `GET /auth/google-link`: session (browser redirect flow) [AUD]
-Self-service "Connect NNT Google account" from `/account`: the OAuth flow bound to the **current session's user**; on success stores `google_sub` on that account regardless of the Google address (hd check still applies). Sensitive operation: requires a **live** session (account exists, not disabled, session epoch current, else the cookie is cleared and it 302s to login) that is also **fresh** (login within the last 10 minutes; otherwise 302 back to `/account?error=stale-session`). Both are checked before anything is written, so a revoked cookie cannot attach an identity. Refuses if the Google identity is already linked to another account (that's a merge situation, not a link).
+Self-service "Connect NNT Google account" from `/account`: the OAuth flow bound to the **current session's user**; on success stores `google_sub` on that account regardless of the Google address (hd check still applies). Sensitive operation: requires a **live** session (account exists, not disabled, session epoch current, else the cookie is cleared and it 302s to login) that is also **fresh** (login within the last `FRESH_SESSION_MS`, 10 minutes; otherwise 302 back to `/account?error=stale-session`). Both are checked before anything is written, so a revoked cookie cannot attach an identity. Refuses if the Google identity is already linked to another account (that's a merge situation, not a link).
 
 ### `POST /api/auth/email/request`: live session [RL]
 Resend verification email. Enumeration-safe.
 
-### `POST /api/auth/email/verify`: public
-`{ token }` → sets `email_verified`, consumes token, refreshes the session only if it belongs to the caller **and is still live** (not disabled, epoch current). An id match alone would re-stamp the current epoch onto a cookie `force-logout` had revoked.
+### `POST /api/auth/email/verify`: public [RL]
+`{ token }` → sets `email_verified`, refreshes the session only if it belongs to the caller **and is still live** (not disabled, epoch current). An id match alone would re-stamp the current epoch onto a cookie `force-logout` had revoked. **Claims the token by deleting it first**, valid or not, like the reset and magic-link routes: without that, requests carrying one token all pass the expiry check together. An expired token is consumed and 400s, and **no mail is sent**: a new link comes from `POST /api/auth/email/request`, which is limited per account, so nothing unauthenticated can spend the mail budget. `verify:ip` is a budget of its own (20/hour) rather than the resend one: `/verify-email` POSTs from `onMounted`, so a refresh, a back-navigation or a mail scanner is another request, and most members share one university NAT.
 
 ### `POST /api/auth/password/forgot`: public [RL]
 `{ email }` → always `{ ok: true }`. Sends reset email iff the account exists (shadow accounts included: this is the account-claiming path advertised in booking confirmations).
 
-### `POST /api/auth/password/reset`: public [RL]
+### `POST /api/auth/password/reset`: public [RL] [AUD]
 Refuses a Workspace address with 403 (`assertPasswordAllowed`, ADR-0012), as do `PUT /api/account/password`, `POST /api/users/:id/reset-password` and `POST /api/users`. The rule lives at the write boundary: the login-side checks alone could not stop an admin-minted token from restoring a password.
 
-`{ token, password }` → **claims the token by deleting it first**, valid or not, so two requests carrying one token cannot both redeem it ([security.md](security.md) §single-use); then sets password, bumps `session_epoch` (invalidate old sessions), then **the same MFA seam as login** (ADR-0013): no factors → seals a fresh session, `{ ok: true }`; enrolled → `{ mfaRequired, attemptId, methods }` and no session: the password changed but the factor still gates. Mailbox control alone no longer logs in an enrolled account.
+`{ token, password }` → **claims the token by deleting it first**, valid or not, so two requests carrying one token cannot both redeem it ([security.md](security.md) §single-use); then sets password, bumps `session_epoch` (invalidate old sessions), then **the same MFA seam as login** (ADR-0013): no factors → seals a fresh session, `{ ok: true }`; enrolled → `{ mfaRequired, attemptId, methods }` and no session: the password changed but the factor still gates. Mailbox control alone no longer logs in an enrolled account. Writes `user.password-changed` with `detail: { via: 'reset-token' }`, matching the self-service change, and writes it above the disabled-account refusal because the password write lands either way.
 
 ## Session maintenance
 
@@ -80,7 +87,7 @@ All require session + `auth:ADMIN` unless noted. All mutations **[AUD]** (enforc
 | `POST /api/users` | Create user `{ email, name, roles? }` → sends **set-password email** (no generated passwords in responses: deliberate change from rooms's old flow) |
 | `GET /api/users/:id` | Profile incl. roles, linked Google, `last_login`, legacy ids, and `mfa` (required? which factors, passkey count, recovery codes left: never a secret) |
 | `PUT /api/users/:id` | Update `name` / `email` (re-verification triggered on email change). Refuses an `@newtheatre.org.uk` target address with a 403: those are claimed by signing in with Google, never by an admin typing one here (ADR-0012) |
-| `PUT /api/users/:id/roles` | Refuses to remove the last **usable** `auth:ADMIN` grant, or to give it an expiry when it is the only one (`requireAuthAdmin` re-reads roles per request, so losing it closes every admin route including this one, with no in-app recovery). Usable means unexpired **and** held by an account that is not disabled: disable leaves the grant row behind, and a holder nobody can sign in as is not a fallback. Replace grant set `{ roles: Array<string \| { role, expiresAt?: epoch-ms\|null, note? }> }`: bare strings = permanent grants (back-compat). Applied as a diff: unchanged grants keep provenance; a changed expiry clears the warning flag (renewal re-arms it). Duplicates 400. **New grants must match a role definition** (400 naming the role, ADR-0014); roles the user already holds are exempt, so definition-less history (`ticketing:*`) stays editable. At most 100 grants per request: each costs its own D1 statement, so an uncapped array would turn body size into subrequests |
+| `PUT /api/users/:id/roles` | Refuses to remove the last **usable** `auth:ADMIN` grant, or to give it an expiry when it is the only one (`requireAuthAdmin` re-reads roles per request, so losing it closes every admin route including this one, with no in-app recovery). Usable means unexpired **and** held by an account that is not disabled: disable leaves the grant row behind, and a holder nobody can sign in as is not a fallback. Replace grant set `{ roles: Array<string \| { role, expiresAt?: epoch-ms\|null, note? }> }`: bare strings = permanent grants (back-compat). Applied as a diff in one `db.batch`, so a failure part-way leaves the grant set exactly as it was: unchanged grants keep provenance; a changed expiry clears the warning flag (renewal re-arms it). Duplicates 400. **New grants must match a role definition** (400 naming the role, ADR-0014); roles the user already holds are exempt, so definition-less history (`ticketing:*`) stays editable. At most 100 grants per request: the diff is one batch, so an uncapped array would turn body size into batch size |
 | `POST /api/users/:id/reset-password` | Admin-initiated reset (24 h token, emailed; cannot target self) |
 | `POST /api/users/:id/force-logout` | Bumps `session_epoch` |
 | `POST /api/users/:id/disable` / `enable` | Disabled users can't log in and fail refresh |
@@ -90,9 +97,11 @@ All require session + `auth:ADMIN` unless noted. All mutations **[AUD]** (enforc
 | `POST /api/users/:id/clear-password` | Null the password so the account can only use Google (ADR-0012). Refuses unless Google is linked: clearing first would lock the account out. Bumps `session_epoch` |
 | `PUT /api/users/:id/pending-google` | Set/clear `pending_google_email`: admin-directed link: the next Google sign-in with that address attaches to this account. Validated `@newtheatre.org.uk`; refuses addresses already linked or pending elsewhere |
 | `GET /api/users/:id/export` | Subject-access bundle: auth record + each app's hook contribution ([gdpr-retention.md](gdpr-retention.md)) |
-| `POST /api/users/:id/erase` | Anonymise everywhere (auth + app hooks + epoch bump). Requires `{ confirmEmail }` matching the account; cannot target self; returns per-hook status and is idempotent: re-POST to retry failed hooks. Also self-service from `/account` (password-confirmed). |
+| `POST /api/users/:id/erase` | Anonymise everywhere (auth + app hooks + epoch bump). Requires `{ confirmEmail }` matching the account; cannot target self; returns per-hook status and is idempotent: re-POST to retry failed hooks. Also self-service from `/account`. |
 | `GET /api/eligibility-syncs` | Eligibility rule sync status: `{ syncs: [{ ruleKey, lastAttemptAt, lastSuccessAt, userCount, lastError, stale }] }`, one row per rule a role definition references. `stale` means never answered, or last answered over a day ago, which is what the Role definitions banner shows ([ADR-0019](decisions/0019-training-conditional-grants.md)) |
 | `GET /api/audit?actor=&action=&page=` | Audit log query |
+
+An erased account is refused with a 400 by every route that would write identity, roles or a pending Google link back onto it: `PUT /api/users/:id`, `PUT /api/users/:id/roles`, `PUT /api/users/:id/pending-google`, `POST /api/users/:id/eligibility-override`, `POST /api/users/:id/enable` and `POST /api/users/:id/reset-password` ([gdpr-retention.md](gdpr-retention.md)).
 
 Self-service (session, own account only: all verify the account live: exists, not disabled, epoch current):
 
@@ -106,9 +115,9 @@ Self-service (session, own account only: all verify the account live: exists, no
 | `POST /api/account/mfa/totp` | Begin TOTP enrolment → `{ secret, uri }`. Nothing gates a login until it's confirmed, so an abandoned setup can't lock anyone out |
 | `POST /api/account/mfa/totp-confirm` **[AUD]** | `{ code }` proves the app works and arms it. First enrolment returns `{ recoveryCodes }` **once**, bumps epoch, re-seals this session |
 | `POST /api/account/mfa/recovery-codes` **[AUD]** | Regenerate the eight codes; returns them once and invalidates the old set |
-| `DELETE /api/account/mfa/:id` **[AUD]** | Remove a passkey (row id) or the literal `totp`. Refuses to remove your last factor (counted in credentials, so a second passkey is enough) while MFA is required of the account |
+| `DELETE /api/account/mfa/:id` **[AUD]** | Remove a passkey (row id) or the literal `totp`. Refuses to remove your last factor (counted in credentials, so a second passkey is enough) while MFA is required of the account. Removing the last factor deletes the recovery codes with it, in the same batch: they are a factor, and leaving them live means a set the member may no longer hold comes back the moment anything is re-enrolled |
 | `GET /api/account/export` | Own subject-access bundle (JSON download) |
-| `POST /api/account/erase` **[AUD]** | Close own account: `{ confirmEmail, password? }`: irreversible anonymisation everywhere, session cleared |
+| `POST /api/account/erase` **[AUD]** | Close own account: `{ confirmEmail, password? }`: irreversible anonymisation everywhere, session cleared. Requires a **fresh** session (login within the last 10 minutes, `FRESH_SESSION_MS`, the same gate `GET /auth/google-link` uses) and, where the account holds a password, that password. A Google-only account has no password to ask for, so freshness is the whole barrier: logging in again means a Google re-auth, which carries Workspace 2SV. Returns the same per-hook status as the admin route; `/account` shows the member which sites have not confirmed rather than reporting success, because they cannot retry it themselves once their own row is scrubbed (the nightly sweep re-drives it) |
 
 ## Service-token administration
 
@@ -118,7 +127,7 @@ Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/service-tokens` (names + 
 
 ## Role definitions (ADR-0011)
 
-Session + `auth:ADMIN`: `GET /api/role-definitions` only (each with computed `defaultExpiresAt`, what a grant made now would default to, and `holders`, the count of active grants on real accounts, matching what `GET /api/users?role=` lists).
+Session + `auth:ADMIN`: `GET /api/role-definitions` only (each with computed `defaultExpiresAt`, what a grant made now would default to, `holders`, the count of active grants on real accounts, matching what `GET /api/users?role=` lists, and `requiresEligibilityKey`/`eligibilityMode`, so the page can say which roles carry a training prerequisite and which of those actually bite).
 
 **There are no write routes** ([ADR-0024](decisions/0024-role-definitions-come-only-from-manifests.md)): a definition comes from its app's manifest, so adding or changing a role is a deploy of the app that owns it. This service declares its own `auth:*` roles the same way, at `GET /api/_hooks/auth/manifest`, and the sync reads that one in-process rather than fetching itself. `ticketing:*` remains frozen `source: 'manual'` history ([ADR-0010](decisions/0010-legacy-roles-dormant-namespace.md)); nothing can create another.
 
@@ -126,7 +135,7 @@ The daily `roles:expiry-warn` task emails holders 14 days before a grant lapses 
 
 ## App registry (ADR-0017)
 
-Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/apps` (each with `hasToken`, false where no `service_tokens` row shares the name: such an app cannot be called at all), `POST /api/apps { name, namespace, displayName, baseUrl, hooksEnabled }` (409 on a duplicate name or namespace; links an already-issued token of the same name), `PUT /api/apps/:id { displayName, baseUrl, hooksEnabled }` (name and namespace immutable), `DELETE /api/apps/:id` (**revokes the app's service tokens**, then removes the row: `requireServiceToken` never consults `app_id`, so an orphaned token would keep authenticating a decommissioned app inbound).
+Session + `auth:ADMIN`, mutations **[AUD]**: `GET /api/apps` (each with `hasToken`, false where no `service_tokens` row shares the name: such an app cannot be called at all), `POST /api/apps { name, namespace, displayName, baseUrl, hooksEnabled }` (409 on a duplicate name or namespace; links an already-issued token of the same name), `PUT /api/apps/:id { displayName, baseUrl, hooksEnabled }` (name and namespace immutable), `DELETE /api/apps/:id` (**withdraws every live role definition in the app's namespace and revokes the app's service tokens**, then removes the row, all in one batch: `role_definitions.app_id` has no foreign key to cascade, so a surviving definition would leave a dead role grantable and invisible to the suspect-grant report, and `requireServiceToken` never consults `app_id`, so an orphaned token would keep authenticating a decommissioned app inbound). Grants are untouched, as at any other withdrawal.
 
 `baseUrl` must be https, with no trailing slash. `http://localhost:PORT` is accepted **in development builds only**, and the pattern is anchored, so lookalikes such as `http://localhost.attacker.example` are rejected: hooks and manifest fetches send the app's bearer token to this origin, so a plaintext one in production would hand that token over in the clear. Registering an app needs no deploy of this service.
 

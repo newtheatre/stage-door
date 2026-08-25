@@ -62,8 +62,8 @@ export function defaultExpiryColumns(expiry: z.infer<typeof defaultExpirySchema>
 }
 
 /**
- * Each grant costs its own D1 statement, so an uncapped array turns request
- * size into subrequests. Generous: nobody holds this many roles.
+ * The diff is applied as one D1 batch, so an uncapped array turns request size
+ * into batch size. Generous: nobody holds this many roles.
  */
 export const MAX_GRANTS_PER_REQUEST = 100
 

@@ -35,6 +35,17 @@ export function endOfLondonDay(year: number, month: number, day: number): Date {
   return new Date(naive - (local.getTime() - utc.getTime()))
 }
 
+/**
+ * The London calendar day a moment falls on. A date picker must round-trip
+ * through this, not getUTCDate, or a BST expiry reads back a day out.
+ */
+export function londonDay(value: number | string | Date): { year: number, month: number, day: number } {
+  const [year, month, day] = new Date(value)
+    .toLocaleDateString('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' })
+    .split('-').map(Number)
+  return { year: year!, month: month!, day: day! }
+}
+
 /** Date and time, for audit trails and last-seen stamps. */
 export function formatDateTime(value: number | string | Date): string {
   return new Date(value).toLocaleString('en-GB', {

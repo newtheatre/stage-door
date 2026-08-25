@@ -30,6 +30,22 @@
             expired {{ formatDate(row.expiresAt!) }}
           </UBadge>
           <UBadge
+            v-if="row.inert && row.status !== 'removed'"
+            color="warning"
+            variant="outline"
+            size="sm"
+          >
+            inert: training
+          </UBadge>
+          <UBadge
+            v-if="row.overrideUntil && row.status !== 'removed'"
+            color="info"
+            variant="outline"
+            size="sm"
+          >
+            override to {{ formatDate(row.overrideUntil) }}
+          </UBadge>
+          <UBadge
             v-if="statusChip(row)"
             :color="row.status === 'removed' ? 'error' : 'success'"
             variant="soft"
@@ -124,6 +140,44 @@
           </UFormField>
         </div>
 
+        <!-- ADR-0019: held, unexpired and conferring nothing until the
+             holder qualifies again, or an override lifts it. -->
+        <div
+          v-if="showsOverride(row)"
+          class="flex flex-wrap items-center gap-2 text-xs"
+        >
+          <span class="text-muted">
+            {{ row.inert
+              ? 'This grant confers nothing: their training record does not meet its prerequisite.'
+              : 'Its training prerequisite is lifted for now.' }}
+          </span>
+          <template v-if="dirty">
+            <span class="text-muted">Save or discard your changes to adjust the override.</span>
+          </template>
+          <template v-else>
+            <UButton
+              variant="link"
+              size="xs"
+              class="p-0"
+              :loading="overriding === row.role"
+              @click="setOverride(row.role, OVERRIDE_DAYS)"
+            >
+              {{ row.overrideUntil ? 'Extend' : 'Lift' }} for {{ OVERRIDE_DAYS }} days
+            </UButton>
+            <UButton
+              v-if="row.overrideUntil"
+              variant="link"
+              color="neutral"
+              size="xs"
+              class="p-0"
+              :loading="overriding === row.role"
+              @click="setOverride(row.role, null)"
+            >
+              Clear override
+            </UButton>
+          </template>
+        </div>
+
         <p
           v-if="row.grantedAt"
           class="text-xs text-muted"
@@ -199,6 +253,8 @@ interface ServerGrant {
   grantedBy: string | null
   note: string | null
   expired: boolean
+  inert: boolean
+  overrideUntil: number | null
 }
 
 const props = defineProps<{
@@ -216,6 +272,8 @@ interface Row {
   // Empty, not null: the input binds to it and the save maps '' back to null.
   note: string
   expired: boolean
+  inert: boolean
+  overrideUntil: number | null
   grantedAt: number | null
   status: 'unchanged' | 'added' | 'edited' | 'removed'
 }
@@ -228,6 +286,8 @@ function reset() {
     expiresAt: g.expiresAt,
     note: g.note ?? '',
     expired: g.expired,
+    inert: g.inert,
+    overrideUntil: g.overrideUntil,
     grantedAt: g.grantedAt,
     status: 'unchanged',
   }))
@@ -290,29 +350,30 @@ function expiryKind(row: Row): string {
   return 'custom'
 }
 
+const today = todayIn(getLocalTimeZone())
+
 function setExpiryKind(index: number, kind: string) {
   const row = rows.value[index]!
   if (kind === 'permanent') row.expiresAt = null
   else if (kind === 'committee-year') row.expiresAt = committeeYearEnd.value
   // 'custom': seed with something editable so the date field appears.
   else if (row.expiresAt === null || row.expiresAt === committeeYearEnd.value) {
-    row.expiresAt = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + 30, 23, 59, 59, 999)
+    const seed = today.add({ days: 30 })
+    row.expiresAt = endOfLondonDay(seed.year, seed.month, seed.day).getTime()
   }
 }
 
-const today = todayIn(getLocalTimeZone())
-
-// CalendarDate ⇄ epoch ms (expiries land at 23:59:59.999 UTC on the chosen
-// day, same instant the server's committee-year default uses).
+// CalendarDate ⇄ epoch ms, through the London day at both ends: 31 July is
+// inside BST, so Date.UTC and getUTCDate are each a day out for seven months.
 function toCalendarDate(expiresAt: number | null): CalendarDate | undefined {
   if (expiresAt === null) return undefined
-  const date = new Date(expiresAt)
-  return new CalendarDate(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate())
+  const { year, month, day } = londonDay(expiresAt)
+  return new CalendarDate(year, month, day)
 }
 
 function setCustomDate(index: number, value: unknown) {
   if (!(value instanceof CalendarDate)) return
-  rows.value[index]!.expiresAt = Date.UTC(value.year, value.month - 1, value.day, 23, 59, 59, 999)
+  rows.value[index]!.expiresAt = endOfLondonDay(value.year, value.month, value.day).getTime()
 }
 
 // ── Add / remove ────────────────────────────────────────────────────────────
@@ -348,7 +409,7 @@ function appendRole(role: string, expiresAt: number | null) {
   if (removed !== -1) return undoRemove(removed)
   if (rows.value.some(r => r.role === role)) return
 
-  rows.value.push({ role, expiresAt, note: '', expired: false, grantedAt: null, status: 'added' })
+  rows.value.push({ role, expiresAt, note: '', expired: false, inert: false, overrideUntil: null, grantedAt: null, status: 'added' })
 }
 
 function addFromDefinition(picked: { value: string } | undefined) {
@@ -373,6 +434,35 @@ function undoRemove(index: number) {
   row.status = original && (original.expiresAt !== row.expiresAt || (original.note ?? '') !== (row.note ?? ''))
     ? 'edited'
     : 'unchanged'
+}
+
+// ── Training prerequisites (ADR-0019) ───────────────────────────────────────
+
+// The route caps an override at 90 days; this is the one-click length.
+const OVERRIDE_DAYS = 30
+const overriding = ref<string | null>(null)
+
+function showsOverride(row: Row): boolean {
+  const real = row.status !== 'removed' && row.status !== 'added'
+  return real && (row.inert || row.overrideUntil !== null)
+}
+
+async function setOverride(role: string, days: number | null) {
+  overriding.value = role
+  try {
+    await $fetch(`/api/users/${props.userId}/eligibility-override`, {
+      method: 'POST',
+      body: { role, until: days === null ? null : Date.now() + days * 24 * 60 * 60 * 1000 },
+    })
+    emit('saved')
+    toast.add({ title: days === null ? 'Override cleared' : 'Prerequisite lifted', color: 'success' })
+  }
+  catch (error) {
+    toast.add({ title: getErrorMessage(error, 'Could not change the override'), color: 'error' })
+  }
+  finally {
+    overriding.value = null
+  }
 }
 
 // ── Save ────────────────────────────────────────────────────────────────────

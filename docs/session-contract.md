@@ -30,10 +30,14 @@ Local development uses a different config (no domain): see [development.md](deve
 
 ## The payload
 
-Defined once in `packages/auth-types` (types + helpers). It is **not** published to a registry.
-each consumer app carries a verbatim copy at `shared/utils/nntAuth.ts`, headed "DO NOT EDIT HERE".
-Change the source, then re-copy to Proscenium, rooms and rehearsal in the same PR. Do not redeclare
-the shape inline anywhere.
+Defined once in `packages/auth-types/index.ts` (types + helpers) and published as
+`@newtheatre/auth-types` on GitHub Packages ([ADR-0025](decisions/0025-publish-auth-types-as-a-package.md)).
+Proscenium, rooms and rehearsal each install it and carry a one-line
+`shared/types/auth.d.ts` that re-imports it, which is what applies the `#auth-utils` augmentation:
+without that file the package installs and `session.user` still types as `unknown`. Change the
+source, bump the package version, merge, and the publish workflow does the rest. Do not redeclare
+the shape inline anywhere, and never edit a consumer's copy of these types: there is no copy to
+edit. Full setup: [integrating-an-app.md](integrating-an-app.md) §1.
 
 ```ts
 declare module '#auth-utils' {
@@ -83,3 +87,6 @@ Do not add it.
 - **1.0** (unchanged payload, 2026-08-18): `permissionResolver` added to the helpers for
   manifest-declared permissions (ADR-0018). The sealed shape is untouched, so no version bump: the
   copies in each app need re-syncing, but nothing compiled against 1.0 breaks.
+- **1.0** (unchanged payload, 2026-08-25): the package is published rather than copied into each
+  app (ADR-0025), so "The payload" above no longer describes a copy-paste step. The sealed shape is
+  untouched; only how a consumer obtains the types changed.

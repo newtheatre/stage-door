@@ -50,6 +50,15 @@ export default defineEventHandler(async (event) => {
     .where(eq(schema.users.id, resetRecord.userId))
     .returning()
 
+  // Above the disabled check: the password write lands either way, and a reset
+  // on an account somebody disabled is the one most worth recording.
+  await writeAudit({
+    actorUserId: resetRecord.userId,
+    action: 'user.password-changed',
+    target: resetRecord.userId,
+    detail: { via: 'reset-token' },
+  })
+
   if (!user || user.disabled) {
     // Disabled accounts may complete the form but never get a session.
     throw createError({

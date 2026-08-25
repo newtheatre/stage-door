@@ -9,7 +9,7 @@ import { roleSchema, roleGrantSchema, MAX_GRANTS_PER_REQUEST, defaultExpirySchem
 import { TOKEN_EXPIRY, generateVerificationToken, hashLoginToken, createEmailVerificationToken, createPasswordResetToken, createMagicLinkToken } from '../server/utils/tokens'
 import { enforceRateLimit, getClientIP, sweepRateLimits, RATE_LIMITS } from '../server/utils/rateLimit'
 import { verifyPasswordGuarded } from '../server/utils/passwordCheck'
-import { loadRoles, loadRoleGrants, loadEffectiveRolesFor, activeRoleCondition, activeGrantExists, effectiveRoleCondition, eligibilitySatisfiedCondition, sealUserSession, sealLoginSession, reSealSession } from '../server/utils/session'
+import { FRESH_SESSION_MS, loadRoles, loadRoleGrants, loadEffectiveRolesFor, activeRoleCondition, activeGrantExists, effectiveRoleCondition, eligibilitySatisfiedCondition, sealUserSession, sealLoginSession, reSealSession } from '../server/utils/session'
 import { assertGrantsDefined, assertEligibilityModeAllowed, eligibilityModeAllowed } from '../server/utils/roleDefinitions'
 import { ROLES_CONFIG, nextCommitteeYearEnd } from '../server/utils/rolesConfig'
 import { findSuspectGrants, explain } from '../server/utils/grantAudit'
@@ -30,10 +30,10 @@ import { mergeUsers } from '../server/utils/mergeUsers'
 import { exportUser } from '../server/utils/exportUser'
 import { planRetention } from '../server/utils/retentionPlan'
 import { RETENTION_CONFIG } from '../server/utils/retentionConfig'
-import { endOfLondonDay, formatDate, formatDateLong, formatDateTime } from '../shared/utils/formatDate'
+import { endOfLondonDay, londonDay, formatDate, formatDateLong, formatDateTime } from '../shared/utils/formatDate'
 import { passwordSchema, emailSchema } from '../shared/utils/credentials'
 import { base32Encode, base32Decode, generateTotpSecret, totpStep, totpCode, verifyTotp, totpUri } from '../server/utils/totp'
-import { MFA_ATTEMPT_TTL_MS, WEBAUTHN_CHALLENGE_TTL_MS, isMfaRequired, enrolledFactors, sealOrChallenge, createMfaAttempt, consumeMfaAttempt, storeWebauthnChallenge, getWebauthnChallenge, sweepMfaChallenges, regenerateRecoveryCodes, useRecoveryCode, remainingRecoveryCodes, clearAllFactors, factorClearStatements, listPasskeys } from '../server/utils/mfa'
+import { MFA_ATTEMPT_TTL_MS, WEBAUTHN_CHALLENGE_TTL_MS, isMfaRequired, enrolledFactors, sealOrChallenge, createMfaAttempt, consumeMfaAttempt, storeWebauthnChallenge, getWebauthnChallenge, sweepMfaChallenges, newRecoveryCodes, recoveryCodeStatements, regenerateRecoveryCodes, useRecoveryCode, remainingRecoveryCodes, clearAllFactors, factorClearStatements, listPasskeys } from '../server/utils/mfa'
 
 // ── H3 fakes ────────────────────────────────────────────────────────────────
 
@@ -199,6 +199,7 @@ Object.assign(g, {
   eligibilityModeAllowed,
   ROLES_CONFIG,
   nextCommitteeYearEnd,
+  FRESH_SESSION_MS,
   findSuspectGrants,
   explain,
   sealUserSession,
@@ -248,6 +249,7 @@ Object.assign(g, {
   planRetention,
   RETENTION_CONFIG,
   endOfLondonDay,
+  londonDay,
   formatDate,
   formatDateLong,
   formatDateTime,
@@ -268,6 +270,8 @@ Object.assign(g, {
   storeWebauthnChallenge,
   getWebauthnChallenge,
   sweepMfaChallenges,
+  newRecoveryCodes,
+  recoveryCodeStatements,
   regenerateRecoveryCodes,
   useRecoveryCode,
   remainingRecoveryCodes,

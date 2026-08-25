@@ -39,6 +39,10 @@ export default defineEventHandler(async (event) => {
       source: d.source,
       withdrawnAt: d.withdrawnAt?.getTime() ?? null,
       manifestVersion: d.manifestVersion,
+      // Which roles carry a training prerequisite, and whether it bites
+      // (ADR-0019): otherwise an inert grant has no explanation on this page.
+      requiresEligibilityKey: d.requiresEligibilityKey,
+      eligibilityMode: d.eligibilityMode,
       defaultExpiresAt:
         d.defaultExpiryKind === 'committee-year'
           ? nextCommitteeYearEnd(now).getTime()

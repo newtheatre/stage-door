@@ -8,6 +8,7 @@ import { eq } from 'drizzle-orm'
 import { manifestHash, manifestSchema, MANIFEST_MAX_BYTES, type Manifest } from './manifest'
 import { defaultExpiryColumns } from './validation'
 import { eligibilityModeAllowed } from './roleDefinitions'
+import { hookBearer } from './appHooks'
 import { APP_MANIFEST, SELF_APP_NAME } from '../../shared/utils/appManifest'
 
 type AppRow = typeof schema.apps.$inferSelect
@@ -64,14 +65,14 @@ async function fetchManifest(app: AppRow): Promise<{ body: string, etag: string 
   const stored = await db.select().from(schema.appManifests)
     .where(eq(schema.appManifests.appId, app.id)).get()
 
-  const bearer = await db.select({ tokenHash: schema.serviceTokens.tokenHash })
-    .from(schema.serviceTokens).where(eq(schema.serviceTokens.name, app.name)).get()
-  if (!bearer) throw new Error(`No service token registered for app '${app.name}'`)
+  // The same helper the hooks use, so one rule decides which token goes out
+  // during an overlap rotation.
+  const bearer = await hookBearer(app.name)
 
   const response = await $fetch.raw<unknown>(`${app.baseUrl}/api/_hooks/auth/manifest`, {
     method: 'GET',
     headers: {
-      Authorization: `Bearer ${bearer.tokenHash}`,
+      Authorization: `Bearer ${bearer}`,
       ...(stored?.etag ? { 'If-None-Match': stored.etag } : {}),
     },
     retry: 1,
@@ -203,7 +204,9 @@ export async function reconcileManifest(app: AppRow, manifest: Manifest): Promis
   const declaredRoles = new Set(manifest.roles.map(r => r.role))
   let withdrawn = 0
   for (const definition of existingDefinitions) {
-    const ownedHere = definition.source === 'manifest' && definition.appId === app.id
+    // By namespace, not app id: apps.namespace is unique, and a re-registered
+    // app has a new id its predecessor's orphans would never match.
+    const ownedHere = definition.source === 'manifest'
     if (ownedHere && !declaredRoles.has(definition.role) && definition.withdrawnAt === null) {
       await db.update(schema.roleDefinitions).set({ withdrawnAt: now, syncedAt: now })
         .where(eq(schema.roleDefinitions.id, definition.id))
