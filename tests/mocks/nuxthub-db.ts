@@ -38,7 +38,14 @@ for (const file of readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).so
   }
 }
 
+type Statement = { execute: () => unknown }
+
 export const db = drizzle(sqlite, { schema })
+
+// D1 wraps a batch in an implicit transaction; the bun-sqlite driver has no
+// batch at all, so run the statements inside one here (server/utils/erase.ts).
+const runBatch = sqlite.transaction((statements: Statement[]) => statements.map(s => s.execute()))
+Object.assign(db, { batch: async (statements: Statement[]) => runBatch(statements) })
 
 /** Wipe all rows between tests (schema stays). */
 export function resetDb(): void {

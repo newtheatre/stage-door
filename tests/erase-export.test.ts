@@ -180,6 +180,70 @@ describe('the subject-access bundle does not carry other people\'s data', () => 
   })
 })
 
+describe('erasure lands as one atomic write', () => {
+  interface Batched { batch: (statements: unknown[]) => Promise<unknown[]> }
+
+  /** Run `fn` with db.batch instrumented, returning the statement counts. */
+  async function withBatchSpy<T>(fn: () => Promise<T>, sabotage = false): Promise<{ result?: T, error?: unknown, sizes: number[] }> {
+    const target = db as unknown as Batched
+    const original = target.batch.bind(target)
+    const sizes: number[] = []
+    target.batch = async (statements) => {
+      sizes.push(statements.length)
+      if (sabotage) throw new Error('D1_ERROR: network error')
+      return original(statements)
+    }
+    try {
+      return { result: await fn(), sizes }
+    }
+    catch (error) {
+      return { error, sizes }
+    }
+    finally {
+      target.batch = original
+    }
+  }
+
+  it('scrubs the row and every side table in a single batch', async () => {
+    await registerApp('rooms')
+    await db.insert(schema.serviceTokens).values({ name: 'rooms', tokenHash: 'hash-r' })
+    hooksSucceed()
+
+    const user = await createUser({ email: 'atomic@example-user.co.uk', plainPassword: 'Passw0rd' })
+    await grantRole(user.id, 'rooms:ADMIN')
+    await enrolTotp(user.id)
+
+    const { sizes } = await withBatchSpy(() => eraseUser(user.id, { id: 'admin-1', via: 'admin' }))
+
+    // The users UPDATE plus every dependent delete, or none of them: the retry
+    // key is the address the first of those statements writes.
+    expect(sizes).toEqual([11])
+    expect(await db.select().from(schema.totpSecrets).all()).toHaveLength(0)
+  })
+
+  it('leaves the row untouched when the batch fails, so a retry still erases', async () => {
+    await registerApp('rooms')
+    await db.insert(schema.serviceTokens).values({ name: 'rooms', tokenHash: 'hash-r' })
+    hooksSucceed()
+
+    const user = await createUser({ email: 'halfway@example-user.co.uk', plainPassword: 'Passw0rd' })
+    await grantRole(user.id, 'rooms:ADMIN')
+
+    const { error } = await withBatchSpy(() => eraseUser(user.id, { id: 'admin-1', via: 'admin' }), true)
+    expect(error).toBeTruthy()
+
+    const survived = await db.select().from(schema.users).where(eq(schema.users.id, user.id)).get()
+    expect(survived!.email).toBe('halfway@example-user.co.uk')
+    expect(await db.select().from(schema.userRoles).where(eq(schema.userRoles.userId, user.id)).all()).toHaveLength(1)
+
+    // The retry is not fooled into reporting an erasure it never performed.
+    const retry = await eraseUser(user.id, { id: 'admin-1', via: 'admin' })
+    expect(retry.alreadyErased).toBe(false)
+    expect(retry.complete).toBe(true)
+    expect(await db.select().from(schema.userRoles).where(eq(schema.userRoles.userId, user.id)).all()).toHaveLength(0)
+  })
+})
+
 describe('erasure reports completeness honestly', () => {
   it('is not complete when no app was told', async () => {
     // No registry rows, so loadHookApps returns [] and every() is vacuous.
