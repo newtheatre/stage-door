@@ -16,7 +16,7 @@ IDs are `nanoid()` text primary keys (matching Proscenium's convention), except 
 | `password` | text null | scrypt PHC string (`$scrypt$…`) via nuxt-auth-utils. `NULL` = shadow account or SSO-only. |
 | `email_verified` | integer (bool) not null default 0 | Set by token flow or Google sign-in. |
 | `google_sub` | text unique null | Google's stable subject id. Linkage key, **not** email ([ADR-0005](decisions/0005-workspace-only-google-sso.md)). A linked Google identity may carry a different address from `email`, that's normal (personal email + later Workspace account, one person, one id). |
-| `pending_google_email` | text null | Admin-set: the next Google sign-in with this (Workspace) address attaches to this account instead of creating a new one. Cleared on consumption or by the admin. |
+| `pending_google_email` | text null unique | Admin-set: the next Google sign-in with this (Workspace) address attaches to this account instead of creating a new one. Cleared on consumption, by the admin, or when a sign-in resolves that address by `google_sub` elsewhere and the marker becomes unreachable. Unique because it outranks an address match at sign-in, so two rows carrying one address would pick an arbitrary winner; NULLs are distinct in SQLite, so unset rows are unaffected. |
 | `disabled` | integer (bool) not null default 0 | Disabled users fail login and fail `/api/session/refresh`. |
 | `session_epoch` | integer not null default 0 | Bump to invalidate this user's sessions at next refresh (force-logout). |
 | `created_at` / `updated_at` / `last_login` | integer (ms) | `last_login` updated on successful login/SSO only, not refresh. |

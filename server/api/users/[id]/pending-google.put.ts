@@ -25,11 +25,12 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: 'This account already has a Google account linked' })
     }
 
-    // Refuse addresses already linked or pending elsewhere.
-    const linkedElsewhere = await db.select().from(schema.users)
+    // Any other account holding the address, linked or not: the pending marker
+    // beats an address match at sign-in, so it would divert its owner's login.
+    const ownedElsewhere = await db.select().from(schema.users)
       .where(eq(schema.users.email, email)).get()
-    if (linkedElsewhere && linkedElsewhere.id !== user.id && linkedElsewhere.googleSub !== null) {
-      throw createError({ statusCode: 409, statusMessage: 'That address is already linked to another account' })
+    if (ownedElsewhere && ownedElsewhere.id !== user.id) {
+      throw createError({ statusCode: 409, statusMessage: 'That address already belongs to another account' })
     }
     const pendingElsewhere = await db.select().from(schema.users)
       .where(eq(schema.users.pendingGoogleEmail, email)).get()

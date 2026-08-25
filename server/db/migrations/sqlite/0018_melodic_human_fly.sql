@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `users_pending_google_email_unique` ON `users` (`pending_google_email`);

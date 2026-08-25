@@ -4,7 +4,7 @@
  */
 
 import { db, schema } from '@nuxthub/db'
-import { eq } from 'drizzle-orm'
+import { and, eq, ne } from 'drizzle-orm'
 
 export interface GoogleProfile {
   sub: string
@@ -36,7 +36,15 @@ export async function resolveGoogleUser(profile: GoogleProfile): Promise<{ user:
   // 1. Already linked by stable subject id.
   const bySub = await db.select().from(schema.users)
     .where(eq(schema.users.googleSub, profile.sub)).get()
-  if (bySub) return { user: bySub, how: 'sub' }
+  if (bySub) {
+    // A marker for an address already linked can never be consumed, so clear
+    // it. Not for a disabled account: a rejected sign-in writes nothing.
+    if (!bySub.disabled) {
+      await db.update(schema.users).set({ pendingGoogleEmail: null })
+        .where(and(eq(schema.users.pendingGoogleEmail, googleEmail), ne(schema.users.id, bySub.id)))
+    }
+    return { user: bySub, how: 'sub' }
+  }
 
   // Admin-directed link: the user still proves control by authenticating, so
   // an admin can never complete a link alone.

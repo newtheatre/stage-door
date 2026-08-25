@@ -29,6 +29,9 @@ export const users = sqliteTable('users', {
   lastLogin: integer('last_login', { mode: 'timestamp_ms' }),
 }, table => [
   index('users_email_idx').on(table.email),
+  // Unique so two admins cannot point one address at two accounts, and so
+  // resolveGoogleUser's per-sign-in lookup is not a table scan.
+  uniqueIndex('users_pending_google_email_unique').on(table.pendingGoogleEmail),
 ])
 
 export const usersRelations = relations(users, ({ many }) => ({
