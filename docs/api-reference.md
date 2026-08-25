@@ -24,6 +24,13 @@ Three auth levels:
 ### `POST /api/webauthn/register`: session [AUD]
 Two-leg passkey enrolment (nuxt-auth-utils' route shape): `{ user: { userName, label? }, verify: false }` returns `{ creationOptions, attemptId }`; `{ …, verify: true, attemptId, response }` verifies and stores the credential. The account is always taken from the session, never from the body. Requires a discoverable credential with user verification (PIN/biometric): a presence-only tap is refused. Enrolling a first factor bumps `session_epoch` and re-seals the caller's session.
 
+**Unlike TOTP confirmation, this route mints no recovery codes.** The module discards whatever
+`onSuccess` returns and answers with the verification result, so a code minted here could never be
+shown, and a code the member never sees is worse than none. `/account` therefore chains straight
+into `POST /api/account/mfa/recovery-codes` after a first passkey. A non-browser caller that enrols
+a passkey and does not call it holds no recovery codes; `GET /api/account/mfa` says so, and the
+account page offers the button.
+
 ### `POST /api/webauthn/authenticate`: public [RL]
 Same two legs, no `userName`: passkey sign-in is usernameless, so nothing here reveals whether an address has a passkey. On success it seals a full login session: a passkey with user verification is possession plus a factor already, and is phishing-resistant, so it is not treated as a second step after a password.
 
