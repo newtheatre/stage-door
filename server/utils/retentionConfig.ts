@@ -25,4 +25,8 @@ export const RETENTION_CONFIG = {
 
   /** How many accounts one sweep run may anonymise (safety valve). */
   maxActionsPerRun: 200,
+
+  /** How many warning emails one run may send. Resend rate-limits; the rest
+   * wait for tomorrow's run. */
+  maxWarningsPerRun: 100,
 } as const

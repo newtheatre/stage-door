@@ -142,7 +142,11 @@ g.sendRoleExpiryDigestEmail = async (to: string) => {
 g.sendSuspectGrantsEmail = async (to: string, suspects: { role: string }[]) => {
   sentEmails.push({ kind: 'suspect-grants', to, token: suspects.map(s => s.role).join(',') })
 }
+/** Addresses the fake Resend refuses, so a send failure can be exercised. */
+export const failWarningsTo = new Set<string>()
+
 g.sendRetentionWarningEmail = async (to: string) => {
+  if (failWarningsTo.has(to)) throw new Error('Failed to send email')
   sentEmails.push({ kind: 'retention-warning', to })
 }
 g.sendRetentionDigestEmail = async (to: string) => {
@@ -288,6 +292,7 @@ export function makeEvent(opts: Partial<FakeEvent> = {}): FakeEvent {
 beforeEach(() => {
   resetDb()
   sentEmails.length = 0
+  failWarningsTo.clear()
   fetchMock.mockReset()
   rawFetchMock.mockReset()
   Object.keys(runtimeConfig).forEach(key => Reflect.deleteProperty(runtimeConfig, key))
