@@ -245,7 +245,27 @@
       description="This is permanent. Your personal details are removed from every NNT site; anonymous booking records remain."
     >
       <template #body>
-        <div class="flex flex-col gap-4">
+        <div
+          v-if="closeResult && !closeResult.complete"
+          class="flex flex-col gap-4"
+        >
+          <UAlert
+            color="warning"
+            icon="i-lucide-alert-triangle"
+            title="Your account is closed, but not every site has confirmed"
+            :description="`Your sign-in details have been removed. Still to confirm: ${outstandingApps}. This is retried automatically each night; contact the IT Manager if you want confirmation once it is done.`"
+          />
+          <UButton
+            to="/login"
+            block
+          >
+            Done
+          </UButton>
+        </div>
+        <div
+          v-else
+          class="flex flex-col gap-4"
+        >
           <p class="text-sm text-muted">
             This needs a recent login. If you signed in more than ten minutes ago,
             log out and back in first.
@@ -426,11 +446,15 @@ function openClose() {
 }
 const closing = ref(false)
 const closeForm = reactive({ confirmEmail: '', password: '' })
+const closeResult = ref<{ complete: boolean, hooks: { app: string, ok: boolean }[] } | null>(null)
+
+const outstandingApps = computed(() =>
+  (closeResult.value?.hooks ?? []).filter(h => !h.ok).map(h => h.app).join(', ') || 'one of our sites')
 
 async function closeAccount() {
   closing.value = true
   try {
-    await $fetch('/api/account/erase', {
+    const result = await $fetch('/api/account/erase', {
       method: 'POST',
       body: {
         confirmEmail: closeForm.confirmEmail,
@@ -438,6 +462,14 @@ async function closeAccount() {
       },
     })
     await clear()
+
+    // An app that refused the anonymise hook leaves personal data behind. The
+    // member is told rather than sent to /login as though it all landed.
+    if (!result.complete) {
+      closeResult.value = result
+      closing.value = false
+      return
+    }
     await navigateTo('/login')
   }
   catch (error) {
