@@ -203,7 +203,9 @@ export async function reconcileManifest(app: AppRow, manifest: Manifest): Promis
   const declaredRoles = new Set(manifest.roles.map(r => r.role))
   let withdrawn = 0
   for (const definition of existingDefinitions) {
-    const ownedHere = definition.source === 'manifest' && definition.appId === app.id
+    // By namespace, not app id: apps.namespace is unique, and a re-registered
+    // app has a new id its predecessor's orphans would never match.
+    const ownedHere = definition.source === 'manifest'
     if (ownedHere && !declaredRoles.has(definition.role) && definition.withdrawnAt === null) {
       await db.update(schema.roleDefinitions).set({ withdrawnAt: now, syncedAt: now })
         .where(eq(schema.roleDefinitions.id, definition.id))

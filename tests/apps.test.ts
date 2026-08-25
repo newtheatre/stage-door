@@ -10,7 +10,7 @@ import { baseUrlSchema } from '../server/utils/validation'
 import { createServiceToken, hashServiceToken, requireServiceToken } from '../server/utils/serviceToken'
 import { fetchMock, makeEvent } from './setup'
 import type { FakeEvent } from './setup'
-import { createUser, grantRole, enrolTotp, registerApp } from './helpers/users'
+import { createUser, grantRole, enrolTotp, registerApp, defineRole } from './helpers/users'
 
 const listApps = listHandler as unknown as (e: unknown) => Promise<{ apps: { name: string, hasToken: boolean }[] }>
 const createApp = createHandler as unknown as (e: unknown) => Promise<{ app: { id: string, name: string } }>
@@ -92,6 +92,24 @@ describe('app registry (ADR-0017)', () => {
     expect(await db.select().from(schema.apps).all()).toHaveLength(0)
     // Orphaning it would leave a credential that still authenticates inbound.
     expect(await db.select().from(schema.serviceTokens).all()).toHaveLength(0)
+  })
+
+  it('withdraws the app\'s role definitions with it, so dead roles stop being grantable', async () => {
+    const app = await registerApp('photos', { namespace: 'photos' })
+    await defineRole('photos', 'ADMIN')
+    await defineRole('photos', 'EDITOR')
+
+    const audited = await adminEvent({ params: { id: app.id } })
+    await deleteApp(audited)
+
+    // No foreign key cascades role_definitions, so nothing else would.
+    const definitions = await db.select().from(schema.roleDefinitions).all()
+    expect(definitions).toHaveLength(2)
+    expect(definitions.every(d => d.withdrawnAt !== null)).toBe(true)
+
+    const entry = await db.select().from(schema.auditLog)
+      .where(eq(schema.auditLog.action, 'app.deregistered')).get()
+    expect(JSON.parse(entry!.detail!).definitionsWithdrawn).toBe(2)
   })
 
   it('revokes a token issued after registration, which carries no app_id link', async () => {
