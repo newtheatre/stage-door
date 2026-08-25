@@ -168,4 +168,13 @@ export default defineNuxtConfig({
       stylistic: true,
     },
   },
+  // Bundle every icon the app uses: a Worker cannot reach the Iconify API,
+  // so an unbundled icon renders as nothing (ADR-0027).
+  icon: {
+    clientBundle: {
+      scan: { globInclude: ['**/*.{vue,jsx,tsx,md,mdc,mdx,yml,yaml,ts,js}'] },
+      // Nuxt UI renders these from inside the module, where the scan cannot see them.
+      icons: ['lucide:eye', 'lucide:eye-off', 'lucide:loader-circle', 'lucide:check', 'lucide:chevron-down', 'lucide:circle-alert', 'lucide:circle-check', 'lucide:circle-x', 'lucide:info', 'lucide:search', 'lucide:x'],
+    },
+  },
 })

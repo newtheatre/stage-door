@@ -41,6 +41,8 @@
   },
   "devDependencies": {
     "@adonisjs/hash": "^9.1.1",
+    "@iconify-json/lucide": "^1.2.126",
+    "@iconify-json/simple-icons": "^1.2.93",
     "@libsql/client": "^0.17.4",
     "drizzle-kit": "^0.31.10",
     "eslint": "^10.8.1",
