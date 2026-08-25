@@ -79,7 +79,7 @@ All require session + `auth:ADMIN` unless noted. All mutations **[AUD]** (enforc
 | `GET /api/users?q=&page=` | Search/list (email, name; filters: role: **active holders only**, guest, disabled). Anonymised/placeholder accounts (undeliverable domains) are excluded by default and counted in `hiddenAnonymised`; `anonymised=true` lists only them. `attention=workspace-password\|admin-no-mfa` filters the two ADR-0012 rollout lists, whose standing counts are returned as `needsAttention` |
 | `POST /api/users` | Create user `{ email, name, roles? }` → sends **set-password email** (no generated passwords in responses: deliberate change from rooms's old flow) |
 | `GET /api/users/:id` | Profile incl. roles, linked Google, `last_login`, legacy ids, and `mfa` (required? which factors, passkey count, recovery codes left: never a secret) |
-| `PUT /api/users/:id` | Update `name` / `email` (re-verification triggered on email change) |
+| `PUT /api/users/:id` | Update `name` / `email` (re-verification triggered on email change). Refuses an `@newtheatre.org.uk` target address with a 403: those are claimed by signing in with Google, never by an admin typing one here (ADR-0012) |
 | `PUT /api/users/:id/roles` | Refuses to remove the last live `auth:ADMIN` grant, or to give it an expiry when it is the only one (`requireAuthAdmin` re-reads roles per request, so losing it closes every admin route including this one, with no in-app recovery). Replace grant set `{ roles: Array<string \| { role, expiresAt?: epoch-ms\|null, note? }> }`: bare strings = permanent grants (back-compat). Applied as a diff: unchanged grants keep provenance; a changed expiry clears the warning flag (renewal re-arms it). Duplicates 400. **New grants must match a role definition** (400 naming the role, ADR-0014); roles the user already holds are exempt, so definition-less history (`ticketing:*`) stays editable. At most 100 grants per request: each costs its own D1 statement, so an uncapped array would turn body size into subrequests |
 | `POST /api/users/:id/reset-password` | Admin-initiated reset (24 h token, emailed; cannot target self) |
 | `POST /api/users/:id/force-logout` | Bumps `session_epoch` |
@@ -97,7 +97,7 @@ Self-service (session, own account only: all verify the account live: exists, no
 
 | Endpoint | Purpose |
 |---|---|
-| `GET/PUT /api/account/profile` | Own profile; email change resets verification + sends a new link, and is enumeration-safe on conflict (generic `{ ok: true }`, "you already have an account" email to the requested address) |
+| `GET/PUT /api/account/profile` | Own profile; email change resets verification + sends a new link, bumps `session_epoch` (this session is re-sealed, the rest die), and is enumeration-safe on conflict (generic `{ ok: true }`, "you already have an account" email to the requested address). An `@newtheatre.org.uk` target address is refused with a 403 (ADR-0012) |
 | `PUT /api/account/password` | Change, or, for SSO-only accounts, set, the password. Verifies the current password where one exists; bumps epoch; re-seals this session |
 | `POST /api/account/unlink-google` **[AUD]** | Disconnect Google; refuses if it would leave no login method |
 | `POST /api/account/logout-everywhere` **[AUD]** | Bump own epoch + clear this session |
