@@ -13,6 +13,7 @@ import adminResetPasswordHandler from '../server/api/users/[id]/reset-password.p
 import clearPasswordHandler from '../server/api/users/[id]/clear-password.post'
 import mfaResetAdminHandler from '../server/api/users/[id]/mfa-reset.post'
 import listUsersHandler from '../server/api/users/index.get'
+import selfEraseHandler from '../server/api/account/erase.post'
 import { makeEvent, sentEmails } from './setup'
 import type { FakeEvent } from './setup'
 import { createUser, grantRole, enrolTotp, defineRole } from './helpers/users'
@@ -24,6 +25,7 @@ const putPendingGoogle = pendingGoogleHandler as unknown as (event: unknown) => 
 const unlinkGoogle = unlinkGoogleHandler as unknown as (event: unknown) => Promise<unknown>
 const adminCreate = createUserHandler as unknown as (event: unknown) => Promise<{ user: { id: string } }>
 const listUsers = listUsersHandler as unknown as (event: unknown) => Promise<unknown>
+const selfErase = selfEraseHandler as unknown as (event: unknown) => Promise<unknown>
 const putUser = putUserHandler as unknown as (event: unknown) => Promise<unknown>
 const enableUser = enableUserHandler as unknown as (event: unknown) => Promise<unknown>
 const adminResetPassword = adminResetPasswordHandler as unknown as (event: unknown) => Promise<unknown>
@@ -330,6 +332,48 @@ describe('the last auth:ADMIN cannot be removed or dated', () => {
     event.params = { id: adminId }
 
     await expect(putRoles(event)).resolves.toBeTruthy()
+  })
+
+  // Erasure cannot be undone the way a role change can, so this is the one
+  // path where losing the last admin means hand-editing production.
+  it('refuses to let the only auth:ADMIN close their own account', async () => {
+    await defineRole('auth', 'ADMIN')
+    const { event, adminId } = await adminEvent()
+    const admin = await db.select().from(schema.users).where(eq(schema.users.id, adminId)).get()
+    event.body = { confirmEmail: admin!.email, password: 'Passw0rd' }
+
+    await expect(selfErase(event)).rejects.toMatchObject({ statusCode: 400 })
+
+    const still = await db.select().from(schema.users).where(eq(schema.users.id, adminId)).get()
+    expect(still!.email).toBe(admin!.email)
+    expect(still!.disabled).toBeFalsy()
+  })
+
+  it('lets an admin close their own account once someone else holds auth:ADMIN', async () => {
+    await defineRole('auth', 'ADMIN')
+    const { event, adminId } = await adminEvent()
+    const peer = await createUser({ email: 'peer-admin2@example.com' })
+    await grantRole(peer.id, 'auth:ADMIN')
+    const admin = await db.select().from(schema.users).where(eq(schema.users.id, adminId)).get()
+    event.body = { confirmEmail: admin!.email, password: 'Passw0rd' }
+
+    await expect(selfErase(event)).resolves.toBeTruthy()
+  })
+
+  it('lets an ordinary member close their own account, even as the only admin looks on', async () => {
+    await defineRole('auth', 'ADMIN')
+    await adminEvent()
+    const member = await createUser({ email: 'ordinary@example.com', plainPassword: 'Passw0rd', verified: true })
+    const event = makeEvent({ body: { confirmEmail: member.email, password: 'Passw0rd' } })
+    await (globalThis as never as { setUserSession: (e: unknown, s: unknown) => Promise<unknown> })
+      .setUserSession(event, {
+        user: { id: member.id, email: member.email, name: member.name, verified: true, guest: false, roles: [] },
+        loggedInAt: Date.now(),
+        refreshedAt: Date.now(),
+        epoch: 0,
+      })
+
+    await expect(selfErase(event)).resolves.toBeTruthy()
   })
 })
 

@@ -26,6 +26,12 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // Erasure is irreversible, so losing the last auth:ADMIN here cannot be
+  // undone the way a role change can: recovery means hand-editing D1.
+  if (await holdsAuthAdmin(user.id)) {
+    await assertNotLastAuthAdmin(user.id, 'Closing your account')
+  }
+
   const result = await eraseUser(user.id, { id: user.id, via: 'self-service' })
 
   await clearUserSession(event)
