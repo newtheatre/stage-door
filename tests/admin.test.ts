@@ -273,6 +273,34 @@ describe('an erased account cannot be written back over', () => {
     await expect(adminResetPassword(event)).rejects.toMatchObject({ statusCode: 400 })
     expect(sentEmails).toHaveLength(0)
   })
+
+  it('refuses to grant it roles, notes and all', async () => {
+    const target = await erasedUser()
+    await defineRole('rooms', 'ADMIN')
+    const { event } = await adminEvent({
+      params: { id: target.id },
+      body: { roles: [{ role: 'rooms:ADMIN', expiresAt: null, note: 'Reinstated by request' }] },
+    })
+
+    await expect(putRoles(event)).rejects.toMatchObject({ statusCode: 400 })
+
+    const granted = await db.select().from(schema.userRoles)
+      .where(eq(schema.userRoles.userId, target.id)).all()
+    expect(granted).toHaveLength(0)
+  })
+
+  it('refuses to point a real address at it as a pending Google link', async () => {
+    const target = await erasedUser()
+    const { event } = await adminEvent({
+      params: { id: target.id },
+      body: { email: 'alice@newtheatre.org.uk' },
+    })
+
+    await expect(putPendingGoogle(event)).rejects.toMatchObject({ statusCode: 400 })
+
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, target.id)).get()
+    expect(row!.pendingGoogleEmail).toBeNull()
+  })
 })
 
 describe('request bodies are bounded', () => {

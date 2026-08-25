@@ -94,6 +94,8 @@ All require session + `auth:ADMIN` unless noted. All mutations **[AUD]** (enforc
 | `GET /api/eligibility-syncs` | Eligibility rule sync status: `{ syncs: [{ ruleKey, lastAttemptAt, lastSuccessAt, userCount, lastError, stale }] }`, one row per rule a role definition references. `stale` means never answered, or last answered over a day ago, which is what the Role definitions banner shows ([ADR-0019](decisions/0019-training-conditional-grants.md)) |
 | `GET /api/audit?actor=&action=&page=` | Audit log query |
 
+An erased account is refused with a 400 by every route that would write identity, roles or a pending Google link back onto it: `PUT /api/users/:id`, `PUT /api/users/:id/roles`, `PUT /api/users/:id/pending-google`, `POST /api/users/:id/eligibility-override`, `POST /api/users/:id/enable` and `POST /api/users/:id/reset-password` ([gdpr-retention.md](gdpr-retention.md)).
+
 Self-service (session, own account only: all verify the account live: exists, not disabled, epoch current):
 
 | Endpoint | Purpose |

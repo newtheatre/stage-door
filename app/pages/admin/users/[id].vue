@@ -109,8 +109,14 @@
           </dl>
         </UPageCard>
 
+        <UPageCard
+          v-if="anonymised"
+          title="Roles"
+          icon="i-lucide-shield"
+          description="This account has been erased. Its grants were deleted and none can be added back."
+        />
         <AdminRoleGrants
-          v-if="user"
+          v-else-if="user"
           :user-id="id"
           :grants="user.grants"
           @saved="refresh"
@@ -389,6 +395,9 @@ interface AdminUserDetail {
 // Dynamic URL defeats Nitro's route typing: assert the shape instead.
 const { data, refresh } = await useFetch<{ user: AdminUserDetail }>(`/api/users/${id}`)
 const user = computed(() => data.value?.user)
+
+// The only marker an erased row carries, same test as assertNotAnonymised.
+const anonymised = computed(() => user.value?.email.endsWith('@anonymised.invalid') ?? false)
 
 const profileForm = reactive({ name: '', email: '' })
 const pendingEmail = ref('')

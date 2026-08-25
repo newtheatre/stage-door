@@ -13,6 +13,7 @@ const bodySchema = z.object({
 export default defineEventHandler(async (event) => {
   const { user: admin } = await requireAuthAdmin(event)
   const user = await loadUserOr404(getRouterParam(event, 'id'))
+  assertNotAnonymised(user)
   const { roles } = await readValidatedBody(event, bodySchema.parse)
 
   const wanted = new Map(roles.map(g => [g.role, g]))

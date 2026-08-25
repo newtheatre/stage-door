@@ -47,7 +47,7 @@ the Access Card's own cycle, and expired or withdrawn profiles are swept on the 
 theatre's curtain-up record and are kept as performance history. The free text is chatter: 30 days
 is long enough to settle who called clearance, and then it goes.
 
-**Erasure is irreversible**, and the code enforces it: `assertNotAnonymised` refuses `PUT /api/users/:id`, `POST /api/users/:id/enable` and `POST /api/users/:id/reset-password` on an erased row, so its identity cannot be written back while every app's mirror row stays scrubbed. The admin UI requires typed confirmation, and [operations.md](operations.md#user-operations-admin-ui-admin) covers verifying the requester's identity first.
+**Erasure is irreversible**, and the code enforces it: `assertNotAnonymised` refuses `PUT /api/users/:id`, `PUT /api/users/:id/roles`, `PUT /api/users/:id/pending-google`, `POST /api/users/:id/eligibility-override`, `POST /api/users/:id/enable` and `POST /api/users/:id/reset-password` on an erased row, so its identity cannot be written back while every app's mirror row stays scrubbed. The admin UI requires typed confirmation, and [operations.md](operations.md#user-operations-admin-ui-admin) covers verifying the requester's identity first.
 
 ## Right of access
 
