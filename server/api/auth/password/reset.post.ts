@@ -16,10 +16,11 @@ export default defineEventHandler(async (event) => {
 
   await enforceRateLimit('reset:ip', getClientIP(event))
 
-  const resetRecord = await db.select()
-    .from(schema.passwordResets)
+  // The delete is the claim, valid or not: whoever removes the row owns it, so
+  // two racing requests cannot both redeem one token.
+  const [resetRecord] = await db.delete(schema.passwordResets)
     .where(eq(schema.passwordResets.token, hashLoginToken(token)))
-    .get()
+    .returning()
 
   if (!resetRecord) {
     throw createError({
@@ -29,8 +30,6 @@ export default defineEventHandler(async (event) => {
   }
 
   if (resetRecord.expiresAt.getTime() < Date.now()) {
-    await db.delete(schema.passwordResets).where(eq(schema.passwordResets.id, resetRecord.id))
-
     throw createError({
       statusCode: 400,
       statusMessage: 'Password reset token has expired. Please request a new one.',
@@ -50,8 +49,6 @@ export default defineEventHandler(async (event) => {
     })
     .where(eq(schema.users.id, resetRecord.userId))
     .returning()
-
-  await db.delete(schema.passwordResets).where(eq(schema.passwordResets.userId, resetRecord.userId))
 
   if (!user || user.disabled) {
     // Disabled accounts may complete the form but never get a session.

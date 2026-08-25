@@ -131,3 +131,28 @@ describe('POST /api/auth/password/reset', () => {
     expect(sealedSession(event)).toBeUndefined()
   })
 })
+
+describe('a reset token is claimed by the delete, not the read', () => {
+  it('lets only one of two racing redemptions through', async () => {
+    const user = await createUser({ email: 'racer@example-user.co.uk', plainPassword: 'OldPassw0rd', verified: true })
+    const token = `token-${user.id}-race`
+    await db.insert(schema.passwordResets).values({
+      userId: user.id,
+      token: hashLoginToken(token),
+      expiresAt: new Date(Date.now() + 60 * 60_000),
+    })
+
+    const events = [
+      makeEvent({ body: { token, password: 'MinePassw0rd' } }),
+      makeEvent({ body: { token, password: 'TheirsPassw0rd' } }),
+    ]
+    const results = await Promise.allSettled(events.map(e => reset(e)))
+
+    expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1)
+    expect(events.filter(e => sealedSession(e)).length).toBe(1)
+
+    // One epoch bump, so the winner's own session is not stale on arrival.
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, user.id)).get()
+    expect(row!.sessionEpoch).toBe(user.sessionEpoch + 1)
+  })
+})
