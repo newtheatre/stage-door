@@ -15,7 +15,7 @@ const EXTS = ['.ts', '.vue', '.mjs', '.js', '.prisma']
 const STYLE_EXTS = [...EXTS, '.md', '.yml', '.yaml', '.json', '.jsonc']
 // The files that state the rules, and so must quote them.
 const STYLE_SKIP_FILES = new Set(['CLAUDE.md', 'CLAUDE.local.md', 'scripts/check-comments.mjs'])
-const EM_DASH = /\u2014/
+const EM_DASH = /\u2014|&(?:mdash|#8212|#x2014);/i
 const AI_REFERENCE = /\b(claude|copilot|chatgpt|cursor\.sh|codeium)\b/i
 
 const BANNED_TAGS = /@(param|returns?|prop|props|emits?|module|route|authenticated|admin-only|method|example|see|throws)\b/
