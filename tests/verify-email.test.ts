@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { db, schema } from '@nuxthub/db'
-import { hashLoginToken } from '../server/utils/tokens'
+import { createEmailVerificationToken, hashLoginToken } from '../server/utils/tokens'
 import { eq } from 'drizzle-orm'
 import verifyHandler from '../server/api/auth/email/verify.post'
 import { RATE_LIMITS } from '../server/utils/rateLimit'
@@ -9,10 +9,11 @@ import { createUser } from './helpers/users'
 
 const verify = verifyHandler as unknown as (event: unknown) => Promise<{ ok: boolean }>
 
-async function issueToken(userId: string, expiresInMs = 24 * 60 * 60_000): Promise<string> {
+async function issueToken(userId: string, email: string, expiresInMs = 24 * 60 * 60_000): Promise<string> {
   const token = `verify-${userId}-${Math.random().toString(36).slice(2)}`
   await db.insert(schema.emailVerifications).values({
     userId,
+    email,
     token: hashLoginToken(token), // hashed at rest (ADR-0013)
     expiresAt: new Date(Date.now() + expiresInMs),
   })
@@ -22,7 +23,7 @@ async function issueToken(userId: string, expiresInMs = 24 * 60 * 60_000): Promi
 describe('POST /api/auth/email/verify', () => {
   it('verifies the address and consumes the token', async () => {
     const user = await createUser({ email: 'alice@example.com', plainPassword: 'Passw0rd' })
-    const token = await issueToken(user.id)
+    const token = await issueToken(user.id, user.email)
 
     const result = await verify(makeEvent({ body: { token } }))
     expect(result).toEqual({ ok: true })
@@ -37,7 +38,7 @@ describe('POST /api/auth/email/verify', () => {
 
   it('re-seals the caller\'s session with verified: true', async () => {
     const user = await createUser({ email: 'alice@example.com', plainPassword: 'Passw0rd' })
-    const token = await issueToken(user.id)
+    const token = await issueToken(user.id, user.email)
 
     const event = makeEvent({ body: { token } })
     // Simulate the user being logged in when they click the link.
@@ -58,7 +59,7 @@ describe('POST /api/auth/email/verify', () => {
 
   it('does not re-seal a session that force-logout revoked', async () => {
     const user = await createUser({ email: 'alice@example.com', plainPassword: 'Passw0rd' })
-    const token = await issueToken(user.id)
+    const token = await issueToken(user.id, user.email)
 
     // Admin bumps the epoch after the cookie was sealed.
     await db.update(schema.users).set({ sessionEpoch: 1 }).where(eq(schema.users.id, user.id))
@@ -85,7 +86,7 @@ describe('POST /api/auth/email/verify', () => {
 
   it('does not re-seal a session for a disabled account', async () => {
     const user = await createUser({ email: 'bob@example.com', plainPassword: 'Passw0rd' })
-    const token = await issueToken(user.id)
+    const token = await issueToken(user.id, user.email)
     await db.update(schema.users).set({ disabled: true }).where(eq(schema.users.id, user.id))
 
     const event = makeEvent({ body: { token } })
@@ -103,7 +104,7 @@ describe('POST /api/auth/email/verify', () => {
 
   it('consumes an expired token, reports 400, and sends nothing', async () => {
     const user = await createUser({ email: 'alice@example.com', plainPassword: 'Passw0rd' })
-    const token = await issueToken(user.id, -1000)
+    const token = await issueToken(user.id, user.email, -1000)
 
     await expect(verify(makeEvent({ body: { token } })))
       .rejects.toMatchObject({ statusCode: 400 })
@@ -117,7 +118,7 @@ describe('POST /api/auth/email/verify', () => {
 
   it('lets only one of two requests carrying the same token redeem it', async () => {
     const user = await createUser({ email: 'race@example.com', plainPassword: 'Passw0rd' })
-    const token = await issueToken(user.id)
+    const token = await issueToken(user.id, user.email)
 
     const results = await Promise.allSettled([
       verify(makeEvent({ body: { token } })),
@@ -142,5 +143,50 @@ describe('POST /api/auth/email/verify', () => {
   it('rejects an unknown token', async () => {
     await expect(verify(makeEvent({ body: { token: 'no-such-token' } })))
       .rejects.toMatchObject({ statusCode: 400 })
+  })
+
+  it('refuses a token minted for an address the account no longer holds', async () => {
+    const user = await createUser({ email: 'attacker@gmail.com', plainPassword: 'Passw0rd' })
+    const stale = await issueToken(user.id, 'attacker@gmail.com')
+
+    // The account is re-pointed at someone else's address, as profile.put does.
+    await db.update(schema.users)
+      .set({ email: 'victim@gmail.com', verified: false })
+      .where(eq(schema.users.id, user.id))
+
+    await expect(verify(makeEvent({ body: { token: stale } })))
+      .rejects.toMatchObject({ statusCode: 400 })
+
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, user.id)).get()
+    expect(row!.verified).toBe(false)
+  })
+
+  it('refuses a token carrying no address at all', async () => {
+    const user = await createUser({ email: 'alice@example.com', plainPassword: 'Passw0rd' })
+    const token = `verify-legacy-${user.id}`
+    await db.insert(schema.emailVerifications).values({
+      userId: user.id,
+      token: hashLoginToken(token),
+      expiresAt: new Date(Date.now() + 60_000),
+    })
+
+    await expect(verify(makeEvent({ body: { token } })))
+      .rejects.toMatchObject({ statusCode: 400 })
+
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, user.id)).get()
+    expect(row!.verified).toBe(false)
+  })
+
+  it('drops outstanding tokens when a fresh one is issued', async () => {
+    const user = await createUser({ email: 'alice@example.com', plainPassword: 'Passw0rd' })
+    const first = await issueToken(user.id, user.email)
+    await createEmailVerificationToken(user.id, user.email)
+
+    await expect(verify(makeEvent({ body: { token: first } })))
+      .rejects.toMatchObject({ statusCode: 400 })
+
+    const rows = await db.select().from(schema.emailVerifications)
+      .where(eq(schema.emailVerifications.userId, user.id)).all()
+    expect(rows).toHaveLength(1)
   })
 })

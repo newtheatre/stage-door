@@ -105,10 +105,13 @@ export const userRolesRelations = relations(userRoles, ({ one }) => ({
   }),
 }))
 
-// Verification tokens live 24h; single-use.
+// Verification tokens live 24h; single-use; issuing a new one deletes
+// outstanding ones for that user. `email` is the address it proves, not the row.
 export const emailVerifications = sqliteTable('email_verifications', {
   id: text('id').primaryKey().$defaultFn(() => nanoid()),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // Nullable only for rows minted before the column existed; those verify nothing.
+  email: text('email'),
   token: text('token').notNull().unique(),
   expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),

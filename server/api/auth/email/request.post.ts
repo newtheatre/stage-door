@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
   await enforceRateLimit('verify-request:acct', user.id)
 
   if (!user.verified) {
-    const token = await createEmailVerificationToken(user.id)
+    const token = await createEmailVerificationToken(user.id, user.email)
     await sendVerificationEmail(user.email, token)
   }
 

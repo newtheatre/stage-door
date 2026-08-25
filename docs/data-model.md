@@ -50,7 +50,9 @@ Most rows now come from their app's manifest ([ADR-0018](decisions/0018-manifest
 
 ### `email_verifications` / `password_resets` / `magic_links`
 
-All three: `user_id` (FK cascade), a unique token column, `expires_at`. Tokens are `randomBytes(32)` hex, **stored as their SHA-256 (ADR-0013)**: the plaintext exists only in the email. Verification tokens live 24 h; reset tokens 1 h (self-service) or 24 h (admin-initiated); magic links 15 minutes. All single-use; issuing a new reset or magic link deletes outstanding ones for that user. Expired magic links are also swept nightly.
+All three: `user_id` (FK cascade), a unique token column, `expires_at`. Tokens are `randomBytes(32)` hex, **stored as their SHA-256 (ADR-0013)**: the plaintext exists only in the email. Verification tokens live 24 h; reset tokens 1 h (self-service) or 24 h (admin-initiated); magic links 15 minutes. All single-use; issuing a new verification, reset or magic link deletes outstanding ones for that user. Expired magic links are also swept nightly.
+
+`email_verifications` additionally carries `email`, the address the link was mailed to. Redemption compares it against `users.email` and refuses on any difference, so an outstanding token cannot verify an address the account was re-pointed at afterwards. The column is nullable only because rows minted before it existed could not be backfilled honestly; `0016_clear_unbound_verifications` deleted them, and any that reappear verify nothing.
 
 ### `legacy_ids`
 

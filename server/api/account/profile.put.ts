@@ -46,7 +46,7 @@ export default defineEventHandler(async (event) => {
     .returning()
 
   if (emailChanged) {
-    const token = await createEmailVerificationToken(user.id)
+    const token = await createEmailVerificationToken(user.id, email)
     await sendVerificationEmail(email, token)
   }
 
