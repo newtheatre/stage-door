@@ -36,6 +36,15 @@ const EXEMPT: Record<string, string> = {
     'mints and emails a token; the reset that spends it is what audits',
 }
 
+/**
+ * GET routes the reference marks [AUD]. Reads are not mutations, so the sweep
+ * below skips them; these few are disclosures and must stay recorded.
+ */
+const AUDITED_GETS = [
+  'server/api/account/export.get.ts',
+  'server/api/users/[id]/export.get.ts',
+]
+
 function routeFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = join(dir, entry.name)
@@ -43,6 +52,25 @@ function routeFiles(dir: string): string[] {
     return entry.name.endsWith('.ts') && !entry.name.endsWith('.get.ts') ? [full] : []
   })
 }
+
+function getRoutes(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) return getRoutes(full)
+    return entry.name.endsWith('.get.ts') ? [full] : []
+  })
+}
+
+describe('the reads this service records', () => {
+  it.each(AUDITED_GETS)('%s writes an audit entry', (file) => {
+    expect(readFileSync(file, 'utf8').includes('writeAudit'), `${file} no longer audits`).toBe(true)
+  })
+
+  it('is the whole list, so a new audited read is a deliberate act', () => {
+    const audited = getRoutes('server/api').filter(file => readFileSync(file, 'utf8').includes('writeAudit'))
+    expect(audited.sort()).toEqual([...AUDITED_GETS].sort())
+  })
+})
 
 describe('every account and user mutation is audited', () => {
   const files = ROOTS.flatMap(routeFiles)

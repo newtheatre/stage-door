@@ -96,7 +96,7 @@ All require session + `auth:ADMIN` unless noted. All mutations **[AUD]** (enforc
 | `POST /api/users/:id/mfa-reset` | Cannot target yourself, like `clear-password`, `unlink-google`, `erase`, `disable` and `reset-password`; `force-logout` and `pending-google` deliberately can. | Clear every second factor: the "lost my phone" path. Verify identity out of band first ([operations.md](operations.md)); the account keeps working but admin tools stay closed until they re-enrol. Bumps the session epoch, so sessions sealed behind the removed factors die too |
 | `POST /api/users/:id/clear-password` | Null the password so the account can only use Google (ADR-0012). Refuses unless Google is linked: clearing first would lock the account out. Bumps `session_epoch` |
 | `PUT /api/users/:id/pending-google` | Set/clear `pending_google_email`: admin-directed link: the next Google sign-in with that address attaches to this account. Validated `@newtheatre.org.uk`; refuses addresses already linked or pending elsewhere |
-| `GET /api/users/:id/export` | Subject-access bundle: auth record + each app's hook contribution ([gdpr-retention.md](gdpr-retention.md)) |
+| `GET /api/users/:id/export` **[AUD]** | Subject-access bundle: auth record + each app's hook contribution ([gdpr-retention.md](gdpr-retention.md)). A read, but a disclosure of one named person's data, so it is recorded |
 | `POST /api/users/:id/erase` | Anonymise everywhere (auth + app hooks + epoch bump). Requires `{ confirmEmail }` matching the account; cannot target self; returns per-hook status and is idempotent: re-POST to retry failed hooks. Also self-service from `/account`. |
 | `GET /api/eligibility-syncs` | Eligibility rule sync status: `{ syncs: [{ ruleKey, lastAttemptAt, lastSuccessAt, userCount, lastError, stale }] }`, one row per rule a role definition references. `stale` means never answered, or last answered over a day ago, which is what the Role definitions banner shows ([ADR-0019](decisions/0019-training-conditional-grants.md)) |
 | `GET /api/audit?actor=&action=&page=` | Audit log query |
@@ -116,7 +116,7 @@ Self-service (session, own account only: all verify the account live: exists, no
 | `POST /api/account/mfa/totp-confirm` **[AUD]** | `{ code }` proves the app works and arms it. First enrolment returns `{ recoveryCodes }` **once**, bumps epoch, re-seals this session |
 | `POST /api/account/mfa/recovery-codes` **[AUD]** | Regenerate the eight codes; returns them once and invalidates the old set |
 | `DELETE /api/account/mfa/:id` **[AUD]** | Remove a passkey (row id) or the literal `totp`. Refuses to remove your last factor (counted in credentials, so a second passkey is enough) while MFA is required of the account. Removing the last factor deletes the recovery codes with it, in the same batch: they are a factor, and leaving them live means a set the member may no longer hold comes back the moment anything is re-enrolled |
-| `GET /api/account/export` | Own subject-access bundle (JSON download) |
+| `GET /api/account/export` **[AUD]** | Own subject-access bundle (JSON download) |
 | `POST /api/account/erase` **[AUD]** | Close own account: `{ confirmEmail, password? }`: irreversible anonymisation everywhere, session cleared. Requires a **fresh** session (login within the last 10 minutes, `FRESH_SESSION_MS`, the same gate `GET /auth/google-link` uses) and, where the account holds a password, that password. A Google-only account has no password to ask for, so freshness is the whole barrier: logging in again means a Google re-auth, which carries Workspace 2SV. Returns the same per-hook status as the admin route; `/account` shows the member which sites have not confirmed rather than reporting success, because they cannot retry it themselves once their own row is scrubbed (the nightly sweep re-drives it) |
 
 ## Service-token administration
@@ -195,8 +195,10 @@ Reconciliation is described in full in [ADR-0018](decisions/0018-manifest-declar
 ### `POST /api/users/shadow`: service [AUD]
 `{ email, name }` → match on lowercased email or create `{ password: NULL, email_verified: false }`. Returns `{ id, existing: boolean, guest: boolean }`. Used by Proscenium's guest checkout. Idempotent by email. If the email belongs to a full account, returns that account's id (`existing: true, guest: false`): the booking attaches to their history.
 
-### `GET /api/role-holders?roles=A,B`: service [AUD]
+### `GET /api/role-holders?roles=A,B`: service
 Who currently holds these roles, so a consumer app can offer a picker of its own people instead of making staff type an exact email. Returns `{ namespace, holders: [{ id, name }] }`.
+
+**Deliberately not [AUD].** It is a read, not a mutation, and the only reads this service records are subject-access disclosures of one named person. The answer is forced to the caller's own namespace, is id and name only, caps at 10 roles and 200 holders, and consumer apps poll it (Proscenium caches per isolate for 10 minutes), so a row per call would bury the deliberate admin acts `GET /api/audit` exists to show. The trail that a token was used at all is `service_tokens.last_used_at`.
 
 **Roles are bare names and the namespace is the caller's own**, taken from the registered app whose `name` matches the service token's: a token named `proscenium` asking for `COMMITTEE` is answered about `proscenium:COMMITTEE`, and no app can ask who holds another app's roles. A token whose name matches no registered app is `403`. The `name` join is deliberate: `service_tokens.app_id` is a reporting column that a rotated token does not carry ([ADR-0017](decisions/0017-app-registry.md)).
 
