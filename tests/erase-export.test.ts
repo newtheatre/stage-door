@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { eraseUser } from '../server/utils/erase'
 import { exportUser } from '../server/utils/exportUser'
 import { fetchMock } from './setup'
+import { writeAudit } from '../server/utils/audit'
 import { createUser, grantRole, enrolTotp, registerApp } from './helpers/users'
 import { regenerateRecoveryCodes } from '../server/utils/mfa'
 
@@ -144,6 +145,59 @@ describe('exportUser: the subject-access bundle', () => {
     const bundle = await exportUser(user.id)
     expect(bundle.apps.proscenium).toEqual({ reservations: [] })
     expect(JSON.stringify(bundle.apps.rooms)).toContain('export unavailable')
+  })
+})
+
+describe('an erased account keeps no address in the audit log', () => {
+  it('redacts identifying values from rows about the subject, and the export follows', async () => {
+    await registerApp('rooms')
+    await db.insert(schema.serviceTokens).values({ name: 'rooms', tokenHash: 'hash-r' })
+    hooksSucceed()
+
+    const user = await createUser({ email: 'jane@example-user.co.uk', name: 'Jane Smith', plainPassword: 'Passw0rd' })
+    // A row carrying the address in its detail, targeting the subject.
+    await writeAudit({
+      actorUserId: 'admin-1',
+      action: 'user.created',
+      target: user.id,
+      detail: { email: 'jane@example-user.co.uk', name: 'Jane Smith', roles: [{ role: 'rooms:ADMIN' }] },
+    })
+
+    await eraseUser(user.id, { id: 'admin-1', via: 'admin' })
+
+    const bundle = await exportUser(user.id)
+    expect(JSON.stringify(bundle)).not.toContain('jane@example-user.co.uk')
+    expect(JSON.stringify(bundle)).not.toContain('Jane Smith')
+
+    // The trail itself survives: only the identifying values are rewritten.
+    const created = await db.select().from(schema.auditLog)
+      .where(eq(schema.auditLog.action, 'user.created')).get()
+    expect(created!.target).toBe(user.id)
+    expect(created!.detail).toContain('rooms:ADMIN')
+  })
+
+  it('redacts on a re-driven erasure whose first attempt left hooks failing', async () => {
+    await registerApp('rooms')
+    await db.insert(schema.serviceTokens).values({ name: 'rooms', tokenHash: 'hash-r' })
+
+    const user = await createUser({ email: 'redo@example-user.co.uk', plainPassword: 'Passw0rd' })
+    await writeAudit({
+      actorUserId: 'admin-1',
+      action: 'user.created',
+      target: user.id,
+      detail: { email: 'redo@example-user.co.uk' },
+    })
+
+    fetchMock.mockRejectedValue(new Error('rooms is down'))
+    await eraseUser(user.id, { id: 'admin-1', via: 'admin' })
+
+    hooksSucceed()
+    const retry = await eraseUser(user.id, { id: null, via: 'retention-redrive' })
+    expect(retry.alreadyErased).toBe(true)
+
+    const rows = await db.select().from(schema.auditLog)
+      .where(eq(schema.auditLog.target, user.id)).all()
+    expect(rows.every(r => !r.detail?.includes('redo@example-user.co.uk'))).toBe(true)
   })
 })
 

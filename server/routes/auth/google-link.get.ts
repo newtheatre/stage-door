@@ -60,7 +60,8 @@ export default defineOAuthGoogleEventHandler({
       actorUserId: user.id,
       action: 'google.linked',
       target: user.id,
-      detail: { googleEmail: googleProfile.email.toLowerCase(), via: 'self-service' },
+      // No address: it must not outlive an erasure (same rule as user.erased).
+      detail: { via: 'self-service' },
     })
 
     // Re-seal so the account page reflects the link immediately.

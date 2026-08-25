@@ -13,7 +13,7 @@ import { loadRoles, loadRoleGrants, loadEffectiveRolesFor, activeRoleCondition, 
 import { assertGrantsDefined, assertEligibilityModeAllowed, eligibilityModeAllowed } from '../server/utils/roleDefinitions'
 import { ROLES_CONFIG, nextCommitteeYearEnd } from '../server/utils/rolesConfig'
 import { findSuspectGrants, explain } from '../server/utils/grantAudit'
-import { writeAudit } from '../server/utils/audit'
+import { writeAudit, redactAuditDetail } from '../server/utils/audit'
 import { validateRedirect } from '../shared/utils/validateRedirect'
 import { refreshSession } from '../server/utils/refresh'
 import { requireServiceToken, createServiceToken, hashServiceToken, generateServiceToken } from '../server/utils/serviceToken'
@@ -204,6 +204,7 @@ Object.assign(g, {
   sealUserSession,
   sealLoginSession,
   writeAudit,
+  redactAuditDetail,
   validateRedirect,
   refreshSession,
   requireServiceToken,

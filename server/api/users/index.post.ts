@@ -55,7 +55,9 @@ export default defineEventHandler(async (event) => {
     actorUserId: admin.id,
     action: 'user.created',
     target: user.id,
-    detail: { email, roles: roles.map(g => ({ role: g.role, expiresAt: g.expiresAt })) },
+    // The id in `target` identifies the account; the address must not
+    // outlive an erasure in here (same rule as user.erased).
+    detail: { roles: roles.map(g => ({ role: g.role, expiresAt: g.expiresAt })) },
   })
 
   return { user: adminUserView(user, await loadRoleGrants(user.id)) }

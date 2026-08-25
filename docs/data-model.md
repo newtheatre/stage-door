@@ -114,7 +114,7 @@ The permission vocabulary an app declares, and which role definition carries whi
 
 | Column | Notes |
 |---|---|
-| `id` · `actor_user_id` (null = system/cron) · `action` text · `target` text · `detail` text (JSON) · `created_at` | Append-only. Written by: all admin UI actions, role grants/revokes, force-logouts, account disable, erasure/anonymisation, retention sweep actions, service-token issuance. Not written by: ordinary logins (that's `last_login`). Indexed on `target`, `actor_user_id`, `action` and `created_at`: the table grows without bound, and "everything that happened to this user" is `?target=` |
+| `id` · `actor_user_id` (null = system/cron) · `action` text · `target` text · `detail` text (JSON) · `created_at` | Append-only, with **one exception**: erasure rewrites `detail` on rows whose `target` is the erased user, replacing addresses and names with `[redacted]` and leaving `action`, `target`, `actor_user_id` and `created_at` alone ([ADR-0026](decisions/0026-erasure-redacts-the-audit-log.md)). Nothing else updates or deletes a row. `detail` must never carry an address or a name: the id in `target` says who, and a value here would outlive an erasure. Written by: all admin UI actions, role grants/revokes, force-logouts, account disable, erasure/anonymisation, retention sweep actions, service-token issuance. Not written by: ordinary logins (that's `last_login`). Indexed on `target`, `actor_user_id`, `action` and `created_at`: the table grows without bound, and "everything that happened to this user" is `?target=` |
 
 ### `retention_notices`
 

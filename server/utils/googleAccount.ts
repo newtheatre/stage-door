@@ -55,7 +55,8 @@ export async function resolveGoogleUser(profile: GoogleProfile): Promise<{ user:
       actorUserId: byPending.id,
       action: 'google.pending-link-consumed',
       target: byPending.id,
-      detail: { googleEmail },
+      // No address: it must not outlive an erasure (same rule as user.erased).
+      detail: { via: 'pending-link' },
     })
     return { user: user!, how: 'pending' }
   }

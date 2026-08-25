@@ -29,6 +29,7 @@ Why the service is the way it is. One decision per file, numbered, never edited 
 | [0023](0023-suspect-grants-reported-not-revoked.md) | Suspect grants are reported to the ITM, never revoked automatically | Accepted |
 | [0024](0024-role-definitions-come-only-from-manifests.md) | Role definitions come only from manifests; this service declares its own | Accepted |
 | [0025](0025-publish-auth-types-as-a-package.md) | Publish auth-types as a package, on GitHub Packages | Accepted |
+| [0026](0026-erasure-redacts-the-audit-log.md) | Erasure redacts identifying values in the audit log | Accepted: narrows the append-only property of `audit_log` for [0008](0008-anonymise-not-delete.md) |
 
 ## Template
 

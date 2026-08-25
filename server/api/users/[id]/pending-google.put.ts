@@ -45,7 +45,9 @@ export default defineEventHandler(async (event) => {
     actorUserId: admin.id,
     action: email === null ? 'google.pending-link-cleared' : 'google.pending-link-set',
     target: user.id,
-    detail: email === null ? undefined : { email },
+    // The address is on the row until the link completes; it must not
+    // outlive an erasure in here (same rule as user.erased).
+    detail: { via: 'admin' },
   })
 
   return { ok: true }

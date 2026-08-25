@@ -474,7 +474,7 @@ describe('self-service credential changes are audited', () => {
     expect(audit[0]?.actorUserId).toBe(user.id)
   })
 
-  it('records an email change with its from and to', async () => {
+  it('records that the email changed, and neither address', async () => {
     const user = await createUser({ email: 'old-self@example-user.co.uk', plainPassword: 'Passw0rd', verified: true })
     const event = await sessionEvent(user, { body: { email: 'new-self@example-user.co.uk' } })
 
@@ -483,7 +483,10 @@ describe('self-service credential changes are audited', () => {
     const audit = await db.select().from(schema.auditLog)
       .where(eq(schema.auditLog.action, 'user.updated')).all()
     expect(audit).toHaveLength(1)
-    expect(audit[0]?.detail).toContain('old-self@example-user.co.uk')
-    expect(audit[0]?.detail).toContain('new-self@example-user.co.uk')
+    expect(audit[0]?.target).toBe(user.id)
+    expect(audit[0]?.detail).toContain('emailChanged')
+    // The id in `target` says who; an address here would outlive an erasure.
+    expect(audit[0]?.detail).not.toContain('old-self@example-user.co.uk')
+    expect(audit[0]?.detail).not.toContain('new-self@example-user.co.uk')
   })
 })

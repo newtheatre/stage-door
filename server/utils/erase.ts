@@ -49,6 +49,10 @@ export async function eraseUser(userId: string, actor: { id: string | null, via:
     ])
   }
 
+  // Outside the branch above: a retry of a failed erasure must redact too, and
+  // rewriting an already-redacted row changes nothing (ADR-0026).
+  await redactAuditDetail(userId)
+
   // App hooks are idempotent, so call them on every run: that is what retries
   // a hook that failed before.
   let hooks: HookResult<{ ok: boolean }>[] = []

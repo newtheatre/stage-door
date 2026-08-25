@@ -1,8 +1,8 @@
 import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core'
 import { nanoid } from 'nanoid'
 
-// Append-only. Written by admin actions, role changes, erasure and the
-// sweeps, not by ordinary logins, which are users.last_login.
+// Append-only, with one exception: erasure redacts identifying values in
+// `detail` on rows about the erased user (ADR-0026).
 export const auditLog = sqliteTable('audit_log', {
   id: text('id').primaryKey().$defaultFn(() => nanoid()),
   actorUserId: text('actor_user_id'), // null = system/cron

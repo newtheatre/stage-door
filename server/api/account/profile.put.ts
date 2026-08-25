@@ -54,10 +54,12 @@ export default defineEventHandler(async (event) => {
     actorUserId: user.id,
     action: 'user.updated',
     target: user.id,
+    // The fact, not the values: neither the address nor the name may outlive
+    // an erasure in here (same rule as user.erased).
     detail: {
       via: 'self-service',
-      ...(name !== undefined ? { name } : {}),
-      ...(emailChanged ? { email: { from: user.email, to: email } } : {}),
+      ...(name !== undefined ? { nameChanged: true } : {}),
+      ...(emailChanged ? { emailChanged: true } : {}),
     },
   })
 
