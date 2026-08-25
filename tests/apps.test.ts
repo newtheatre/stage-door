@@ -8,7 +8,8 @@ import deleteHandler from '../server/api/apps/[id].delete'
 import { callAppHook, callAllAppHooks } from '../server/utils/appHooks'
 import { baseUrlSchema } from '../server/utils/validation'
 import { createServiceToken, hashServiceToken, requireServiceToken } from '../server/utils/serviceToken'
-import { fetchMock, makeEvent } from './setup'
+import { syncApp } from '../server/utils/manifestSync'
+import { fetchMock, rawFetchMock, makeEvent } from './setup'
 import type { FakeEvent } from './setup'
 import { createUser, grantRole, enrolTotp, registerApp, defineRole } from './helpers/users'
 
@@ -244,6 +245,25 @@ describe('overlap token rotation (docs/operations.md)', () => {
     fetchMock.mockResolvedValue({ ok: true })
     await callAppHook('proscenium', 'anonymise', { userId: 'u1' })
     const [, options] = fetchMock.mock.calls.at(-1)!
+    expect(options.headers.Authorization).toBe(`Bearer ${hashServiceToken(fresh.token)}`)
+  })
+
+  it('sends the newest on the manifest fetch too, so a rotation cannot break sync', async () => {
+    const app = await registerApp('rooms', { manifestEnabled: true })
+    const old = await createServiceToken('rooms')
+    await db.update(schema.serviceTokens)
+      .set({ createdAt: new Date(Date.now() - 60_000) })
+      .where(eq(schema.serviceTokens.id, old.id))
+    const fresh = await createServiceToken('rooms')
+
+    rawFetchMock.mockResolvedValue({
+      status: 500,
+      _data: '',
+      headers: { get: () => null },
+    })
+    await syncApp(app)
+
+    const [, options] = rawFetchMock.mock.calls.at(-1)!
     expect(options.headers.Authorization).toBe(`Bearer ${hashServiceToken(fresh.token)}`)
   })
 })

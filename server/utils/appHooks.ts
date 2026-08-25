@@ -30,7 +30,7 @@ export async function loadHookApps() {
 }
 
 /** The newest token, so an overlap rotation sends the one just issued. */
-async function hookBearer(app: HookApp): Promise<string> {
+export async function hookBearer(app: HookApp): Promise<string> {
   const row = await db.select({ tokenHash: schema.serviceTokens.tokenHash })
     .from(schema.serviceTokens)
     .where(eq(schema.serviceTokens.name, app))
