@@ -218,6 +218,18 @@ describe('a withdrawn role cannot be granted again', () => {
     // A fresh grant of the same role is refused.
     await expect(assertGrantsDefined([{ role: 'rooms:ADMIN' }], new Set())).rejects.toMatchObject({ statusCode: 400 })
   })
+
+  it('sends the admin to the owning app, not to a page with no create button', async () => {
+    await roomsApp()
+
+    await expect(assertGrantsDefined([{ role: 'rooms:KEYHOLDER' }], new Set()))
+      .rejects.toMatchObject({ statusMessage: expect.stringContaining('the rooms manifest') })
+  })
+
+  it('says so plainly when no registered app owns the namespace', async () => {
+    await expect(assertGrantsDefined([{ role: 'romos:ADMIN' }], new Set()))
+      .rejects.toMatchObject({ statusMessage: expect.stringContaining('no registered app owns') })
+  })
 })
 
 describe('the permission vocabulary is queryable', () => {

@@ -3,7 +3,7 @@
  */
 
 import { db, schema } from '@nuxthub/db'
-import { isNull } from 'drizzle-orm'
+import { eq, isNull } from 'drizzle-orm'
 
 /**
  * New grants must reference a definition (ADR-0014). Roles the holder already
@@ -21,12 +21,21 @@ export async function assertGrantsDefined(roles: { role: string }[], alreadyHeld
 
   for (const grant of fresh) {
     if (!defined.has(grant.role)) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: `No definition for ${grant.role}: define it under Role definitions first`,
-      })
+      throw createError({ statusCode: 400, statusMessage: await undefinedRoleMessage(grant.role) })
     }
   }
+}
+
+/** Names the app to deploy: there is no write route to send anyone to (ADR-0024). */
+async function undefinedRoleMessage(roleKey: string): Promise<string> {
+  const namespace = roleKey.split(':')[0] ?? roleKey
+  const app = await db.select({ name: schema.apps.name })
+    .from(schema.apps).where(eq(schema.apps.namespace, namespace)).get()
+
+  if (!app) {
+    return `No definition for ${roleKey}: no registered app owns the '${namespace}' namespace, so check the spelling`
+  }
+  return `No definition for ${roleKey}: declare it in the ${app.name} manifest and deploy that app, then press Sync now under Admin, Apps`
 }
 
 /**
