@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { eraseUser } from '../server/utils/erase'
 import { exportUser } from '../server/utils/exportUser'
 import { fetchMock } from './setup'
+import { writeAudit } from '../server/utils/audit'
 import { createUser, grantRole, enrolTotp, registerApp } from './helpers/users'
 import { regenerateRecoveryCodes } from '../server/utils/mfa'
 
@@ -147,6 +148,59 @@ describe('exportUser: the subject-access bundle', () => {
   })
 })
 
+describe('an erased account keeps no address in the audit log', () => {
+  it('redacts identifying values from rows about the subject, and the export follows', async () => {
+    await registerApp('rooms')
+    await db.insert(schema.serviceTokens).values({ name: 'rooms', tokenHash: 'hash-r' })
+    hooksSucceed()
+
+    const user = await createUser({ email: 'jane@example-user.co.uk', name: 'Jane Smith', plainPassword: 'Passw0rd' })
+    // A row carrying the address in its detail, targeting the subject.
+    await writeAudit({
+      actorUserId: 'admin-1',
+      action: 'user.created',
+      target: user.id,
+      detail: { email: 'jane@example-user.co.uk', name: 'Jane Smith', roles: [{ role: 'rooms:ADMIN' }] },
+    })
+
+    await eraseUser(user.id, { id: 'admin-1', via: 'admin' })
+
+    const bundle = await exportUser(user.id)
+    expect(JSON.stringify(bundle)).not.toContain('jane@example-user.co.uk')
+    expect(JSON.stringify(bundle)).not.toContain('Jane Smith')
+
+    // The trail itself survives: only the identifying values are rewritten.
+    const created = await db.select().from(schema.auditLog)
+      .where(eq(schema.auditLog.action, 'user.created')).get()
+    expect(created!.target).toBe(user.id)
+    expect(created!.detail).toContain('rooms:ADMIN')
+  })
+
+  it('redacts on a re-driven erasure whose first attempt left hooks failing', async () => {
+    await registerApp('rooms')
+    await db.insert(schema.serviceTokens).values({ name: 'rooms', tokenHash: 'hash-r' })
+
+    const user = await createUser({ email: 'redo@example-user.co.uk', plainPassword: 'Passw0rd' })
+    await writeAudit({
+      actorUserId: 'admin-1',
+      action: 'user.created',
+      target: user.id,
+      detail: { email: 'redo@example-user.co.uk' },
+    })
+
+    fetchMock.mockRejectedValue(new Error('rooms is down'))
+    await eraseUser(user.id, { id: 'admin-1', via: 'admin' })
+
+    hooksSucceed()
+    const retry = await eraseUser(user.id, { id: null, via: 'retention-redrive' })
+    expect(retry.alreadyErased).toBe(true)
+
+    const rows = await db.select().from(schema.auditLog)
+      .where(eq(schema.auditLog.target, user.id)).all()
+    expect(rows.every(r => !r.detail?.includes('redo@example-user.co.uk'))).toBe(true)
+  })
+})
+
 describe('the subject-access bundle does not carry other people\'s data', () => {
   it('strips detail from rows the subject only acted on', async () => {
     const admin = await createUser({ email: 'admin-x@example.com', name: 'Admin' })
@@ -177,6 +231,70 @@ describe('the subject-access bundle does not carry other people\'s data', () => 
     expect(targeted!.detail).not.toBeNull()
 
     expect(JSON.stringify(bundle)).not.toContain('old@example.com')
+  })
+})
+
+describe('erasure lands as one atomic write', () => {
+  interface Batched { batch: (statements: unknown[]) => Promise<unknown[]> }
+
+  /** Run `fn` with db.batch instrumented, returning the statement counts. */
+  async function withBatchSpy<T>(fn: () => Promise<T>, sabotage = false): Promise<{ result?: T, error?: unknown, sizes: number[] }> {
+    const target = db as unknown as Batched
+    const original = target.batch.bind(target)
+    const sizes: number[] = []
+    target.batch = async (statements) => {
+      sizes.push(statements.length)
+      if (sabotage) throw new Error('D1_ERROR: network error')
+      return original(statements)
+    }
+    try {
+      return { result: await fn(), sizes }
+    }
+    catch (error) {
+      return { error, sizes }
+    }
+    finally {
+      target.batch = original
+    }
+  }
+
+  it('scrubs the row and every side table in a single batch', async () => {
+    await registerApp('rooms')
+    await db.insert(schema.serviceTokens).values({ name: 'rooms', tokenHash: 'hash-r' })
+    hooksSucceed()
+
+    const user = await createUser({ email: 'atomic@example-user.co.uk', plainPassword: 'Passw0rd' })
+    await grantRole(user.id, 'rooms:ADMIN')
+    await enrolTotp(user.id)
+
+    const { sizes } = await withBatchSpy(() => eraseUser(user.id, { id: 'admin-1', via: 'admin' }))
+
+    // The users UPDATE plus every dependent delete, or none of them: the retry
+    // key is the address the first of those statements writes.
+    expect(sizes).toEqual([11])
+    expect(await db.select().from(schema.totpSecrets).all()).toHaveLength(0)
+  })
+
+  it('leaves the row untouched when the batch fails, so a retry still erases', async () => {
+    await registerApp('rooms')
+    await db.insert(schema.serviceTokens).values({ name: 'rooms', tokenHash: 'hash-r' })
+    hooksSucceed()
+
+    const user = await createUser({ email: 'halfway@example-user.co.uk', plainPassword: 'Passw0rd' })
+    await grantRole(user.id, 'rooms:ADMIN')
+
+    const { error } = await withBatchSpy(() => eraseUser(user.id, { id: 'admin-1', via: 'admin' }), true)
+    expect(error).toBeTruthy()
+
+    const survived = await db.select().from(schema.users).where(eq(schema.users.id, user.id)).get()
+    expect(survived!.email).toBe('halfway@example-user.co.uk')
+    expect(await db.select().from(schema.userRoles).where(eq(schema.userRoles.userId, user.id)).all()).toHaveLength(1)
+
+    // The retry is not fooled into reporting an erasure it never performed.
+    const retry = await eraseUser(user.id, { id: 'admin-1', via: 'admin' })
+    expect(retry.alreadyErased).toBe(false)
+    expect(retry.complete).toBe(true)
+    expect(await db.select().from(schema.userRoles).where(eq(schema.userRoles.userId, user.id)).all()).toHaveLength(0)
   })
 })
 

@@ -9,6 +9,8 @@ import redeemResetHandler from '../server/api/auth/password/reset.post'
 import { createPasswordResetToken } from '../server/utils/tokens'
 import forgotHandler from '../server/api/auth/password/forgot.post'
 import registerHandler from '../server/api/auth/register.post'
+import updateProfileHandler from '../server/api/account/profile.put'
+import adminUpdateUserHandler from '../server/api/users/[id]/index.put'
 import { makeEvent, sealedSession, sentEmails } from './setup'
 import { resolveGoogleUser } from '../server/utils/googleAccount'
 import { createUser, grantRole, enrolTotp } from './helpers/users'
@@ -19,6 +21,8 @@ const register = registerHandler as unknown as (event: unknown) => Promise<{ ok:
 const adminReset = adminResetHandler as unknown as (event: unknown) => Promise<unknown>
 const changePassword = changePasswordHandler as unknown as (event: unknown) => Promise<unknown>
 const redeemReset = redeemResetHandler as unknown as (event: unknown) => Promise<unknown>
+const updateProfile = updateProfileHandler as unknown as (event: unknown) => Promise<unknown>
+const adminUpdateUser = adminUpdateUserHandler as unknown as (event: unknown) => Promise<unknown>
 
 async function sealFor(event: object, user: { id: string, email: string, name: string }, roles: string[] = []) {
   await (globalThis as never as { setUserSession: (e: unknown, s: unknown) => Promise<unknown> })
@@ -122,7 +126,7 @@ describe('Workspace addresses cannot use password login (ADR-0012)', () => {
   })
 })
 
-describe('ADR-0012 is enforced where a password is written, not only at login', () => {
+describe('ADR-0012 is enforced wherever a password or an address is written', () => {
   it('refuses to mint an admin set-password token for a Workspace address', async () => {
     const admin = await createUser({ email: 'admin-ws@example.com', plainPassword: 'Passw0rd', verified: true })
     await grantRole(admin.id, 'auth:ADMIN')
@@ -157,5 +161,50 @@ describe('ADR-0012 is enforced where a password is written, not only at login', 
 
     const row = await db.select().from(schema.users).where(eq(schema.users.id, user.id)).get()
     expect(row!.password).toBeNull()
+  })
+})
+
+describe('a Workspace address cannot be claimed by editing an email field', () => {
+  it('refuses a self-service email change onto an unclaimed Workspace address', async () => {
+    const user = await createUser({ email: 'attacker@example.com', plainPassword: 'Passw0rd', verified: true })
+
+    const event = makeEvent({ body: { email: 'alice.smith@newtheatre.org.uk' } })
+    await sealFor(event, user)
+
+    await expect(updateProfile(event)).rejects.toMatchObject({ statusCode: 403 })
+
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, user.id)).get()
+    expect(row!.email).toBe('attacker@example.com')
+    expect(sentEmails).toHaveLength(0)
+  })
+
+  it('refuses the same move from the admin route', async () => {
+    const admin = await createUser({ email: 'admin-edit@example.com', plainPassword: 'Passw0rd', verified: true })
+    await grantRole(admin.id, 'auth:ADMIN')
+    await enrolTotp(admin.id)
+    const target = await createUser({ email: 'member@example.com', plainPassword: 'Passw0rd' })
+
+    const event = makeEvent({ params: { id: target.id }, body: { email: 'bob.jones@newtheatre.org.uk' } })
+    await sealFor(event, admin, ['auth:ADMIN'])
+
+    await expect(adminUpdateUser(event)).rejects.toMatchObject({ statusCode: 403 })
+
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, target.id)).get()
+    expect(row!.email).toBe('member@example.com')
+  })
+
+  it('bumps the session epoch on a self-service email change, so other sessions die', async () => {
+    const user = await createUser({ email: 'mover@example-user.co.uk', plainPassword: 'Passw0rd', verified: true })
+
+    const event = makeEvent({ body: { email: 'moved@example-user.co.uk' } })
+    await sealFor(event, user)
+
+    await updateProfile(event)
+
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, user.id)).get()
+    expect(row!.email).toBe('moved@example-user.co.uk')
+    expect(row!.sessionEpoch).toBe(user.sessionEpoch + 1)
+    // The acting session is re-sealed, so it survives its own epoch bump.
+    expect(sealedSession(event)?.epoch).toBe(row!.sessionEpoch)
   })
 })

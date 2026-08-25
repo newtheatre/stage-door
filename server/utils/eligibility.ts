@@ -107,6 +107,14 @@ export async function snapshotRule(ruleKey: string): Promise<SnapshotResult> {
     const message = error instanceof Error ? error.message : String(error)
     console.error(`[eligibility] ${ruleKey} snapshot failed:`, error)
     await recordSyncFailure(ruleKey, message)
+    // Audited like a rejected manifest: enforcement keeps running on the last
+    // good answer, so a silent failure is stale enforcement nobody can see.
+    await writeAudit({
+      actorUserId: null,
+      action: 'eligibility.snapshot-failed',
+      target: ruleKey,
+      detail: { error: message },
+    })
     return { ruleKey, ok: false, error: message }
   }
 }
@@ -117,4 +125,33 @@ export async function snapshotAllRules(): Promise<SnapshotResult[]> {
   const results: SnapshotResult[] = []
   for (const key of keys) results.push(await snapshotRule(key))
   return results
+}
+
+/** How long a rule may go without a fresh answer before it is reported. */
+export const SNAPSHOT_STALE_MS = 24 * 60 * 60 * 1000
+
+export interface StaleRule {
+  ruleKey: string
+  lastSuccessAt: number | null
+  lastError: string | null
+}
+
+/**
+ * Rules whose enforcement is running on an answer older than a day, or that
+ * have never been answered at all.
+ */
+export async function staleRules(now: number = Date.now()): Promise<StaleRule[]> {
+  const keys = new Set(await referencedRuleKeys())
+  if (!keys.size) return []
+
+  const rows = await db.select().from(schema.eligibilitySyncs).all()
+  const byKey = new Map(rows.map(r => [r.ruleKey, r]))
+
+  return [...keys]
+    .map(ruleKey => ({
+      ruleKey,
+      lastSuccessAt: byKey.get(ruleKey)?.lastSuccessAt?.getTime() ?? null,
+      lastError: byKey.get(ruleKey)?.lastError ?? null,
+    }))
+    .filter(rule => rule.lastSuccessAt === null || now - rule.lastSuccessAt > SNAPSHOT_STALE_MS)
 }

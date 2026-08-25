@@ -20,6 +20,10 @@ export default defineEventHandler(async (event) => {
   const emailChanged = email !== undefined && email !== user.email
 
   if (emailChanged) {
+    // A Workspace address is proven by signing in with Google, never by an
+    // admin typing it here (ADR-0012).
+    assertPasswordAllowed(email)
+
     const clash = await db.select().from(schema.users).where(eq(schema.users.email, email)).get()
     if (clash && clash.id !== user.id) {
       throw createError({ statusCode: 409, statusMessage: 'A user with this email already exists' })
@@ -43,9 +47,11 @@ export default defineEventHandler(async (event) => {
     actorUserId: admin.id,
     action: 'user.updated',
     target: user.id,
+    // The fact, not the values: neither the address nor the name may outlive
+    // an erasure in here (same rule as user.erased).
     detail: {
-      ...(name !== undefined ? { name } : {}),
-      ...(emailChanged ? { email: { from: user.email, to: email } } : {}),
+      ...(name !== undefined ? { nameChanged: true } : {}),
+      ...(emailChanged ? { emailChanged: true } : {}),
     },
   })
 

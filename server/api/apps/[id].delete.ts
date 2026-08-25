@@ -1,5 +1,5 @@
 import { db, schema } from '@nuxthub/db'
-import { eq } from 'drizzle-orm'
+import { eq, or } from 'drizzle-orm'
 
 /** DELETE /api/apps/:id: deregister; hooks stop reaching it. */
 export default defineEventHandler(async (event) => {
@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
   // Deleted, not orphaned: requireServiceToken never consults app_id, so a
   // surviving token would still authenticate a decommissioned app inbound.
   const revoked = await db.delete(schema.serviceTokens)
-    .where(eq(schema.serviceTokens.appId, id))
+    .where(or(eq(schema.serviceTokens.name, app.name), eq(schema.serviceTokens.appId, id)))
     .returning({ id: schema.serviceTokens.id })
   await db.delete(schema.apps).where(eq(schema.apps.id, id))
 

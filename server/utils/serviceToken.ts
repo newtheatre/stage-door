@@ -19,8 +19,14 @@ export function generateServiceToken(): string {
 /** Create a token for an app. Returns the plaintext: shown once, never stored. */
 export async function createServiceToken(name: string): Promise<{ id: string, token: string }> {
   const token = generateServiceToken()
+
+  // Reporting only, and null when the app is not registered yet: an app may be
+  // integrated before it is in the registry (docs/integrating-an-app.md).
+  const app = await db.select({ id: schema.apps.id })
+    .from(schema.apps).where(eq(schema.apps.name, name)).get()
+
   const [row] = await db.insert(schema.serviceTokens)
-    .values({ name, tokenHash: hashServiceToken(token) })
+    .values({ name, appId: app?.id ?? null, tokenHash: hashServiceToken(token) })
     .returning()
   return { id: row!.id, token }
 }

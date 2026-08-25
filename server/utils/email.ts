@@ -184,6 +184,28 @@ export async function sendRetentionWarningEmail(email: string, daysLeft: number)
   })
 }
 
+/** Eligibility rules running on a stale answer, or never answered at all. */
+export async function sendEligibilityStaleEmail(
+  to: string,
+  rules: { ruleKey: string, lastSuccessAt: number | null, lastError: string | null }[],
+): Promise<void> {
+  const rows = rules.map(rule => `<li><strong>${rule.ruleKey}</strong>: ${
+    rule.lastSuccessAt === null ? 'never answered' : `last answered ${formatDateTime(new Date(rule.lastSuccessAt))}`
+  }${rule.lastError ? `. Last error: ${rule.lastError}` : ''}</li>`).join('')
+
+  await sendEmail({
+    to,
+    subject: 'NNT eligibility snapshot is out of date',
+    html: emailLayout(`
+      <p>These training eligibility rules have not been answered in the last day:</p>
+      <ul>${rows}</ul>
+      <p>Nobody's access has changed: the last good answer stays in force, and a
+      rule never answered enforces nothing. Check rehearsal and the auth
+      worker's training API token, then re-run the eligibility:snapshot task.</p>
+    `),
+  })
+}
+
 /** Retention sweep digest to the Archivist: its absence is an alert. */
 export async function sendRetentionDigestEmail(to: string, summary: Record<string, unknown>): Promise<void> {
   const dryRun = summary.dryRun === true

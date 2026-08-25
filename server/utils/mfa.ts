@@ -200,12 +200,20 @@ export async function remainingRecoveryCodes(userId: string): Promise<number> {
   return row?.left ?? 0
 }
 
+/** The four deletes that remove every factor, for a caller's own batch. */
+export function factorClearStatements(userId: string) {
+  return [
+    db.delete(schema.webauthnCredentials).where(eq(schema.webauthnCredentials.userId, userId)),
+    db.delete(schema.totpSecrets).where(eq(schema.totpSecrets.userId, userId)),
+    db.delete(schema.mfaRecoveryCodes).where(eq(schema.mfaRecoveryCodes.userId, userId)),
+    db.delete(schema.mfaChallenges).where(eq(schema.mfaChallenges.userId, userId)),
+  ] as const
+}
+
 /** Remove every factor: admin reset, and part of erasure. */
 export async function clearAllFactors(userId: string): Promise<void> {
-  await db.delete(schema.webauthnCredentials).where(eq(schema.webauthnCredentials.userId, userId))
-  await db.delete(schema.totpSecrets).where(eq(schema.totpSecrets.userId, userId))
-  await db.delete(schema.mfaRecoveryCodes).where(eq(schema.mfaRecoveryCodes.userId, userId))
-  await db.delete(schema.mfaChallenges).where(eq(schema.mfaChallenges.userId, userId))
+  const [webauthn, ...rest] = factorClearStatements(userId)
+  await db.batch([webauthn, ...rest])
 }
 
 /** Passkeys for the account UI: never exposes the public key. */

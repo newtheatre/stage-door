@@ -13,7 +13,7 @@ import { loadRoles, loadRoleGrants, loadEffectiveRolesFor, activeRoleCondition, 
 import { assertGrantsDefined, assertEligibilityModeAllowed, eligibilityModeAllowed } from '../server/utils/roleDefinitions'
 import { ROLES_CONFIG, nextCommitteeYearEnd } from '../server/utils/rolesConfig'
 import { findSuspectGrants, explain } from '../server/utils/grantAudit'
-import { writeAudit } from '../server/utils/audit'
+import { writeAudit, redactAuditDetail } from '../server/utils/audit'
 import { validateRedirect } from '../shared/utils/validateRedirect'
 import { refreshSession } from '../server/utils/refresh'
 import { requireServiceToken, createServiceToken, hashServiceToken, generateServiceToken } from '../server/utils/serviceToken'
@@ -23,7 +23,7 @@ import { loadUserOr404, adminUserView, isAnonymisedRow, isRealRow, assertNotAnon
 import { isWorkspaceProfile, resolveGoogleUser, WORKSPACE_DOMAIN } from '../server/utils/googleAccount'
 import { callAppHook, callAllAppHooks, loadHookApps } from '../server/utils/appHooks'
 import { manifestSchema, manifestHash, MANIFEST_MAX_BYTES } from '../server/utils/manifest'
-import { snapshotRule, snapshotAllRules, referencedRuleKeys, trainingApp } from '../server/utils/eligibility'
+import { snapshotRule, snapshotAllRules, referencedRuleKeys, staleRules, trainingApp, SNAPSHOT_STALE_MS } from '../server/utils/eligibility'
 import { syncApp, syncAllApps, reconcileManifest } from '../server/utils/manifestSync'
 import { eraseUser } from '../server/utils/erase'
 import { mergeUsers } from '../server/utils/mergeUsers'
@@ -33,7 +33,7 @@ import { RETENTION_CONFIG } from '../server/utils/retentionConfig'
 import { endOfLondonDay, formatDate, formatDateLong, formatDateTime } from '../shared/utils/formatDate'
 import { passwordSchema, emailSchema } from '../shared/utils/credentials'
 import { base32Encode, base32Decode, generateTotpSecret, totpStep, totpCode, verifyTotp, totpUri } from '../server/utils/totp'
-import { MFA_ATTEMPT_TTL_MS, WEBAUTHN_CHALLENGE_TTL_MS, isMfaRequired, enrolledFactors, sealOrChallenge, createMfaAttempt, consumeMfaAttempt, storeWebauthnChallenge, getWebauthnChallenge, sweepMfaChallenges, regenerateRecoveryCodes, useRecoveryCode, remainingRecoveryCodes, clearAllFactors, listPasskeys } from '../server/utils/mfa'
+import { MFA_ATTEMPT_TTL_MS, WEBAUTHN_CHALLENGE_TTL_MS, isMfaRequired, enrolledFactors, sealOrChallenge, createMfaAttempt, consumeMfaAttempt, storeWebauthnChallenge, getWebauthnChallenge, sweepMfaChallenges, regenerateRecoveryCodes, useRecoveryCode, remainingRecoveryCodes, clearAllFactors, factorClearStatements, listPasskeys } from '../server/utils/mfa'
 
 // ── H3 fakes ────────────────────────────────────────────────────────────────
 
@@ -142,11 +142,18 @@ g.sendRoleExpiryDigestEmail = async (to: string) => {
 g.sendSuspectGrantsEmail = async (to: string, suspects: { role: string }[]) => {
   sentEmails.push({ kind: 'suspect-grants', to, token: suspects.map(s => s.role).join(',') })
 }
+/** Addresses the fake Resend refuses, so a send failure can be exercised. */
+export const failWarningsTo = new Set<string>()
+
 g.sendRetentionWarningEmail = async (to: string) => {
+  if (failWarningsTo.has(to)) throw new Error('Failed to send email')
   sentEmails.push({ kind: 'retention-warning', to })
 }
 g.sendRetentionDigestEmail = async (to: string) => {
   sentEmails.push({ kind: 'retention-digest', to })
+}
+g.sendEligibilityStaleEmail = async (to: string, rules: { ruleKey: string }[]) => {
+  sentEmails.push({ kind: 'eligibility-stale', to, token: rules.map(r => r.ruleKey).join(',') })
 }
 
 // ── Real server utils, exposed the way auto-imports would ───────────────────
@@ -197,6 +204,7 @@ Object.assign(g, {
   sealUserSession,
   sealLoginSession,
   writeAudit,
+  redactAuditDetail,
   validateRedirect,
   refreshSession,
   requireServiceToken,
@@ -231,7 +239,9 @@ Object.assign(g, {
   snapshotRule,
   snapshotAllRules,
   referencedRuleKeys,
+  staleRules,
   trainingApp,
+  SNAPSHOT_STALE_MS,
   eraseUser,
   mergeUsers,
   exportUser,
@@ -262,6 +272,7 @@ Object.assign(g, {
   useRecoveryCode,
   remainingRecoveryCodes,
   clearAllFactors,
+  factorClearStatements,
   listPasskeys,
 })
 
@@ -288,6 +299,7 @@ export function makeEvent(opts: Partial<FakeEvent> = {}): FakeEvent {
 beforeEach(() => {
   resetDb()
   sentEmails.length = 0
+  failWarningsTo.clear()
   fetchMock.mockReset()
   rawFetchMock.mockReset()
   Object.keys(runtimeConfig).forEach(key => Reflect.deleteProperty(runtimeConfig, key))

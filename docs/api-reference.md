@@ -63,7 +63,7 @@ Resend verification email. Enumeration-safe.
 ### `POST /api/auth/password/reset`: public [RL]
 Refuses a Workspace address with 403 (`assertPasswordAllowed`, ADR-0012), as do `PUT /api/account/password`, `POST /api/users/:id/reset-password` and `POST /api/users`. The rule lives at the write boundary: the login-side checks alone could not stop an admin-minted token from restoring a password.
 
-`{ token, password }` → sets password, consumes token, bumps `session_epoch` (invalidate old sessions), then **the same MFA seam as login** (ADR-0013): no factors → seals a fresh session, `{ ok: true }`; enrolled → `{ mfaRequired, attemptId, methods }` and no session: the password changed but the factor still gates. Mailbox control alone no longer logs in an enrolled account.
+`{ token, password }` → **claims the token by deleting it first**, valid or not, so two requests carrying one token cannot both redeem it ([security.md](security.md) §single-use); then sets password, bumps `session_epoch` (invalidate old sessions), then **the same MFA seam as login** (ADR-0013): no factors → seals a fresh session, `{ ok: true }`; enrolled → `{ mfaRequired, attemptId, methods }` and no session: the password changed but the factor still gates. Mailbox control alone no longer logs in an enrolled account.
 
 ## Session maintenance
 
@@ -79,8 +79,8 @@ All require session + `auth:ADMIN` unless noted. All mutations **[AUD]** (enforc
 | `GET /api/users?q=&page=` | Search/list (email, name; filters: role: **active holders only**, guest, disabled). Anonymised/placeholder accounts (undeliverable domains) are excluded by default and counted in `hiddenAnonymised`; `anonymised=true` lists only them. `attention=workspace-password\|admin-no-mfa` filters the two ADR-0012 rollout lists, whose standing counts are returned as `needsAttention` |
 | `POST /api/users` | Create user `{ email, name, roles? }` → sends **set-password email** (no generated passwords in responses: deliberate change from rooms's old flow) |
 | `GET /api/users/:id` | Profile incl. roles, linked Google, `last_login`, legacy ids, and `mfa` (required? which factors, passkey count, recovery codes left: never a secret) |
-| `PUT /api/users/:id` | Update `name` / `email` (re-verification triggered on email change) |
-| `PUT /api/users/:id/roles` | Refuses to remove the last live `auth:ADMIN` grant, or to give it an expiry when it is the only one (`requireAuthAdmin` re-reads roles per request, so losing it closes every admin route including this one, with no in-app recovery). Replace grant set `{ roles: Array<string \| { role, expiresAt?: epoch-ms\|null, note? }> }`: bare strings = permanent grants (back-compat). Applied as a diff: unchanged grants keep provenance; a changed expiry clears the warning flag (renewal re-arms it). Duplicates 400. **New grants must match a role definition** (400 naming the role, ADR-0014); roles the user already holds are exempt, so definition-less history (`ticketing:*`) stays editable. At most 100 grants per request: each costs its own D1 statement, so an uncapped array would turn body size into subrequests |
+| `PUT /api/users/:id` | Update `name` / `email` (re-verification triggered on email change). Refuses an `@newtheatre.org.uk` target address with a 403: those are claimed by signing in with Google, never by an admin typing one here (ADR-0012) |
+| `PUT /api/users/:id/roles` | Refuses to remove the last **usable** `auth:ADMIN` grant, or to give it an expiry when it is the only one (`requireAuthAdmin` re-reads roles per request, so losing it closes every admin route including this one, with no in-app recovery). Usable means unexpired **and** held by an account that is not disabled: disable leaves the grant row behind, and a holder nobody can sign in as is not a fallback. Replace grant set `{ roles: Array<string \| { role, expiresAt?: epoch-ms\|null, note? }> }`: bare strings = permanent grants (back-compat). Applied as a diff: unchanged grants keep provenance; a changed expiry clears the warning flag (renewal re-arms it). Duplicates 400. **New grants must match a role definition** (400 naming the role, ADR-0014); roles the user already holds are exempt, so definition-less history (`ticketing:*`) stays editable. At most 100 grants per request: each costs its own D1 statement, so an uncapped array would turn body size into subrequests |
 | `POST /api/users/:id/reset-password` | Admin-initiated reset (24 h token, emailed; cannot target self) |
 | `POST /api/users/:id/force-logout` | Bumps `session_epoch` |
 | `POST /api/users/:id/disable` / `enable` | Disabled users can't log in and fail refresh |
@@ -91,13 +91,14 @@ All require session + `auth:ADMIN` unless noted. All mutations **[AUD]** (enforc
 | `PUT /api/users/:id/pending-google` | Set/clear `pending_google_email`: admin-directed link: the next Google sign-in with that address attaches to this account. Validated `@newtheatre.org.uk`; refuses addresses already linked or pending elsewhere |
 | `GET /api/users/:id/export` | Subject-access bundle: auth record + each app's hook contribution ([gdpr-retention.md](gdpr-retention.md)) |
 | `POST /api/users/:id/erase` | Anonymise everywhere (auth + app hooks + epoch bump). Requires `{ confirmEmail }` matching the account; cannot target self; returns per-hook status and is idempotent: re-POST to retry failed hooks. Also self-service from `/account` (password-confirmed). |
+| `GET /api/eligibility-syncs` | Eligibility rule sync status: `{ syncs: [{ ruleKey, lastAttemptAt, lastSuccessAt, userCount, lastError, stale }] }`, one row per rule a role definition references. `stale` means never answered, or last answered over a day ago, which is what the Role definitions banner shows ([ADR-0019](decisions/0019-training-conditional-grants.md)) |
 | `GET /api/audit?actor=&action=&page=` | Audit log query |
 
 Self-service (session, own account only: all verify the account live: exists, not disabled, epoch current):
 
 | Endpoint | Purpose |
 |---|---|
-| `GET/PUT /api/account/profile` | Own profile; email change resets verification + sends a new link, and is enumeration-safe on conflict (generic `{ ok: true }`, "you already have an account" email to the requested address) |
+| `GET/PUT /api/account/profile` | Own profile; email change resets verification + sends a new link, bumps `session_epoch` (this session is re-sealed, the rest die), and is enumeration-safe on conflict (generic `{ ok: true }`, "you already have an account" email to the requested address). An `@newtheatre.org.uk` target address is refused with a 403 (ADR-0012) |
 | `PUT /api/account/password` | Change, or, for SSO-only accounts, set, the password. Verifies the current password where one exists; bumps epoch; re-seals this session |
 | `POST /api/account/unlink-google` **[AUD]** | Disconnect Google; refuses if it would leave no login method |
 | `POST /api/account/logout-everywhere` **[AUD]** | Bump own epoch + clear this session |
@@ -186,7 +187,7 @@ Reconciliation is described in full in [ADR-0018](decisions/0018-manifest-declar
 ### `GET /api/role-holders?roles=A,B`: service [AUD]
 Who currently holds these roles, so a consumer app can offer a picker of its own people instead of making staff type an exact email. Returns `{ namespace, holders: [{ id, name }] }`.
 
-**Roles are bare names and the namespace is the caller's own**, taken from the app its service token is bound to: a token for Proscenium asking for `COMMITTEE` is answered about `proscenium:COMMITTEE`, and no app can ask who holds another app's roles. A token with no app is `403`.
+**Roles are bare names and the namespace is the caller's own**, taken from the registered app whose `name` matches the service token's: a token named `proscenium` asking for `COMMITTEE` is answered about `proscenium:COMMITTEE`, and no app can ask who holds another app's roles. A token whose name matches no registered app is `403`. The `name` join is deliberate: `service_tokens.app_id` is a reporting column that a rotated token does not carry ([ADR-0017](decisions/0017-app-registry.md)).
 
 Holders are **effective**, not merely granted: an expired grant, or one whose enforcing training prerequisite is unmet, is not a holder ([ADR-0011](decisions/0011-role-definitions-and-expiry.md), [ADR-0019](decisions/0019-training-conditional-grants.md)). Disabled and anonymised accounts are excluded. At most 10 roles per question and 200 holders per answer, so the bound parameter count is fixed.
 
